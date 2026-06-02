@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Design · 30 天学习计划</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6; --card:#ffffff;
+    --ink:#0f3d2e; --body:#3a463f; --muted:#6a7872;
+    --accent:#15a06a; --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef; --accent-soft-2:#eef9f3;
+    --border:#e3ebe6; --border-soft:#eef3f0;
+    --radius:16px; --radius-sm:11px;
+    --shadow:0 1px 2px rgba(15,61,46,.04),0 10px 30px rgba(15,61,46,.07);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:
+      radial-gradient(1200px 480px at 50% -120px,#e7f7ee 0%,transparent 70%),var(--bg);
+    color:var(--body);font-family:var(--font);font-size:16px;line-height:1.6;
+    -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px 90px;}
+
+  header.hero{padding:64px 0 34px;text-align:center;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 14px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(21,160,106,.16);}
+  h1{font-size:44px;line-height:1.12;letter-spacing:-.025em;color:var(--ink);font-weight:700;margin:22px 0 10px;}
+  h1 .accent{background:linear-gradient(120deg,#15a06a,#46cf94);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+  .sub{font-size:18px;color:var(--muted);max-width:600px;margin:0 auto 30px;line-height:1.6;}
+
+  .prog{max-width:520px;margin:0 auto;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 22px;box-shadow:var(--shadow);}
+  .prog .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px;}
+  .prog .lab{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:.02em;}
+  .prog .cnt{font-size:15px;font-weight:700;color:var(--accent-ink);}
+  .prog .cnt b{font-size:24px;}
+  .track{height:9px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);width:0;transition:width .8s cubic-bezier(.2,.7,.2,1);}
+  .prog .hint{font-size:12.5px;color:var(--muted);margin-top:10px;}
+
+  .week{margin-top:42px;}
+  .week-head{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+  .week-tag{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:46px;
+    border-radius:13px;background:var(--accent-soft);color:var(--accent-ink);font-weight:700;font-size:13px;
+    border:1px solid #cdeede;text-align:center;line-height:1.1;flex-direction:column;}
+  .week-tag b{font-size:17px;}
+  .week-title{font-size:19px;font-weight:700;color:var(--ink);letter-spacing:-.01em;}
+  .week-sub{font-size:13.5px;color:var(--muted);margin-top:1px;}
+  .week-line{flex:1;height:1px;background:var(--border);}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(212px,1fr));gap:14px;}
+  .card{position:relative;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:17px 18px 15px;text-decoration:none;box-shadow:var(--shadow);
+    transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;min-height:128px;}
+  a.card:hover{transform:translateY(-3px);box-shadow:0 6px 14px rgba(15,61,46,.07),0 18px 40px rgba(15,61,46,.12);border-color:#bfe6cf;}
+  .card .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px;}
+  .daynum{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--accent-ink);letter-spacing:.02em;}
+  .pill{font-size:11px;font-weight:600;padding:3px 9px;border-radius:99px;}
+  .pill.live{color:var(--accent-ink);background:var(--accent-soft);border:1px solid #cdeede;}
+  .pill.lock{color:#92a39a;background:#f0f4f1;border:1px solid #e4ebe6;}
+  .pill.today{color:#fff;background:var(--accent);border:1px solid var(--accent);}
+  .card .title{font-size:15.5px;font-weight:600;color:var(--ink);line-height:1.4;flex:1;}
+  .card .foot{margin-top:12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;}
+  .card .foot.go{color:var(--accent-ink);}
+  .card .foot.wait{color:#9aa9a1;font-weight:500;}
+  .card .foot .arr{transition:transform .16s ease;}
+  a.card:hover .foot .arr{transform:translateX(3px);}
+
+  .card.locked{background:#fafcfb;border-style:dashed;box-shadow:none;}
+  .card.locked .title{color:#8a988f;}
+  .card.locked .daynum{color:#a9b6ad;}
+  .card.current{border-color:var(--accent);box-shadow:0 0 0 3px rgba(21,160,106,.16),var(--shadow);}
+
+  .seed{width:14px;height:14px;flex-shrink:0;color:#a9b6ad;}
+
+  footer{text-align:center;margin-top:54px;padding-top:24px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+  footer .hl{color:var(--accent-ink);font-weight:600;}
+
+  @media (max-width:560px){
+    h1{font-size:33px;} .sub{font-size:16px;}
+    .grid{grid-template-columns:1fr 1fr;gap:11px;}
+    .card{min-height:118px;padding:14px 15px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>为 Matt 定制 · 每天早上 8 点更新</span>
+    <h1>System Design<br><span class="accent">30 天学习计划</span></h1>
+    <p class="sub">从需求拆解到分布式系统,每天一篇 · 全程以你的 pricing engine 为贯穿案例。</p>
+    <div class="prog">
+      <div class="row">
+        <span class="lab">学习进度</span>
+        <span class="cnt"><b id="done">0</b> / 30 篇已解锁</span>
+      </div>
+      <div class="track"><div class="fill" id="fill"></div></div>
+      <div class="hint" id="hint">每天新解锁一篇,读完约 30 分钟,再回来找 Claude 聊。</div>
+    </div>
+  </header>
+
+  <main id="weeks"></main>
+
+  <footer>
+    System Design · 30 天 · 共 <span class="hl">30</span> 篇 · 每天 <span class="hl">08:00</span> 自动生成<br>
+    点亮的卡片可直接打开 · 灰色虚线卡片为尚未解锁的未来内容
+  </footer>
+
+</div>
+
+<script>
+  const DAYS = [
+    {n:1,  t:"系统设计导论 & 需求拆解",      s:"Intro-and-Requirements"},
+    {n:2,  t:"量化 non-functional 与取舍",   s:"quantifying-nfrs"},
+    {n:3,  t:"估算与容量规划",                s:"estimation-and-capacity"},
+    {n:4,  t:"网络基础 (DNS/HTTP/TLS)",       s:"networking-fundamentals"},
+    {n:5,  t:"API 设计深入",                  s:"api-design"},
+    {n:6,  t:"负载均衡与扩展",                s:"load-balancing-scaling"},
+    {n:7,  t:"缓存全景 (CDN/Redis)",          s:"caching"},
+    {n:8,  t:"关系数据库与 ACID",             s:"relational-db-acid"},
+    {n:9,  t:"索引与查询性能",                s:"indexing-query-performance"},
+    {n:10, t:"数据建模与范式",                s:"data-modeling"},
+    {n:11, t:"NoSQL 家族与取舍",              s:"nosql-families"},
+    {n:12, t:"复制与一致性 (CAP)",            s:"replication-consistency"},
+    {n:13, t:"分区与分片",                    s:"partitioning-sharding"},
+    {n:14, t:"事务与隔离级别",                s:"transactions-isolation"},
+    {n:15, t:"消息队列与异步",                s:"message-queues"},
+    {n:16, t:"事件驱动与 Kafka",              s:"event-driven-kafka"},
+    {n:17, t:"批处理 vs 流处理",              s:"batch-vs-stream-pipelines"},
+    {n:18, t:"幂等与投递语义",                s:"idempotency-delivery"},
+    {n:19, t:"共识与协调 (Raft)",             s:"consensus-coordination"},
+    {n:20, t:"限流与韧性",                    s:"rate-limiting-resilience"},
+    {n:21, t:"第三周复盘 + 设计练习",         s:"week3-review-exercise"},
+    {n:22, t:"单体 vs 微服务",                s:"monolith-vs-microservices"},
+    {n:23, t:"API 网关与 service mesh",       s:"api-gateway-mesh"},
+    {n:24, t:"可观测性 (SLO/链路)",           s:"observability"},
+    {n:25, t:"安全:认证与授权",               s:"security-authn-authz"},
+    {n:26, t:"部署与发布",                    s:"deployment-release"},
+    {n:27, t:"可靠性工程",                    s:"reliability-engineering"},
+    {n:28, t:"架构决策与取舍",                s:"architecture-decisions-tradeoffs"},
+    {n:29, t:"ML & AI 系统设计",              s:"ml-ai-system-design"},
+    {n:30, t:"毕业作业:pricing engine",       s:"capstone-pricing-engine"},
+  ];
+  const WEEKS = [
+    {tag:"第1周", title:"基础与思维方式", sub:"系统设计的语言、需求、网络、API、缓存", from:1, to:7},
+    {tag:"第2周", title:"数据层",         sub:"关系/NoSQL、索引、复制、分片、事务",     from:8, to:14},
+    {tag:"第3周", title:"分布式与异步",   sub:"消息队列、事件驱动、流处理、共识、韧性", from:15, to:21},
+    {tag:"第4周", title:"架构与运维",     sub:"微服务、网关、可观测性、安全、部署、可靠性", from:22, to:28},
+    {tag:"收尾",  title:"应用",           sub:"ML/AI 系统设计、pricing engine 毕业作业", from:29, to:30},
+  ];
+
+  // 解锁数 = 与定时任务一致：6 月内 = min(当月日, 30)；6 月前 = 0；6 月后 = 30
+  function unlockedCount(){
+    const now = new Date(), y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+    if (y < 2026 || (y === 2026 && m < 5)) return 0;
+    if (y === 2026 && m === 5) return Math.min(d, 30);
+    return 30;
+  }
+  function todayDay(){
+    const now = new Date(), y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
+    return (y === 2026 && m === 5 && d >= 1 && d <= 30) ? d : -1;
+  }
+  function pad(n){ return String(n).padStart(2,'0'); }
+
+  const avail = unlockedCount();
+  const today = todayDay();
+
+  document.getElementById('done').textContent = avail;
+  document.getElementById('fill').style.width = (avail/30*100).toFixed(1) + '%';
+  if (avail === 0){
+    document.getElementById('hint').textContent = '计划将于 6 月 1 日开始,每天解锁一篇。';
+  } else if (avail >= 30){
+    document.getElementById('hint').textContent = '🌳 30 篇已全部解锁,恭喜走完整个旅程!';
+  } else {
+    document.getElementById('hint').textContent = '已解锁到 Day ' + avail + ' · 明天早上 8 点会多一篇。';
+  }
+
+  const seedSVG = '<svg class="seed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21c0-5 0-7 0-9"/><path d="M12 12c-3 0-6-2-6-6 4 0 6 2 6 6z"/><path d="M12 14c3 0 6-1.5 6-5-4 0-6 1.5-6 5z"/></svg>';
+  const arrowGo = '阅读 <span class="arr">→</span>';
+
+  const host = document.getElementById('weeks');
+  WEEKS.forEach(w => {
+    const sec = document.createElement('section');
+    sec.className = 'week';
+    sec.innerHTML =
+      '<div class="week-head">' +
+        '<div class="week-tag"><span>'+w.tag+'</span></div>' +
+        '<div><div class="week-title">'+w.title+'</div><div class="week-sub">'+w.sub+' · Day '+w.from+'–'+w.to+'</div></div>' +
+        '<div class="week-line"></div>' +
+      '</div>';
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+
+    DAYS.filter(x => x.n >= w.from && x.n <= w.to).forEach(x => {
+      const unlocked = x.n <= avail;
+      const isToday = x.n === today;
+      const file = 'Day-' + pad(x.n) + '-' + x.s + '.html';
+      let pill, foot, classes = 'card';
+      if (isToday && unlocked){ pill = '<span class="pill today">今天</span>'; }
+      else if (unlocked){ pill = '<span class="pill live">已解锁</span>'; }
+      else { pill = '<span class="pill lock">6/'+x.n+'</span>'; }
+
+      const inner =
+        '<div class="top"><span class="daynum">DAY '+pad(x.n)+'</span>'+pill+'</div>' +
+        '<div class="title">'+x.t+'</div>' +
+        (unlocked
+          ? '<div class="foot go">'+arrowGo+'</div>'
+          : '<div class="foot wait">'+seedSVG+'6 月 '+x.n+' 日解锁</div>');
+
+      let el;
+      if (unlocked){
+        el = document.createElement('a');
+        el.href = file;
+        if (isToday) classes += ' current';
+      } else {
+        el = document.createElement('div');
+        classes += ' locked';
+      }
+      el.className = classes;
+      el.innerHTML = inner;
+      grid.appendChild(el);
+    });
+    sec.appendChild(grid);
+    host.appendChild(sec);
+  });
+</script>
+</body>
+</html>

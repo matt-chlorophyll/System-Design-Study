@@ -1,0 +1,10 @@
+# Claude Code 本地设置（个人机器专属，不入库）
+.claude/settings.local.json
+
+# Windows / OneDrive 杂物
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store

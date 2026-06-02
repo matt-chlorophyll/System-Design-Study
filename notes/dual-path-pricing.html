@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>双路径 pricing engine · 共享 core 与硬件 trade-off</title>
+<style>
+  :root{
+    --green:#15a06a; --forest:#0f3d2e; --ink:#1b2a23;
+    --mut:#6a7872; --line:#cfe0d7; --bg:#f4f9f6;
+    --hot:#e8f6ef; --cold:#eef3fb; --core:#0f3d2e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    line-height:1.6;padding:32px 20px 60px}
+  .wrap{max-width:1060px;margin:0 auto}
+  h1{font-size:22px;color:var(--forest);margin:0 0 4px}
+  .sub{color:var(--mut);font-size:14px;margin:0 0 24px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;
+    padding:18px;box-shadow:0 1px 3px rgba(15,61,46,.05)}
+  svg{display:block;width:100%;height:auto}
+  .legend{margin-top:26px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:720px){.legend{grid-template-columns:1fr}}
+  .lg{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .lg h3{margin:0 0 8px;font-size:15px;color:var(--forest);display:flex;align-items:center;gap:8px}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .lg ul{margin:6px 0 0;padding-left:18px}
+  .lg li{font-size:13.5px;margin:3px 0}
+  .lg b{color:var(--green)}
+  .note{margin-top:22px;background:var(--hot);border-left:4px solid var(--green);
+    border-radius:0 10px 10px 0;padding:14px 18px;font-size:14px}
+  .note b{color:var(--forest)}
+  code{background:#eef3f0;padding:1px 5px;border-radius:4px;font-size:12.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>双路径 pricing engine —— 一套定价 core，两种数据访问</h1>
+  <p class="sub">实时报价（low latency）与夜间批量（high throughput）共享同一份定价逻辑，但取数方式相反——这正是 trade-off 的根源。</p>
+
+  <div class="card">
+  <svg viewBox="0 0 1040 560" role="img" aria-label="双路径架构图">
+    <defs>
+      <marker id="arr" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6 Z" fill="#15a06a"/>
+      </marker>
+      <marker id="arrG" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+        <path d="M0,0 L8,3 L0,6 Z" fill="#6a7872"/>
+      </marker>
+    </defs>
+
+    <!-- lane labels -->
+    <text x="20" y="40" font-size="14" font-weight="700" fill="#15a06a">实时路径 · low latency · p99 &lt; 300ms</text>
+    <text x="20" y="330" font-size="14" font-weight="700" fill="#0f3d2e">批量路径 · high throughput · 百万/夜</text>
+
+    <!-- ===== REAL-TIME LANE (top, y~70-150) ===== -->
+    <!-- customer -->
+    <rect x="20" y="70" width="150" height="76" rx="11" fill="#e8f6ef" stroke="#15a06a" stroke-width="1.5"/>
+    <text x="95" y="100" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0f3d2e">潜在客户 / Broker</text>
+    <text x="95" y="120" text-anchor="middle" font-size="11.5" fill="#6a7872">new business</text>
+    <text x="95" y="136" text-anchor="middle" font-size="11.5" fill="#6a7872">「现在就要个数」</text>
+
+    <rect x="205" y="70" width="150" height="76" rx="11" fill="#fff" stroke="#15a06a" stroke-width="1.5"/>
+    <text x="280" y="100" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0f3d2e">报价 API</text>
+    <text x="280" y="120" text-anchor="middle" font-size="11.5" fill="#6a7872">一次一张</text>
+    <text x="280" y="136" text-anchor="middle" font-size="11.5" fill="#6a7872">留余量 · ρ 低</text>
+
+    <rect x="390" y="70" width="160" height="76" rx="11" fill="#fff" stroke="#15a06a" stroke-width="1.5"/>
+    <text x="470" y="98" text-anchor="middle" font-size="13" font-weight="700" fill="#0f3d2e">热数据缓存</text>
+    <text x="470" y="117" text-anchor="middle" font-size="11.5" fill="#6a7872">rate table 常驻内存</text>
+    <text x="470" y="133" text-anchor="middle" font-size="11.5" fill="#6a7872">随机点查 by key</text>
+
+    <line x1="170" y1="108" x2="203" y2="108" stroke="#15a06a" stroke-width="2" marker-end="url(#arr)"/>
+    <line x1="355" y1="108" x2="388" y2="108" stroke="#15a06a" stroke-width="2" marker-end="url(#arr)"/>
+    <line x1="550" y1="108" x2="612" y2="200" stroke="#15a06a" stroke-width="2" marker-end="url(#arr)"/>
+
+    <!-- ===== BATCH LANE (bottom, y~360-470) ===== -->
+    <rect x="20" y="360" width="150" height="84" rx="11" fill="#eef3fb" stroke="#0f3d2e" stroke-width="1.5"/>
+    <text x="95" y="388" text-anchor="middle" font-size="13.5" font-weight="700" fill="#0f3d2e">Scheduler</text>
+    <text x="95" y="408" text-anchor="middle" font-size="11.5" fill="#6a7872">cron · 凌晨 1AM</text>
+    <text x="95" y="425" text-anchor="middle" font-size="11.5" fill="#6a7872">「到点就跑」</text>
+
+    <rect x="205" y="360" width="150" height="84" rx="11" fill="#fff" stroke="#0f3d2e" stroke-width="1.5"/>
+    <text x="280" y="384" text-anchor="middle" font-size="13" font-weight="700" fill="#0f3d2e">选择查询</text>
+    <text x="280" y="403" text-anchor="middle" font-size="11" fill="#6a7872">working set</text>
+    <text x="280" y="419" text-anchor="middle" font-size="11" fill="#6a7872">+ watermark</text>
+    <text x="280" y="435" text-anchor="middle" font-size="11" fill="#6a7872">（不漏不重）</text>
+
+    <rect x="390" y="360" width="160" height="84" rx="11" fill="#fff" stroke="#0f3d2e" stroke-width="1.5"/>
+    <text x="470" y="388" text-anchor="middle" font-size="13" font-weight="700" fill="#0f3d2e">Policy DB</text>
+    <text x="470" y="407" text-anchor="middle" font-size="11.5" fill="#6a7872">顺序扫描 streaming</text>
+    <text x="470" y="423" text-anchor="middle" font-size="11.5" fill="#6a7872">大规模并行</text>
+
+    <line x1="170" y1="402" x2="203" y2="402" stroke="#6a7872" stroke-width="2" marker-end="url(#arrG)"/>
+    <line x1="355" y1="402" x2="388" y2="402" stroke="#6a7872" stroke-width="2" marker-end="url(#arrG)"/>
+    <line x1="550" y1="402" x2="612" y2="318" stroke="#6a7872" stroke-width="2" marker-end="url(#arrG)"/>
+
+    <!-- ===== SHARED CORE (center) ===== -->
+    <rect x="615" y="190" width="210" height="148" rx="14" fill="#0f3d2e"/>
+    <text x="720" y="226" text-anchor="middle" font-size="15.5" font-weight="800" fill="#fff">定价 Core</text>
+    <text x="720" y="248" text-anchor="middle" font-size="12" fill="#9fd9c0">唯一真相源 · single source</text>
+    <line x1="635" y1="262" x2="805" y2="262" stroke="#2c5e4b" stroke-width="1"/>
+    <text x="720" y="284" text-anchor="middle" font-size="12.5" fill="#e8f6ef">rate tables</text>
+    <text x="720" y="304" text-anchor="middle" font-size="12.5" fill="#e8f6ef">pricing rules</text>
+    <text x="720" y="324" text-anchor="middle" font-size="12.5" fill="#e8f6ef">model versions</text>
+
+    <!-- outputs -->
+    <line x1="825" y1="230" x2="885" y2="160" stroke="#15a06a" stroke-width="2" marker-end="url(#arr)"/>
+    <line x1="825" y1="300" x2="885" y2="400" stroke="#6a7872" stroke-width="2" marker-end="url(#arrG)"/>
+
+    <rect x="888" y="118" width="135" height="78" rx="11" fill="#e8f6ef" stroke="#15a06a" stroke-width="1.5"/>
+    <text x="955" y="146" text-anchor="middle" font-size="13" font-weight="700" fill="#0f3d2e">报价响应</text>
+    <text x="955" y="166" text-anchor="middle" font-size="11" fill="#6a7872">premium +</text>
+    <text x="955" y="182" text-anchor="middle" font-size="11" fill="#6a7872">version · 可审计</text>
+
+    <rect x="888" y="368" width="135" height="78" rx="11" fill="#eef3fb" stroke="#0f3d2e" stroke-width="1.5"/>
+    <text x="955" y="396" text-anchor="middle" font-size="13" font-weight="700" fill="#0f3d2e">新 premium</text>
+    <text x="955" y="416" text-anchor="middle" font-size="11" fill="#6a7872">→ billing</text>
+    <text x="955" y="432" text-anchor="middle" font-size="11" fill="#6a7872">→ 下游系统</text>
+
+    <!-- center caption -->
+    <text x="720" y="372" text-anchor="middle" font-size="11.5" fill="#6a7872">同一套逻辑，两条路都调它</text>
+    <text x="720" y="390" text-anchor="middle" font-size="11.5" fill="#6a7872">→ 同保单算出同价 → 审计不崩</text>
+
+    <!-- divider -->
+    <line x1="20" y1="250" x2="560" y2="250" stroke="#cfe0d7" stroke-width="1" stroke-dasharray="5 5"/>
+  </svg>
+  </div>
+
+  <div class="legend">
+    <div class="lg">
+      <h3><span class="dot" style="background:#15a06a"></span>实时路径 为什么这样长</h3>
+      <ul>
+        <li><b>留余量</b>：利用率 ρ 压低，突发不排队 → p99 稳</li>
+        <li><b>随机点查</b>：按 key 取单张，走索引 / 内存</li>
+        <li><b>热缓存常驻</b>：rate table 预热，cache miss = 延迟死</li>
+        <li><b>不批量</b>：每条立刻处理，不等凑批</li>
+      </ul>
+    </div>
+    <div class="lg">
+      <h3><span class="dot" style="background:#0f3d2e"></span>批量路径 为什么相反</h3>
+      <ul>
+        <li><b>高利用率</b>：每个核吃满，ρ → 90%+</li>
+        <li><b>顺序扫描</b>：整本 book 大块顺序 I/O</li>
+        <li><b>流式吞吐</b>：工作集 = 全量，塞不进缓存</li>
+        <li><b>批量</b>：攒一大批一起算，摊薄固定开销</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>trade-off 的本质：</b>每一行左右两侧都顶着干——留余量↔吃满、点查↔全扫、热缓存↔冲缓存、不批量↔批量。
+    同一台机、同一套数据布局无法同时对两侧最优，<b>所以拆成两条路径各配各的硬件与存储</b>，再让它们共享中间那个深绿色的「定价 Core」——
+    这样既各自达标，又保证 <code>同一张保单两条路算出同一个数</code>，守住 reproducibility。
+  </div>
+</div>
+</body>
+</html>

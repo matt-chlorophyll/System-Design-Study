@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 01 · 系统设计导论 & 需求拆解</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:3.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 1 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 1 周 · 基础与思维方式</span>
+    <h1>系统设计到底在解决什么<br>—— 以及如何拆需求</h1>
+    <p class="lede">从“代码能算出正确的价格”,到“在真实约束下持续、稳定、可审计地服务”。今天我们建立整套思维的地基。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>说清 <strong>system design</strong> 到底在解决哪一类问题(和“算得对”有什么不同)</li>
+      <li>掌握需求拆解的第一刀:<strong>functional vs non-functional requirements</strong></li>
+      <li>学会一个能套用到<strong>任何</strong>系统的分析框架</li>
+      <li>认识本系列的贯穿案例 <strong>QuoteFlow</strong>,并用它来拆一遍需求</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>关于贯穿案例 · QuoteFlow</div>
+    <ul>
+      <li>这 30 天我们用一个<strong>虚构</strong>的系统当贯穿例子:<strong>QuoteFlow</strong> —— 一家虚构寿险公司、直接面向消费者的<strong>报价 + 保单管理平台</strong>。它要做实时报价、自动核保、保单签发与 in-force 管理、夜间批量重定价与 billing,背后还有版本化的费率表/规则/模型和一套完整的审计日志。每天的新概念,我们都会落到 QuoteFlow 的某个部件上。</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>系统设计在解决什么</div>
+    <h2>“算得对”只是及格线</h2>
+    <p>QuoteFlow 要做的核心事情之一,是<strong>算出正确的保费</strong>:给定投保人信息、费率表、再保参数,输出一个数字——这是 <em>correctness(正确性)</em>。这部分逻辑本身,往往是有标准答案的。</p>
+    <p>System design 处理的是<strong>另一类</strong>问题。当成千上万用户同时请求报价;当依赖的费率服务突然挂了;当历史保单长到一条 SQL 要跑好几秒;当你要在<strong>不停机</strong>的情况下换一套定价算法——系统还能不能<em>正确、快速、稳定、可追溯</em>地继续服务?</p>
+    <p>一个比喻会很贴切:写一个定价模型,像设计<strong>一道菜的配方</strong>;系统设计,像设计<strong>整个餐厅的后厨</strong>——要同时出 200 桌、食材会断货、厨师会请假、高峰会排队,而且明年还要能开第二家分店。配方再完美,后厨垮了,客人一样吃不上饭。</p>
+    <p>这里有一个贯穿这 30 天的核心张力:<strong>几乎没有“最好”的设计,只有“在给定约束下的合理取舍(trade-offs)”。</strong>你真正要练的,是识别约束、并在冲突的目标之间做出有依据的权衡。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>需求拆解:第一刀</div>
+    <h2>先问“做什么 + 做多好”,再画图</h2>
+    <p>新手做系统设计最常见的错误,是一上来就画框图、选数据库。<strong>真正的第一步是把需求问清楚</strong>:这个系统到底要做什么,又要做到什么程度。把需求切成两类,整张图立刻清晰:</p>
+
+    <h3>Functional requirements(功能需求)</h3>
+    <p>系统<strong>“做什么”</strong>。每一条都能用一个具体的<em>输入 → 输出</em>来描述。例:<code class="inl">给定投保人的年龄/性别/吸烟状态/保额 → 返回一个保费报价</code>。它定义了系统“算什么”。</p>
+
+    <h3>Non-functional requirements(非功能需求 / 质量属性)</h3>
+    <p>系统<strong>“做得多好”</strong>。它不改变系统算的是什么,却决定它好不好用、扛不扛得住、能不能上线。例:报价要在 <strong>200ms</strong> 内返回(latency);<strong>99.9%</strong> 的时间可用(availability);每一条报价<strong>可审计、可复现</strong>(auditability)。</p>
+    <p>关键认知:<strong>难点几乎总是在 non-functional 这一侧。</strong>“算得对”通常有标准答案;“又快又稳又可审计又能扩展”才是工程上真正花力气的地方。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:18%"></th><th>Functional</th><th>Non-functional</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">回答的问题</span></td><td>系统<strong>做什么</strong>?</td><td>系统做得<strong>多好</strong>?</td></tr>
+          <tr><td><span class="lab">描述形式</span></td><td>输入 → 输出 / 一个动作</td><td>一个可度量的指标或约束</td></tr>
+          <tr><td><span class="lab">QuoteFlow 例子</span></td><td>按规则计算保费、校验输入、记录报价</td><td>p99 &lt; 300ms、99.9% 可用、报价可审计、PII 加密</td></tr>
+          <tr><td><span class="lab">不满足会怎样</span></td><td>功能缺失,算错或算不出</td><td>能算,但太慢/会挂/不可追溯 → 没人用,甚至违规</td></tr>
+          <tr><td><span class="lab">谁最常忽略它</span></td><td>很少被忽略(这是显性需求)</td><td>极易被低估,却往往是<strong>成败所在</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 同一个系统的两副面孔。面试和真实工作里,能主动把 non-functional 列清楚,是“懂系统设计”的第一个信号。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>质量维度速览</div>
+    <h2>Non-functional 的常见“多好”</h2>
+    <p>明天(Day 2)会把这些维度逐个量化并讲透取舍,今天先建立词汇表,看到名字能对上号:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:24%">维度</th><th>一句话</th><th>对 QuoteFlow 意味着</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Latency</span></td><td>单次请求<strong>多快</strong>返回</td><td>客户在前端等报价的体感</td></tr>
+          <tr><td><span class="lab">Throughput</span></td><td>单位时间能处理<strong>多少</strong></td><td>夜间批量重算百万保单的吞吐</td></tr>
+          <tr><td><span class="lab">Availability</span></td><td>有多大比例时间<strong>可用</strong></td><td>承保渠道随时能拿到报价</td></tr>
+          <tr><td><span class="lab">Scalability</span></td><td>量涨了能不能<strong>跟上</strong></td><td>新产品上线、流量翻倍仍稳</td></tr>
+          <tr><td><span class="lab">Consistency</span></td><td>各处读到的数据<strong>一不一致</strong></td><td>费率表更新后,不能新旧混用</td></tr>
+          <tr><td><span class="lab">Auditability</span></td><td>每个结果能否<strong>复现/解释</strong></td><td><strong>受监管定价的一等公民</strong>:每条报价为什么是这个数,要留痕、可回溯、合规</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>受监管定价的提醒</div>
+      <ul><li>对大多数互联网系统,latency / availability 是主角。但对寿险定价这类受监管系统(QuoteFlow 正是),<strong>auditability、traceability、regulatory compliance</strong> 是同等甚至更高优先级的 non-functional 需求。设计里要把它当一等公民,而不是事后补丁。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>一个能套用的框架</div>
+    <h2>面对任何系统,按这个顺序走</h2>
+    <p>无论是面试白板题,还是真实地设计 QuoteFlow,都可以套用同一条主线。这 30 天的内容,本质就是把这六步逐个展开:</p>
+
+    <figure>
+      <svg viewBox="0 0 720 312" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <g>
+          <rect x="20" y="18" width="320" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+          <circle cx="52" cy="47" r="16" fill="#15a06a"/><text x="52" y="52" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+          <text x="80" y="42" font-size="15" font-weight="600" fill="#0f3d2e">厘清需求与范围</text>
+          <text x="80" y="62" font-size="12.5" fill="#6a7872">functional · non-functional · 约束</text>
+          <rect x="380" y="18" width="320" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+          <circle cx="412" cy="47" r="16" fill="#15a06a"/><text x="412" y="52" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+          <text x="440" y="42" font-size="15" font-weight="600" fill="#0f3d2e">估算规模</text>
+          <text x="440" y="62" font-size="12.5" fill="#6a7872">用户量 · QPS · 数据量(Day 3)</text>
+          <rect x="20" y="98" width="320" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+          <circle cx="52" cy="127" r="16" fill="#15a06a"/><text x="52" y="132" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+          <text x="80" y="122" font-size="15" font-weight="600" fill="#0f3d2e">定义接口契约</text>
+          <text x="80" y="142" font-size="12.5" fill="#6a7872">API:系统对外长什么样(Day 5)</text>
+          <rect x="380" y="98" width="320" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+          <circle cx="412" cy="127" r="16" fill="#15a06a"/><text x="412" y="132" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+          <text x="440" y="122" font-size="15" font-weight="600" fill="#0f3d2e">画高层架构</text>
+          <text x="440" y="142" font-size="12.5" fill="#6a7872">主要组件 + 数据流</text>
+          <rect x="20" y="178" width="320" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+          <circle cx="52" cy="207" r="16" fill="#15a06a"/><text x="52" y="212" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+          <text x="80" y="202" font-size="15" font-weight="600" fill="#0f3d2e">深入关键组件</text>
+          <text x="80" y="222" font-size="12.5" fill="#6a7872">存储 · 扩展 · 一致性(第 2-3 周)</text>
+          <rect x="380" y="178" width="320" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+          <circle cx="412" cy="207" r="16" fill="#15a06a"/><text x="412" y="212" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+          <text x="440" y="202" font-size="15" font-weight="600" fill="#0f3d2e">找瓶颈,迭代</text>
+          <text x="440" y="222" font-size="12.5" fill="#6a7872">缓存 · 复制 · 降级(第 3-4 周)</text>
+        </g>
+        <path d="M340 47 L376 47" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M540 76 L540 86 L180 86 L180 96" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M340 127 L376 127" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M540 156 L540 166 L180 166 L180 176" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M340 207 L376 207" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M700 207 C718 207 718 270 360 270 C40 270 22 250 22 238" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#ah)"/>
+        <text x="360" y="290" font-size="12" fill="#3d9c74" text-anchor="middle" font-style="italic">迭代回路:发现瓶颈 → 回到需求重新权衡</text>
+      </svg>
+      <figcaption>图 1 · 系统设计的六步主线,与本系列 30 天的对应关系(虚线 = 这是个迭代循环,不是一次成型)</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>贯穿案例</div>
+    <h2>拆解 QuoteFlow 的需求</h2>
+    <p>把第 2 步学的“两类需求”用在 QuoteFlow 上。先别想架构,只列需求:</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">Functional —— 它要做什么</h3>
+      <p>接收报价请求 → 校验输入 → 拉取费率表 / 核保规则 / 再保参数 → 计算保费 → 返回报价并<strong>留痕</strong>。每一项都是一个明确的输入输出动作。</p>
+      <h3>Non-functional —— 它要做到多好</h3>
+      <p>单笔实时报价 <strong>p99 &lt; 300ms</strong>;夜间批量重算<strong>百万级</strong>保单要在维护窗口内跑完;规则变更要能<strong>灰度发布、可回滚</strong>;每条报价<strong>可审计、可复现</strong>;PII <strong>加密合规</strong>。</p>
+    </div>
+
+    <p>注意一件重要的事:列 non-functional 时,<strong>取舍已经浮现了</strong>。“单笔 300ms 实时报价”和“夜间百万保单批量重算”是两条性质完全不同的路径——一条要低延迟、一条要高吞吐,硬塞进同一套设计往往两头都不讨好。(第 17 天“批处理 vs 流处理”会专门回到这个判断。)</p>
+
+    <p>下面把 functional 需求落成一个具体的<strong>接口契约草图</strong>。看不懂语法没关系,重点是感受:需求是怎么变成系统对外的“合同”的。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">POST /v1/quotes  ·  QuoteFlow 接口契约(示意)</span></div>
+<pre><code><span class="c-com">// ── 请求:functional 需求“算什么”的具体形态 ──</span>
+<span class="c-key">POST</span> /v1/quotes
+{
+  <span class="c-str">"applicant"</span>: { <span class="c-str">"age"</span>: <span class="c-num">42</span>, <span class="c-str">"sex"</span>: <span class="c-str">"F"</span>, <span class="c-str">"smoker"</span>: <span class="c-key">false</span> },
+  <span class="c-str">"product"</span>:   <span class="c-str">"TERM_LIFE_20Y"</span>,
+  <span class="c-str">"sum_insured"</span>: <span class="c-num">500000</span>,
+  <span class="c-str">"rate_table_version"</span>: <span class="c-str">"2026-06"</span>   <span class="c-com">// ← 钉住版本 = consistency + auditability</span>
+}
+
+<span class="c-com">// ── 响应:注意它同时承载了 non-functional 的痕迹 ──</span>
+<span class="c-key">200 OK</span>
+{
+  <span class="c-str">"quote_id"</span>: <span class="c-str">"q_8f3a..."</span>,        <span class="c-com">// 可追溯:每条报价有稳定 id</span>
+  <span class="c-str">"monthly_premium"</span>: <span class="c-num">38.20</span>,
+  <span class="c-str">"currency"</span>: <span class="c-str">"AUD"</span>,
+  <span class="c-str">"rate_table_version"</span>: <span class="c-str">"2026-06"</span>,
+  <span class="c-str">"rules_applied"</span>: [<span class="c-str">"base_rate"</span>, <span class="c-str">"non_smoker_disc"</span>],  <span class="c-com">// 可解释 / 审计</span>
+  <span class="c-str">"computed_at"</span>: <span class="c-str">"2026-06-01T08:00:12Z"</span>,
+  <span class="c-str">"latency_ms"</span>: <span class="c-num">47</span>                  <span class="c-com">// 把 SLA 变成可观测的数字</span>
+}</code></pre>
+    </div>
+    <p>看这份契约:<code class="inl">age/sex/smoker → premium</code> 是 <strong>functional</strong>;而 <code class="inl">rate_table_version</code>(一致性)、<code class="inl">rules_applied</code>(可审计)、<code class="inl">latency_ms</code>(延迟可观测)这些字段,是把 <strong>non-functional 需求“焊进”接口</strong>的方式。好的设计,从契约这一层就开始为质量属性留位置。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>系统设计先问<strong>“做什么 + 做多好”</strong>,再画图、再选技术。顺序错了,后面全是返工。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>Functional</strong> = 算什么;<strong>Non-functional</strong> = 算得多好/多稳。后者通常才是真正的难点。</p></div>
+      <div class="tk"><span class="n">3</span><p>没有“最优解”,只有<strong>约束下的取舍</strong>。识别约束、做有依据的权衡,是这门手艺的核心。</p></div>
+      <div class="tk"><span class="n">4</span><p>在受监管的定价系统里(如寿险),<strong>auditability 与 compliance</strong> 是一等公民的 non-functional 需求,要从契约层就设计进去。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">“报价接口必须在 200ms 内返回” —— 属于哪类需求?</span></summary>
+        <div class="ans"><b>Non-functional</b>(具体维度是 latency)。它没改变系统“算什么”,只约束“算得多快”。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">“系统要能根据年龄、性别、吸烟状态计算保费” —— 属于哪类?</span></summary>
+        <div class="ans"><b>Functional</b>。这是一个明确的输入 → 输出动作,定义了系统“算什么”。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">如果 functional 全对,但 non-functional 不达标,系统能上线吗?</span></summary>
+        <div class="ans"><b>通常不能。</b>慢到没人愿意用、动不动就挂、或报价无法审计——在受监管的定价场景里,最后一点可能直接意味着<b>违规</b>。“算得对”是必要条件,不是充分条件。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 给 QuoteFlow 做设计时,<strong>最容易被低估</strong>的 non-functional 需求会是哪个?<br>② 把“实时单笔报价”和“夜间批量重算”拆成两条独立路径,会带来什么好处、又要付出什么代价?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>System Design</dt><dd>在真实约束下,把组件组织成能持续、可靠服务的系统的设计活动。</dd></dl>
+      <dl><dt>Functional Requirement</dt><dd>系统“做什么”,可用具体的输入→输出描述。</dd></dl>
+      <dl><dt>Non-functional Requirement</dt><dd>系统“做得多好”,一个可度量的质量指标或约束。</dd></dl>
+      <dl><dt>Latency</dt><dd>单次请求从发出到返回所花的时间。</dd></dl>
+      <dl><dt>Throughput</dt><dd>单位时间内系统能处理的请求/数据量。</dd></dl>
+      <dl><dt>Availability</dt><dd>系统在一段时间内可正常服务的比例(如 99.9%)。</dd></dl>
+      <dl><dt>Trade-off</dt><dd>在相互冲突的目标间做出的有依据的取舍。</dd></dl>
+      <dl><dt>Auditability</dt><dd>每个结果能否被复现、解释、追溯到其依据。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 2</div>
+      <div class="t">把 non-functional 量化:latency / throughput / availability / scalability / consistency,以及它们之间真实的取舍</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 01 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

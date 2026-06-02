@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 02 · 量化 non-functional 与真实取舍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:6.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 2 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 1 周 · 基础与思维方式</span>
+    <h1>把“做得多好”变成<br>能算的数字</h1>
+    <p class="lede">昨天我们列出了 non-functional 需求;今天把它们逐个量化——并看清这些数字之间真实的、躲不掉的取舍。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>昨日回顾 · Day 1</div>
+    <ul>
+      <li>我们把需求切成两类:<strong>functional</strong>(算什么,输入→输出)和 <strong>non-functional</strong>(算得多好,一个可度量的约束);也看到了系统设计的六步主线和“没有最优、只有取舍”的核心张力。今天承接最后一句:要做取舍,先得让“多好”变成<strong>能比较的数字</strong>。一句没量化的“要快、要稳”,在设计里几乎没有用。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>用<strong>百分位(p50/p99/p99.9)</strong>而不是平均值来描述 latency,理解“尾延迟”为什么要命</li>
+      <li>分清 <strong>latency 与 throughput</strong> 是两个不同的轴,并用 <strong>Little's Law</strong> 把它们连起来</li>
+      <li>把 <strong>availability</strong> 换算成“一年停机多久”,看懂依赖<strong>串联会变差、并联会变好</strong></li>
+      <li>量化 <strong>scalability</strong> 与 <strong>consistency</strong>,并看清这五个维度之间真实的取舍</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>Latency:别信平均值</div>
+    <h2>用百分位说话,盯住那条尾巴</h2>
+    <p>“平均延迟 80ms”听起来不错,但它会骗人。延迟分布几乎总是<strong>右偏</strong>的:大多数请求很快,少数请求拖得很长。平均值被这条长尾轻轻一拉就失真,而<strong>用户真正记住的,恰恰是那几次卡顿</strong>。</p>
+    <p>所以工程上用<strong>百分位(percentile)</strong>来描述延迟。<code class="inl">p99 = 300ms</code> 的意思是:把所有请求按耗时排序,99% 的请求都不超过 300ms,只有最慢的 1% 比它更久。常用的几个:</p>
+    <ul>
+      <li><strong>p50(中位数)</strong>:典型体感,一半请求比它快。</li>
+      <li><strong>p99</strong>:几乎所有人的“最坏体验”;SLA 通常写在这里。</li>
+      <li><strong>p99.9</strong>:极端尾部,大流量下每天都有成千上万次请求落在这。</li>
+    </ul>
+
+    <figure>
+      <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <linearGradient id="gbar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#46cf94"/><stop offset="1" stop-color="#bfe6d2"/></linearGradient>
+        </defs>
+        <!-- tail shaded region (slowest 1%) -->
+        <rect x="490" y="40" width="176" height="210" fill="#fbf1da" opacity="0.55"/>
+        <!-- axes -->
+        <line x1="60" y1="250" x2="690" y2="250" stroke="#cdd9d2" stroke-width="1.5"/>
+        <text x="60" y="285" font-size="12" fill="#6a7872">0</text>
+        <text x="372" y="285" font-size="12" fill="#6a7872" text-anchor="middle">耗时(ms) →</text>
+        <text x="640" y="285" font-size="12" fill="#6a7872">~1s</text>
+        <text x="50" y="50" font-size="12" fill="#6a7872" text-anchor="end">请求数</text>
+        <!-- bars -->
+        <g fill="url(#gbar)">
+          <rect x="70" y="244" width="20" height="6"/>
+          <rect x="94" y="230" width="20" height="20"/>
+          <rect x="118" y="195" width="20" height="55"/>
+          <rect x="142" y="140" width="20" height="110"/>
+          <rect x="166" y="90" width="20" height="160"/>
+          <rect x="190" y="82" width="20" height="168"/>
+          <rect x="214" y="100" width="20" height="150"/>
+          <rect x="238" y="130" width="20" height="120"/>
+          <rect x="262" y="158" width="20" height="92"/>
+          <rect x="286" y="180" width="20" height="70"/>
+          <rect x="310" y="196" width="20" height="54"/>
+          <rect x="334" y="208" width="20" height="42"/>
+          <rect x="358" y="217" width="20" height="33"/>
+          <rect x="382" y="224" width="20" height="26"/>
+          <rect x="406" y="229" width="20" height="21"/>
+          <rect x="430" y="233" width="20" height="17"/>
+          <rect x="454" y="236" width="20" height="14"/>
+          <rect x="478" y="238" width="20" height="12"/>
+        </g>
+        <g fill="#e6b34d">
+          <rect x="502" y="240" width="20" height="10"/>
+          <rect x="526" y="241" width="20" height="9"/>
+          <rect x="550" y="242" width="20" height="8"/>
+          <rect x="574" y="243" width="20" height="7"/>
+          <rect x="598" y="244" width="20" height="6"/>
+          <rect x="622" y="245" width="20" height="5"/>
+        </g>
+        <!-- percentile markers -->
+        <line x1="200" y1="60" x2="200" y2="250" stroke="#0f3d2e" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="200" y="52" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">p50 ≈ 45ms</text>
+        <line x1="490" y1="60" x2="490" y2="250" stroke="#15a06a" stroke-width="2"/>
+        <text x="490" y="52" font-size="12.5" font-weight="700" fill="#0c7a50" text-anchor="middle">p99 ≈ 280ms</text>
+        <line x1="640" y1="100" x2="640" y2="250" stroke="#8a5a00" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <text x="638" y="92" font-size="12.5" font-weight="700" fill="#8a5a00" text-anchor="middle">p99.9 ≈ 0.9s</text>
+        <text x="578" y="160" font-size="12" fill="#8a5a00" font-style="italic" text-anchor="middle">最慢的 1%</text>
+        <text x="578" y="178" font-size="12" fill="#8a5a00" font-style="italic" text-anchor="middle">= 真正伤人的尾巴</text>
+      </svg>
+      <figcaption>图 1 · 一条典型的右偏延迟分布。平均值被尾巴拉高、并不代表多数体验;SLA 要盯 p99/p99.9,而不是 mean。</figcaption>
+    </figure>
+
+    <p>为什么尾延迟在系统里会被<strong>放大</strong>?因为一个请求常常要<em>扇出(fan-out)</em>成多个下游调用。QuoteFlow 的一次报价,可能同时去取费率表、跑核保规则、查再保参数——只要<strong>任意一个</strong>慢,整次报价就慢。当一个请求依赖 N 个下游、要等它们<strong>全部</strong>返回时,“至少一个落在尾部”的概率随 N 迅速上升,于是<strong>下游的 p99 会变成上游的常态</strong>。这就是为什么大系统里压尾延迟,往往比压平均值难得多。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>Throughput 与 Little's Law</div>
+    <h2>“多快”和“多少”是两个轴</h2>
+    <p><strong>Latency</strong> 衡量<em>单次</em>请求多快返回;<strong>throughput</strong> 衡量<em>单位时间</em>能处理多少(常写成 QPS / RPS,每秒查询/请求数)。两者是不同的维度:一辆 F1 很快(低延迟)但只坐两个人;一列地铁单程慢(高延迟)却一趟运几千人(高吞吐)。设计时必须分开说清你要的是哪一个。</p>
+    <p>把这两个轴连起来的,是一条朴素却极有用的公式 —— <strong>Little's Law</strong>:</p>
+
+    <div class="case" style="text-align:center;">
+      <span class="tag">公式</span>
+      <p style="font-size:21px;color:#0f3d2e;font-weight:600;margin:6px 0 10px;">L &nbsp;=&nbsp; &lambda; &nbsp;&times;&nbsp; W</p>
+      <p style="margin-bottom:18px;">系统中<strong>同时在处理</strong>的请求数(并发 L)= 到达速率(throughput &lambda;)&times; 每个请求停留时间(latency W)</p>
+    </div>
+
+    <p>它的威力在于:三个量知道两个就能推第三个。给 QuoteFlow 估个数——若实时报价 <code class="inl">&lambda; = 500 QPS</code>,平均处理 <code class="inl">W = 0.2s</code>,那么任意时刻系统里大约有 <code class="inl">L = 500 &times; 0.2 = 100</code> 个请求在飞。这个 100 直接告诉你:线程池/连接数/内存要按“同时 100 个在途”来备,而不是按 500。</p>
+    <p>还有一个反直觉但关键的结论:<strong>当系统接近吞吐上限时,延迟会急剧恶化。</strong>队列开始堆积,W 暴涨,p99 先崩。所以“提高吞吐”和“压低延迟”常常彼此拉扯——把利用率推到 95% 省了机器,却可能让 p99 翻好几倍。容量规划要留<em>余量(headroom)</em>,正是为此。(Day 3 会专门做这类 back-of-envelope 估算。)</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>Availability:数清那几个 9</div>
+    <h2>“高可用”要换算成停机时间</h2>
+    <p>Availability 就是<em>系统正常服务的时间比例</em>。但“99.9%”听着抽象,翻译成“一年能坏多久”立刻就有体感。记住这张表,面试和评审里随口能报:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>可用性</th><th>俗称</th><th>每年停机</th><th>每月停机</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">99%</span></td><td>两个 9</td><td>≈ 3.65 天</td><td>≈ 7.2 小时</td></tr>
+          <tr><td><span class="lab">99.9%</span></td><td>三个 9</td><td>≈ 8.77 小时</td><td>≈ 43.8 分钟</td></tr>
+          <tr><td><span class="lab">99.99%</span></td><td>四个 9</td><td>≈ 52.6 分钟</td><td>≈ 4.4 分钟</td></tr>
+          <tr><td><span class="lab">99.999%</span></td><td>五个 9</td><td>≈ 5.26 分钟</td><td>≈ 26 秒</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 每多一个 9,容许的停机就少一个数量级——成本也往往跳一个台阶。多数业务系统的合理目标是 3~4 个 9;盲目追五个 9 通常不划算。</p>
+
+    <p>真正的陷阱在于:<strong>可用性会随依赖“串联”而变差。</strong>如果报价要顺序依赖 A、B、C 三个服务,任一挂掉就报价失败,那么整体可用性是它们的<em>乘积</em>:<code class="inl">0.999 × 0.999 × 0.999 ≈ 0.997</code>——只剩三个 9 不到,比单个还差。依赖越多,串得越长,越脆。</p>
+    <p>反过来,<strong>冗余(并联)能把可用性拉上去。</strong>同一个服务放两个独立副本,只要不<em>同时</em>都挂就还能服务,不可用概率相乘:<code class="inl">1 − (1−0.99) × (1−0.99) = 0.9999</code>——两个“两个 9”的副本并起来,居然到了四个 9。这就是为什么高可用设计离不开冗余与多副本。这部分数学,下面用代码直观看一眼。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">availability.py · 串联 vs 并联,以及延迟预算</span></div>
+<pre><code><span class="c-com"># ── 可用性:依赖是“串联”还是“并联” ──</span>
+chain    = <span class="c-num">0.999</span> * <span class="c-num">0.999</span> * <span class="c-num">0.999</span>          <span class="c-com"># 三个串联依赖 → 0.9970，更差</span>
+parallel = <span class="c-num">1</span> - (<span class="c-num">1</span>-<span class="c-num">0.99</span>) * (<span class="c-num">1</span>-<span class="c-num">0.99</span>)        <span class="c-com"># 两副本并联 → 0.9999，更好</span>
+
+<span class="c-com"># ── 延迟预算:300ms 的 p99 SLA 怎么分下去 ──</span>
+budget_ms = <span class="c-num">300</span>
+spend = {
+  <span class="c-str">"auth_check"</span>:        <span class="c-num">15</span>,
+  <span class="c-str">"rate_table_fetch"</span>:  <span class="c-num">40</span>,   <span class="c-com"># 命中缓存;未命中会飙到 ~250ms → 砸 p99</span>
+  <span class="c-str">"underwriting_rules"</span>:<span class="c-num">60</span>,
+  <span class="c-str">"premium_calc"</span>:      <span class="c-num">25</span>,
+  <span class="c-str">"reinsurance_param"</span>: <span class="c-num">35</span>,
+  <span class="c-str">"network_overhead"</span>:  <span class="c-num">20</span>,
+}
+spent     = <span class="c-fn">sum</span>(spend.values())            <span class="c-com"># = 195ms</span>
+headroom  = budget_ms - spent             <span class="c-com"># = 105ms 留给尾部抖动 / 重试</span>
+
+<span class="c-key">assert</span> headroom &gt; <span class="c-num">0</span>, <span class="c-str">"延迟预算超支:得砍依赖或加缓存"</span></code></pre>
+    </div>
+    <p>这段“延迟预算”很值得养成习惯:把 SLA 的 p99 当成一笔钱,<strong>分给路径上的每一段</strong>,你会立刻看清哪里是瓶颈、还剩多少余量。注意 <code class="inl">rate_table_fetch</code> 那行——缓存未命中会从 40ms 跳到 250ms,这正是尾延迟和缓存策略(Day 7)交汇的地方。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>Scalability 与 Consistency</div>
+    <h2>“量涨了扛得住”与“到处读到的一样”</h2>
+    <h3>Scalability — 加资源,产能要跟着涨</h3>
+    <p>可扩展性问的是:<em>当负载翻倍,你能不能靠加资源把吞吐也接近翻倍?</em>两条路:<strong>纵向扩展(scale up)</strong>——换更强的单机,简单但有天花板、且单点风险高;<strong>横向扩展(scale out)</strong>——加更多机器分摊,理论上无上限,是分布式系统的主线(Day 6 详谈)。</p>
+    <p>理想是<em>线性扩展</em>:2 倍机器 = 2 倍吞吐。现实几乎从不线性——总有<strong>无法并行的部分</strong>(共享数据库、锁、协调开销),机器越多,这部分占比越拖后腿,加到一定程度甚至<em>负增长</em>。所以“能扩展”不是一句口号,而要问清:扩到哪一步开始失效、瓶颈在哪个共享资源。对 QuoteFlow,无状态的报价计算容易横向扩;而它们都要读的那张费率表/数据库,往往才是真正的扩展瓶颈。</p>
+
+    <h3>Consistency — 多副本下,大家读到的一样吗</h3>
+    <p>一旦数据有多个副本(为了可用与扩展,几乎必然),就要回答:写入之后,别处<strong>立刻</strong>能读到最新值吗?两个极端:</p>
+    <ul>
+      <li><strong>Strong consistency(强一致)</strong>:任何读都拿到最新写入。语义干净,但要跨副本协调,<em>更慢、可用性更脆</em>。</li>
+      <li><strong>Eventual consistency(最终一致)</strong>:副本最终会收敛,但短时间内可能读到旧值。<em>更快、更可用、更能扩</em>,代价是要容忍“暂时不一致”。</li>
+    </ul>
+    <p>这不是“哪个更好”,而是<strong>看数据的角色选挡位</strong>。QuoteFlow 里,<em>当前生效的费率表版本</em>要强一致——绝不能两个用户在同一刻拿到来自不同费率表的报价,这在受监管定价里是合规红线;而喂给<em>分析/报表</em>的下游数据,晚几秒收敛完全可以接受,选最终一致换吞吐与可用性。(CAP / PACELC 的完整故事在 Day 12。)</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>把维度连起来</div>
+    <h2>这些数字会互相拉扯</h2>
+    <p>关键认知:<strong>这五个维度不是各自独立的旋钮,拧高一个常常压低另一个。</strong>把昨天“没有最优、只有取舍”这句话,落到具体的张力上:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:30%">想要更…</th><th>常见代价</th><th>QuoteFlow 里的体现</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">高吞吐(榨利用率)</span></td><td>排队 → 延迟与 p99 恶化</td><td>把机器用到 95%,实时报价 p99 先崩</td></tr>
+          <tr><td><span class="lab">强一致</span></td><td>更高延迟、可用性更脆</td><td>费率表跨区强一致 → 写入变慢</td></tr>
+          <tr><td><span class="lab">高可用(多冗余)</span></td><td>成本上升、可能牺牲强一致</td><td>多区多副本贵,且要接受最终一致</td></tr>
+          <tr><td><span class="lab">低延迟</span></td><td>靠缓存/冗余/就近 → 更复杂、可能读旧值</td><td>缓存费率表提速,但要处理失效一致性</td></tr>
+          <tr><td><span class="lab">强可扩展</span></td><td>引入分布式复杂度与协调开销</td><td>分片后,跨片事务与运维都变难</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 每一行都是一笔买卖。成熟的设计不是“全都要满分”,而是按业务把预算<strong>有意识地</strong>投到最该高的那一两个维度,其余够用即可。</p>
+
+    <p>所以量化的真正意义,不只是写个好看的 SLA,而是<strong>逼出取舍</strong>:当你写下“实时报价 p99 &lt; 300ms、99.9% 可用、费率表强一致、夜间百万保单批量重算”,你已经在替自己排优先级——也已经暗示了实时与批量该是<em>两条不同的路径</em>(这正是 Day 17 批处理 vs 流处理要展开的)。把数字写清楚,后面所有架构决策才有了可以对照的标尺。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>延迟用<strong>百分位(p99/p99.9)</strong>说话,别看平均值。扇出会放大尾延迟——下游的 p99 会变成上游的常态。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>Latency 和 throughput 是两个轴</strong>,用 Little's Law(L=λW)连起来。逼近吞吐上限时延迟会暴涨,要留余量。</p></div>
+      <div class="tk"><span class="n">3</span><p>可用性换算成<strong>停机时间</strong>;依赖<strong>串联会变差(相乘)、冗余并联会变好</strong>。每多一个 9,成本跳一个台阶。</p></div>
+      <div class="tk"><span class="n">4</span><p>这五个维度会<strong>互相拉扯</strong>。量化的意义是逼出取舍——按业务把预算投到最该高的那一两个维度。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">某接口平均延迟 80ms,但 p99 是 1.2s。能说“它很快”吗?为什么?</span></summary>
+        <div class="ans"><b>不能。</b>平均被大量快请求拉低,掩盖了长尾:每 100 次就有 1 次要等 1.2s。在大流量或扇出场景下,这条尾巴会被放大成许多用户的真实体感。要看 <b>p99/p99.9</b>,不是 mean。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">承诺 99.9% 可用,一年大约允许停机多久?99.99% 呢?</span></summary>
+        <div class="ans"><b>99.9% ≈ 8.77 小时/年</b>(三个 9);<b>99.99% ≈ 52.6 分钟/年</b>(四个 9)。每多一个 9,容许停机减少约一个数量级。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">报价顺序依赖三个各 99.9% 的服务,任一挂掉就失败。整体可用性约是多少?如何改善?</span></summary>
+        <div class="ans">串联相乘:<b>0.999³ ≈ 99.7%</b>,比单个还差(掉到三个 9 以下)。改善靠<b>冗余/并联</b>(关键依赖多副本)、<b>减少串联深度</b>、以及降级与缓存兜底,让单点故障不必然拖垮整条链。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 实时报价 p99 要 &lt; 300ms,但费率表偶发<strong>缓存未命中</strong>会让某些请求飙到 800ms。你会从哪几个角度去压这条尾巴?(提示:缓存、预热、超时与降级、扇出并行……)<br>② <strong>强一致</strong> vs <strong>最终一致</strong>:在 QuoteFlow 的不同部件(实时报价用的<em>当前费率表版本</em> / 喂给<em>分析下游</em>的数据)分别更适合哪种?各自的理由是什么?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Percentile (p99)</dt><dd>按耗时排序后,99% 的请求都不超过的那个延迟值;比平均值更能反映体感。</dd></dl>
+      <dl><dt>Tail Latency</dt><dd>分布尾部(最慢的少数请求)的延迟;扇出与高负载会将其放大。</dd></dl>
+      <dl><dt>Throughput (QPS)</dt><dd>单位时间内系统能处理的请求/数据量,如每秒查询数。</dd></dl>
+      <dl><dt>Little's Law</dt><dd>L = λ × W:系统内并发请求数 = 到达速率 × 单请求停留时间。</dd></dl>
+      <dl><dt>The Nines</dt><dd>用“几个 9”表达可用性(99.9%=三个 9),可换算成每年允许停机时长。</dd></dl>
+      <dl><dt>Error / Latency Budget</dt><dd>把允许的失败或延迟当成一笔预算,分配给路径上各段,用来定位瓶颈与余量。</dd></dl>
+      <dl><dt>Horizontal Scaling</dt><dd>scale out:靠增加机器分摊负载来提升吞吐,与纵向加强单机(scale up)相对。</dd></dl>
+      <dl><dt>Eventual Consistency</dt><dd>副本最终会收敛,但短时间内可能读到旧值;以一致性换取更低延迟与更高可用。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 3</div>
+      <div class="t">估算与容量规划:back-of-envelope 心算、必须记住的关键延迟数字,把今天的 p99 / QPS / 停机时间真正“算”出来</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 02 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
