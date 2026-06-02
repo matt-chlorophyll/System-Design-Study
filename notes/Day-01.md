@@ -74,7 +74,7 @@
 5. **资源争抢**——共享机时批量带来锁争用/GC/内存带宽打满/长任务占核 → 实时**平均也许没事，但 p99 尾延迟被拖垮**。
 
 > 本质：**throughput 要「批量+高利用率+顺序扫+流式」，latency 要「单条+留余量+随机点查+热缓存」，每一项都顶着干。** 所以拆成两条路各配各的硬件与数据布局，是被逼出来的，再共享中间「定价 Core」守住 reproducibility。
-> 📊 配图：`notes/dual-path-pricing.html`（共享 core + 两路镜像取数 + 硬件 trade-off 逐行对照）
+> 📊 配图：`notes/Day-01-dual-path-pricing.html`（共享 core + 两路镜像取数 + 硬件 trade-off 逐行对照）
 
 ### Q4. p99 是什么？
 

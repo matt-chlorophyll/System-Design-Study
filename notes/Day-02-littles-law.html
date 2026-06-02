@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>补充 · Little's Law 为什么严谨</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6; --card:#ffffff; --ink:#0f3d2e; --body:#3a463f; --muted:#6a7872;
+    --accent:#15a06a; --accent-ink:#0c7a50; --accent-soft:#e8f6ef; --accent-soft-2:#eef9f3;
+    --border:#e3ebe6; --border-soft:#eef3f0; --code-bg:#0f3d2e; --code-ink:#e6f1ec;
+    --green:#1a7f5a; --green-soft:#e8f6f0; --amber:#8a5a00; --amber-soft:#fbf1da;
+    --radius:16px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--font);font-size:17px;line-height:1.72;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .topbar .pct{margin-left:auto;font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;} .callout li{margin:5px 0;}
+
+  .amber-call{background:var(--amber-soft);border:1px solid #f1e0b8;border-left:4px solid #e0a93a;border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .amber-call .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:8px;font-size:15px;}
+
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6;}
+
+  /* math blocks */
+  .math{font-family:var(--mono);background:#f5faf7;border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius-sm);padding:20px 22px;margin:20px 0;overflow-x:auto;}
+  .math .step{font-size:15.5px;color:#0f3d2e;line-height:2.0;white-space:nowrap;}
+  .math .step .note{font-family:var(--font);color:var(--muted);font-size:12.5px;margin-left:12px;white-space:normal;}
+  .math .star{color:var(--accent-ink);font-weight:700;}
+  .math sub{font-size:.7em;vertical-align:-.25em;} .math sup{font-size:.7em;}
+  .ind{font-weight:700;color:#0c7a50;}
+  .result{text-align:center;font-family:var(--mono);font-size:20px;color:#0f3d2e;font-weight:600;background:var(--accent-soft);border:1px solid #cdeede;border-radius:12px;padding:16px 14px;margin:18px 0;}
+  .result sub{font-size:.7em;vertical-align:-.25em;}
+
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);padding:24px 24px 18px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+  .nums{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:6px 0 4px;}
+  .nums .n{background:#fff;border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;font-size:14px;}
+  .nums .n b{font-family:var(--mono);color:var(--accent-ink);}
+  .checkline{font-family:var(--mono);font-size:16px;color:#0f3d2e;text-align:center;margin-top:14px;background:var(--accent-soft);border-radius:var(--radius-sm);padding:12px;}
+
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;} h1{font-size:30px;} h2{font-size:22px;}
+    .gloss,.nums{grid-template-columns:1fr;} .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 补充材料</span>
+    <span class="pct">书房讨论 · Day 02</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>补充 · Day 02 讨论延伸</span>
+    <h1>Little's Law<br>为什么是严谨的</h1>
+    <p class="lede">把 CLI 里那套面积推导搬进浏览器看。<code class="inl">L = λW</code> 不是经验拟合 —— 它能被严格证明，而且严谨性精确地锚在<strong>一步</strong>上：非负函数的求和与积分可以交换。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>面积证明</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>Tonelli 定理</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>QuoteFlow 数值校验</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>结论先行</div>
+    <h2>两个尺度，两种答案</h2>
+    <p>你的数学嗅觉很准：在<strong>任何有限时间窗口</strong>里，<code class="inl">L = λW</code> 确实只是<em>近似</em>（窗口末尾总有几个还没离开的请求被截断）。它精确成立，是作为 <code class="inl">T → ∞</code> 的<strong>长期平均极限</strong>。两种感觉都对，只是对应不同尺度。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>一句话定位</div>
+      <ul>
+        <li><strong>有限窗口</strong> → 近似（边界截断带来 O(1) 误差）。</li>
+        <li><strong>长期平均极限</strong> → 精确，且证明只用到一个非负函数恒等式 + 系统稳定。</li>
+        <li>它甚至<strong>不是一个概率定理</strong> —— 对任意一条样本轨迹都成立。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>一张图</div>
+    <h2>同一块面积，两种数法</h2>
+    <p>取观察窗 <code class="inl">[0, T]</code>。每个请求 <code class="inl">i</code> 是一条<strong>水平线段</strong>：从到达 <code class="inl">a<sub>i</sub></code> 画到离开 <code class="inl">d<sub>i</sub></code>，长度正好是它的停留时间 <code class="inl">W<sub>i</sub></code>。把这些线段覆盖的<strong>总面积</strong>故意用两种方式数 —— 答案必须相等。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 482" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <linearGradient id="gbar" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3cc488"/><stop offset="1" stop-color="#7ad7ab"/></linearGradient>
+        </defs>
+
+        <!-- vertical gridlines -->
+        <g stroke="#e6f0ea" stroke-width="1">
+          <line x1="70"  y1="55" x2="70"  y2="434"/>
+          <line x1="142" y1="55" x2="142" y2="434"/>
+          <line x1="214" y1="55" x2="214" y2="434"/>
+          <line x1="286" y1="55" x2="286" y2="434"/>
+          <line x1="358" y1="55" x2="358" y2="434"/>
+          <line x1="430" y1="55" x2="430" y2="434"/>
+          <line x1="502" y1="55" x2="502" y2="434"/>
+          <line x1="574" y1="55" x2="574" y2="434"/>
+          <line x1="646" y1="55" x2="646" y2="434"/>
+        </g>
+
+        <!-- ===== TOP PANEL: request bars (横着数) ===== -->
+        <text x="64" y="50" font-size="12.5" fill="#6a7872" text-anchor="end" font-weight="600">横着数 ↓</text>
+        <text x="646" y="40" font-size="13" fill="#0c7a50" text-anchor="end" font-weight="700">Σ W&#7522; = 4+2+4+2+3 = 15</text>
+
+        <g>
+          <!-- req1 [0,4] W=4 -->
+          <rect x="70"  y="58"  width="288" height="18" rx="3" fill="url(#gbar)"/>
+          <text x="214" y="71" font-size="11.5" fill="#08482f" text-anchor="middle" font-weight="600">W&#8321; = 4</text>
+          <text x="64"  y="71" font-size="11" fill="#6a7872" text-anchor="end">r1</text>
+          <!-- req2 [1,3] W=2 -->
+          <rect x="142" y="84"  width="144" height="18" rx="3" fill="url(#gbar)"/>
+          <text x="214" y="97" font-size="11.5" fill="#08482f" text-anchor="middle" font-weight="600">W&#8322; = 2</text>
+          <text x="64"  y="97" font-size="11" fill="#6a7872" text-anchor="end">r2</text>
+          <!-- req3 [2,6] W=4 -->
+          <rect x="214" y="110" width="288" height="18" rx="3" fill="url(#gbar)"/>
+          <text x="358" y="123" font-size="11.5" fill="#08482f" text-anchor="middle" font-weight="600">W&#8323; = 4</text>
+          <text x="64"  y="123" font-size="11" fill="#6a7872" text-anchor="end">r3</text>
+          <!-- req4 [3,5] W=2 -->
+          <rect x="286" y="136" width="144" height="18" rx="3" fill="url(#gbar)"/>
+          <text x="358" y="149" font-size="11.5" fill="#08482f" text-anchor="middle" font-weight="600">W&#8324; = 2</text>
+          <text x="64"  y="149" font-size="11" fill="#6a7872" text-anchor="end">r4</text>
+          <!-- req5 [5,8] W=3 -->
+          <rect x="430" y="162" width="216" height="18" rx="3" fill="url(#gbar)"/>
+          <text x="538" y="175" font-size="11.5" fill="#08482f" text-anchor="middle" font-weight="600">W&#8325; = 3</text>
+          <text x="64"  y="175" font-size="11" fill="#6a7872" text-anchor="end">r5</text>
+        </g>
+        <text x="58" y="123" font-size="11.5" fill="#6a7872" text-anchor="end" transform="rotate(-90 30 250)" opacity="0"> </text>
+
+        <!-- scan annotation -->
+        <text x="250" y="205" font-size="12" fill="#0f3d2e" text-anchor="middle" font-weight="600">竖切一刀 → 此刻系统中 = 3 个请求</text>
+
+        <!-- ===== scan dashed line through both panels ===== -->
+        <line x1="250" y1="56" x2="250" y2="434" stroke="#0f3d2e" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="250" y="50" font-size="12" fill="#0f3d2e" text-anchor="middle" font-weight="700">t = 2.5</text>
+
+        <!-- ===== BOTTOM PANEL: N(t) step area (竖着数) ===== -->
+        <text x="64" y="240" font-size="12.5" fill="#6a7872" text-anchor="end" font-weight="600">竖着数 ↓</text>
+        <!-- N axis labels -->
+        <text x="58" y="394" font-size="11" fill="#6a7872" text-anchor="end">1</text>
+        <text x="58" y="354" font-size="11" fill="#6a7872" text-anchor="end">2</text>
+        <text x="58" y="314" font-size="11" fill="#6a7872" text-anchor="end">3</text>
+        <text x="50" y="300" font-size="12" fill="#0c7a50" text-anchor="end" font-weight="700">N(t)</text>
+
+        <!-- step area polygon -->
+        <polygon points="70,430 70,390 142,390 142,350 214,350 214,310 358,310 358,350 502,350 502,390 646,390 646,430"
+                 fill="#bfe6d2" fill-opacity="0.6" stroke="#15a06a" stroke-width="2" stroke-linejoin="round"/>
+        <text x="300" y="412" font-size="12.5" fill="#0c7a50" text-anchor="middle" font-weight="700">曲线下面积 = 15</text>
+        <text x="262" y="302" font-size="11.5" fill="#0f3d2e" font-weight="700">N=3</text>
+
+        <!-- baseline / time axis -->
+        <line x1="70" y1="430" x2="660" y2="430" stroke="#cdd9d2" stroke-width="1.5"/>
+        <g font-size="11.5" fill="#6a7872" text-anchor="middle">
+          <text x="70"  y="450">0</text>
+          <text x="142" y="450">1</text>
+          <text x="214" y="450">2</text>
+          <text x="286" y="450">3</text>
+          <text x="358" y="450">4</text>
+          <text x="430" y="450">5</text>
+          <text x="502" y="450">6</text>
+          <text x="574" y="450">7</text>
+          <text x="646" y="450">8</text>
+        </g>
+        <text x="372" y="472" font-size="12" fill="#6a7872" text-anchor="middle">时间 t →</text>
+      </svg>
+      <figcaption>
+        上：5 个请求各画成一条线段，<strong>横着</strong>把长度加起来 = Σ W<sub>i</sub> = 15。<br>
+        下：N(t) = 此刻有几条线段盖住 t；<strong>竖着</strong>把它对时间积分 = 曲线下面积 = 15。<br>
+        同一块面积，两种数法 → <strong>Σ W<sub>i</sub> = ∫ N(t) dt</strong>。这就是 Little's Law 的全部秘密。
+      </figcaption>
+    </figure>
+
+    <p>注意那条 <code class="inl">t = 2.5</code> 的竖线：它在上面板穿过 <code class="inl">r1 / r2 / r3</code> 三条线段，对应下面板此刻的 <code class="inl">N = 3</code>。<strong>竖切一刀切到几条线，就是那一刻系统里有几个请求。</strong></p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>推导</div>
+    <h2>把「面积相等」写成等式</h2>
+    <p>定义 <code class="inl">L̄</code> 为时间平均的在途请求数，<code class="inl">N(t)</code> 为 t 时刻系统内请求数，<code class="inl">1[·]</code> 为指示函数（条件成立取 1，否则取 0）。整条推导就四步：</p>
+
+    <div class="math">
+      <div class="step">L̄ &nbsp;&equiv;&nbsp; (1/T) &int;<sub>0</sub><sup>T</sup> N(t)&thinsp;dt
+        <span class="note">时间平均的"在途数"——竖着积分整条 N(t) 曲线</span></div>
+      <div class="step">&int;<sub>0</sub><sup>T</sup> N(t)&thinsp;dt &nbsp;=&nbsp; &int;<sub>0</sub><sup>T</sup> &Sigma;<sub>i</sub> <span class="ind">1</span>[a<sub>i</sub> &le; t &lt; d<sub>i</sub>]&thinsp;dt
+        <span class="note">N(t) 不过是"此刻有几条线段盖住 t"</span></div>
+      <div class="step">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =&nbsp; &Sigma;<sub>i</sub> &int;<sub>0</sub><sup>T</sup> <span class="ind">1</span>[a<sub>i</sub> &le; t &lt; d<sub>i</sub>]&thinsp;dt
+        <span class="note"><span class="star">★ 交换 Σ 与 ∫ —— 整个定律就靠这一步</span></span></div>
+      <div class="step">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; =&nbsp; &Sigma;<sub>i</sub> (d<sub>i</sub> &minus; a<sub>i</sub>) &nbsp;=&nbsp; &Sigma;<sub>i</sub> W<sub>i</sub> &nbsp;=&nbsp; A &middot; W̄
+        <span class="note">每条线段积出自己的长度 = 停留时间 W<sub>i</sub>；A 个请求、平均 W̄</span></div>
+    </div>
+
+    <p>把第一行和最后一行接起来，再用到达率 <code class="inl">λ = A / T</code>：</p>
+
+    <div class="result">L̄ = (1/T)&middot;A&middot;W̄ = (A/T)&middot;W̄ = λ&middot;W̄</div>
+
+    <p style="text-align:center;color:var(--muted);font-size:14px;margin-top:-4px;">（A = 窗口内的请求数，W̄ = 平均停留时间，λ = 到达率）</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>严谨性</div>
+    <h2>严谨性锚在哪一步</h2>
+    <p>整条推导里唯一"有技术含量"的，是第 3 步<strong>交换求和与积分</strong>。它合法吗？合法 —— 而且是无条件合法：</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/><path d="M9 12l2 2 4-4"/></svg>Tonelli 定理</div>
+      <p style="margin:0;">被积的是<strong>指示函数</strong>，恒为非负。对非负函数，求和（其实是对计数测度积分）与积分<strong>总是可以交换次序</strong>——这正是 Tonelli 定理的结论。<strong>不需要任何概率假设、不需要分布、不需要收敛性前提。</strong>这一步站得住，整个 <code class="inl">L = λW</code> 就站得住。</p>
+    </div>
+    <p>所以它的严谨性不是"工程经验"，而是落在一条标准的测度论定理上。这也解释了为什么它长得这么朴素却滴水不漏。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>普适性</div>
+    <h2>为什么它适用范围广得离谱</h2>
+    <p>回看整条推导：从头到尾<strong>没用到</strong>请求服从什么到达分布、服务要花多久、有几个服务台、是先到先服务还是后到先服务。它只是在<strong>数面积</strong>。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M7 12h10"/></svg>一个恒等式，不是一个概率定律</div>
+      <p style="margin:0;">因为不依赖任何随机假设，它对<strong>任意一条具体的样本轨迹</strong>都成立 —— 你拿真实日志里那一串到达/离开时间戳直接算，等式就精确成立。这就是它"简单得让人怀疑"的根源：它确实极普适，普适到不像一个需要证明的东西。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>前提</div>
+    <h2>你的直觉对在哪：边界与稳定性</h2>
+    <p>上面的推导<strong>偷偷假设了所有请求都在 [0,T] 内完整地来了又走</strong>。真实窗口里总有几个"到 T 时刻还赖着没走"的请求，它们的线段在右边被截断 —— 这就是有限窗口下 <code class="inl">L = λW</code> 只是<em>近似</em>的原因，也正是你闻到的那股"不严谨"味。</p>
+    <div class="amber-call">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>边界项怎么处理</div>
+      <p style="margin:0;">那些被截断的请求只有 <code class="inl">O(1)</code> 个（一小撮），而总量是 <code class="inl">O(T)</code>。误差除以 T，当 <code class="inl">T → ∞</code> 趋于 0。严格陈述（Stidham 的 sample-path 版本）：只要 <code class="inl">λ = lim A(T)/T</code> 和 <code class="inl">W̄ = lim (1/A)ΣW<sub>i</sub></code> 这两个极限存在且有限，那么 <code class="inl">L̄</code> 必然存在且 <code class="inl">L̄ = λW̄</code>。</p>
+    </div>
+    <p>唯一的前提就一句话：<strong>系统稳定</strong>（长期进出平衡，队列不无限涨）。否则 L 会一直累积、极限不存在，公式自然失效。这正呼应了 Day-02 那句"逼近吞吐上限时队列堆积、W 暴涨"——那就是稳定性被打破、Little's Law 前提开始失灵的地方。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">✓</span>数值校验</div>
+    <h2>用图里那个例子收尾</h2>
+    <div class="case">
+      <span class="tag">QuoteFlow · 抽象成 5 个请求</span>
+      <p style="margin-top:0;">就用上面 SVG 里的五条线段（时间单位任意，可想成"百毫秒"）。把三条平均值各自独立算出来，再看 <code class="inl">L = λW</code> 对不对得上：</p>
+      <div class="nums">
+        <div class="n">请求数 <b>A = 5</b>，观察窗 <b>T = 8</b></div>
+        <div class="n">到达率 <b>λ = A/T = 5/8 = 0.625</b></div>
+        <div class="n">总停留 <b>Σ W<sub>i</sub> = 15</b> → 平均 <b>W̄ = 3</b></div>
+        <div class="n">面积平均 <b>L̄ = (∫N dt)/T = 15/8 = 1.875</b></div>
+      </div>
+      <div class="checkline">λ &middot; W̄ = 0.625 &times; 3 = <strong>1.875</strong> &nbsp;=&nbsp; L̄ &nbsp;✓</div>
+      <p style="margin:14px 0 0;font-size:14px;color:var(--muted);">三个量是<strong>各自独立</strong>算出来的，却严丝合缝。把它放到真实的 QuoteFlow 上：实时报价 <code class="inl">λ = 500 QPS</code>、<code class="inl">W = 0.2s</code> → 任意时刻约 <code class="inl">L = 100</code> 个请求在飞，线程池 / 连接数就按 100 备，而不是按 500。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>这页用到的词</h2>
+    <div class="gloss">
+      <dl><dt>Little's Law</dt><dd>L = λ × W：系统内平均并发数 = 到达率 × 平均停留时间。长期平均下精确成立。</dd></dl>
+      <dl><dt>Indicator 1[·]</dt><dd>指示函数：括号内条件成立取 1、否则取 0。用它把 N(t) 写成一串线段的叠加。</dd></dl>
+      <dl><dt>Tonelli 定理</dt><dd>对非负函数，求和与积分（多重积分）可无条件交换次序。本页严谨性的落点。</dd></dl>
+      <dl><dt>Sample-path 证明</dt><dd>不靠概率假设、对单条真实轨迹就成立的证明。Little's Law 即属此类。</dd></dl>
+      <dl><dt>Stability（稳定）</dt><dd>长期到达≈离开、队列不无限增长。Little's Law 成立的唯一前提。</dd></dl>
+      <dl><dt>Boundary effect</dt><dd>有限窗口末尾未离开请求带来的 O(1) 截断误差；T→∞ 时可忽略。</dd></dl>
+    </div>
+  </section>
+
+  <footer>
+    System Design · 30 天　·　Day 02 补充材料（书房讨论生成，非日常流程文档）<br>
+    贯穿案例：QuoteFlow（虚构的寿险报价 + 保单管理平台，纯属虚构）
+  </footer>
+
+</div>
+</body>
+</html>
