@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>术语表 · System Design 30 天</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6; --card:#ffffff; --ink:#0f3d2e; --body:#3a463f; --muted:#6a7872;
+    --accent:#15a06a; --accent-ink:#0c7a50; --accent-soft:#e8f6ef; --accent-soft-2:#eef9f3;
+    --border:#e3ebe6; --border-soft:#eef3f0;
+    --radius:16px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--font);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px 96px;}
+
+  /* sticky control bar */
+  .bar{position:sticky;top:0;z-index:30;background:rgba(243,250,246,.92);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--border);}
+  .bar .inner{max-width:880px;margin:0 auto;padding:14px 22px 12px;}
+  .titlerow{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:11px;}
+  .titlerow h1{font-size:22px;color:var(--ink);font-weight:700;margin:0;letter-spacing:-.01em;}
+  .titlerow .sub{font-size:13px;color:var(--muted);}
+  .count{margin-left:auto;font-size:13px;color:var(--accent-ink);font-weight:600;font-family:var(--mono);}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .search{flex:1;min-width:200px;position:relative;}
+  .search input{width:100%;font-family:var(--font);font-size:15px;color:var(--ink);background:var(--card);
+    border:1px solid var(--border);border-radius:99px;padding:9px 36px 9px 38px;outline:none;transition:border-color .15s,box-shadow .15s;}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .search .ic{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted);}
+  .search .clr{position:absolute;right:11px;top:50%;transform:translateY(-50%);border:none;background:none;color:var(--muted);
+    cursor:pointer;font-size:17px;line-height:1;padding:2px;display:none;}
+  .search .clr:hover{color:var(--ink);}
+  select{font-family:var(--font);font-size:14px;color:var(--ink);background:var(--card);border:1px solid var(--border);
+    border-radius:99px;padding:9px 32px 9px 14px;outline:none;cursor:pointer;
+    appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236a7872' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;}
+  select:focus{border-color:var(--accent);}
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px;}
+  .chips a{font-size:12.5px;font-weight:500;color:var(--accent-ink);background:var(--accent-soft);border:1px solid #cdeede;
+    padding:4px 11px;border-radius:99px;text-decoration:none;white-space:nowrap;transition:background .15s;}
+  .chips a:hover{background:#d8f0e4;}
+
+  /* sections */
+  main{margin-top:28px;}
+  section{margin-bottom:34px;scroll-margin-top:150px;}
+  .cat-head{display:flex;align-items:baseline;gap:10px;border-bottom:2px solid var(--accent-soft);padding-bottom:8px;margin-bottom:14px;}
+  .cat-head h2{font-size:19px;color:var(--ink);font-weight:700;margin:0;}
+  .cat-head .en{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;}
+  .cat-head .cc{margin-left:auto;font-size:12px;color:var(--muted);font-family:var(--mono);}
+
+  /* cards */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:10px;
+    box-shadow:var(--shadow);transition:border-color .15s;}
+  .card:hover{border-color:#cfe7da;}
+  .card-h{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:5px;}
+  .term{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink);}
+  .zh{font-size:14px;color:var(--accent-ink);font-weight:600;}
+  .grow{flex:1;}
+  .tag{font-size:11px;font-weight:600;color:#0d8a5a;background:var(--accent-soft);border:1px solid #cfe9da;padding:2px 8px;border-radius:99px;white-space:nowrap;}
+  .src{font-size:11px;color:var(--muted);background:#f1f5f3;border:1px solid var(--border);padding:2px 8px;border-radius:99px;white-space:nowrap;}
+  .src.talk{color:var(--accent-ink);background:#eef9f3;border-color:#cdeede;}
+  .jump{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;color:var(--accent);
+    text-decoration:none;font-size:14px;border:1px solid var(--border);background:var(--card);transition:background .15s,color .15s;}
+  .jump:hover{background:var(--accent);color:#fff;}
+  .def{font-size:14.5px;color:var(--body);margin:0;line-height:1.6;}
+  .def mark{background:#fff0b8;color:inherit;border-radius:3px;padding:0 1px;}
+
+  .empty{text-align:center;color:var(--muted);font-size:15px;padding:60px 20px;}
+  footer{text-align:center;margin-top:40px;padding-top:22px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted);}
+
+  @media (max-width:640px){
+    .count{width:100%;margin-left:0;}
+    .term{font-size:14px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="inner">
+    <div class="titlerow">
+      <h1>术语表 Glossary</h1>
+      <span class="sub">System Design · 30 天</span>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="controls">
+      <div class="search">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="q" type="text" placeholder="搜索英文 / 中文 / 解释…" autocomplete="off" spellcheck="false">
+        <button class="clr" id="clr" title="清空" aria-label="清空">×</button>
+      </div>
+      <select id="src"><option value="all">全部来源</option></select>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <main id="main"></main>
+  <footer>
+    System Design · 30 天学习计划　·　术语表（讨论中维护，含各日术语表 + 提问冒出的概念）<br>
+    贯穿案例：QuoteFlow（虚构的寿险报价 + 保单管理平台，纯属虚构）
+  </footer>
+</div>
+
+<script>
+/* ──────────────────────────────────────────────────────────────
+   维护说明：加新词只改下面 TERMS 数组，一条一个对象。字段：
+     t    英文术语（可带别名，如 "Horizontal Scaling (scale out)"）
+     zh   中文名
+     cat  所属主题（见 CATS 的 id；决定它落在哪个分组）
+     src  来源数组，如 ["Day 1","Day 2"] 或 ["讨论"]（同义词并到一条）
+     def  一句话解释
+     link 关联学习资源（可省略）；用 L.xx 引用下方常量
+   分组、排序、搜索、来源筛选全部自动，无需手动改结构。
+   ────────────────────────────────────────────────────────────── */
+
+const CATS = [
+  {id:'found', name:'基础与需求',          en:'Foundations',                tag:'基础'},
+  {id:'perf',  name:'性能 · 延迟 · 吞吐',  en:'Performance',                tag:'性能'},
+  {id:'avail', name:'可用性 · 可扩展性',   en:'Availability & Scalability', tag:'可用·扩展'},
+  {id:'data',  name:'数据 · 一致性 · 复制', en:'Data & Consistency',        tag:'数据'},
+  {id:'async', name:'分布式 · 异步处理',   en:'Distributed & Async',        tag:'异步'},
+  {id:'arch',  name:'架构 · 运维 · 合规',  en:'Architecture, Ops & Compliance', tag:'架构'},
+  {id:'math',  name:'数学 · 估算工具',     en:'Math & Estimation',          tag:'数学'},
+];
+
+const L = {
+  d1:'Day-01-Intro-and-Requirements.html',
+  d2:'Day-02-quantifying-nfrs.html',
+  ll:'notes/Day-02-littles-law.html',
+  dp:'notes/Day-01-dual-path-pricing.html',
+};
+
+const TERMS = [
+  // ── 基础与需求 ──
+  {t:'System Design', zh:'系统设计', cat:'found', src:['Day 1'], link:L.d1,
+   def:'在真实约束下，把组件组织成能持续、可靠地服务的系统的设计活动。'},
+  {t:'Functional Requirement (FR)', zh:'功能性需求', cat:'found', src:['Day 1'], link:L.d1,
+   def:'系统“做什么”，可用具体的输入 → 输出来描述。'},
+  {t:'Non-functional Requirement (NFR)', zh:'非功能性需求', cat:'found', src:['Day 1'], link:L.d1,
+   def:'系统“做得多好”——一个可度量的质量指标或约束（latency、availability…）。'},
+  {t:'Trade-off', zh:'取舍', cat:'found', src:['Day 1'], link:L.d1,
+   def:'在相互冲突的目标间做出的有依据的取舍。系统设计“没有最优解，只有取舍”。'},
+
+  // ── 性能 · 延迟 · 吞吐 ──
+  {t:'Latency', zh:'延迟', cat:'perf', src:['Day 1'], link:L.d1,
+   def:'单次请求从发出到返回所花的时间；用百分位而非平均值来衡量。'},
+  {t:'Throughput (QPS)', zh:'吞吐量', cat:'perf', src:['Day 1','Day 2'], link:L.d2,
+   def:'单位时间内系统能处理的请求 / 数据量（如每秒查询数 QPS）；与 latency 是两个不同的轴。'},
+  {t:'Percentile (p99)', zh:'百分位', cat:'perf', src:['Day 2'], link:L.d2,
+   def:'按耗时排序后 99% 的请求都不超过的那个延迟值；比平均值更能反映真实体感。'},
+  {t:'Tail Latency', zh:'尾延迟', cat:'perf', src:['Day 2'], link:L.d2,
+   def:'分布尾部（最慢的少数请求）的延迟；扇出与高负载会把它放大。'},
+  {t:"Little's Law", zh:'利特尔法则', cat:'perf', src:['Day 2','讨论'], link:L.ll,
+   def:'L = λ × W：系统内平均并发数 = 到达率 × 单请求停留时间。长期平均下精确成立。'},
+  {t:'Concurrency', zh:'并发', cat:'perf', src:['讨论'], link:L.ll,
+   def:'此刻系统里同时在处理的请求数（Little’s Law 的 L）；区别于“每秒处理多少”的 throughput（λ）。'},
+  {t:'fan-out', zh:'扇出', cat:'perf', src:['Day 2','讨论'], link:L.d2,
+   def:'一个上游请求散开成多个下游调用，等全部返回才出结果；会按概率放大尾延迟。'},
+  {t:'fan-in', zh:'扇入', cat:'perf', src:['Day 2','讨论'], link:L.d2,
+   def:'fan-out 的反向：多个下游结果汇聚回来再汇总。'},
+  {t:'hedged request', zh:'对冲请求', cat:'perf', src:['讨论'], link:L.d2,
+   def:'同一下游同时发两份、取先到的那个，用冗余换尾延迟；治 tail latency 的高级手段。'},
+  {t:'Error / Latency Budget', zh:'延迟预算', cat:'perf', src:['Day 2'], link:L.d2,
+   def:'把允许的失败或延迟当成一笔预算，分配给路径上各段，用来定位瓶颈与余量。'},
+
+  // ── 可用性 · 可扩展性 ──
+  {t:'Availability', zh:'可用性', cat:'avail', src:['Day 1','Day 2'], link:L.d2,
+   def:'系统在一段时间内可正常服务的比例（如 99.9%）；可换算成每年允许停机多久。'},
+  {t:'The Nines', zh:'几个 9', cat:'avail', src:['Day 2'], link:L.d2,
+   def:'用“几个 9”表达可用性（99.9% = 三个 9）。每多一个 9，容许停机少一个数量级、成本跳一级。'},
+  {t:'Redundancy', zh:'冗余', cat:'avail', src:['Day 2'], link:L.d2,
+   def:'同一服务放多个独立副本（并联）；只要不同时全挂就还能服务，不可用概率相乘 → 提升可用性。'},
+  {t:'Scalability', zh:'可扩展性', cat:'avail', src:['Day 1','Day 2'], link:L.d2,
+   def:'负载增长时，能否靠加资源让吞吐也接近同比增长。'},
+  {t:'Horizontal Scaling (scale out)', zh:'横向扩展', cat:'avail', src:['Day 2'], link:L.d2,
+   def:'加更多机器分摊负载来提升吞吐，理论上无上限，是分布式系统主线。'},
+  {t:'Vertical Scaling (scale up)', zh:'纵向扩展', cat:'avail', src:['Day 2'], link:L.d2,
+   def:'换更强的单机，简单但有天花板、单点风险高。'},
+  {t:'SLA', zh:'服务等级协议', cat:'avail', src:['Day 2'], link:L.d2,
+   def:'对外承诺的服务等级（如 p99 < 300ms、99.9% 可用）；通常写在 p99 这类百分位上。'},
+
+  // ── 数据 · 一致性 · 复制 ──
+  {t:'Consistency (strong)', zh:'强一致', cat:'data', src:['Day 2','讨论'], link:L.d2,
+   def:'任何读都能拿到最新写入。语义干净，但要跨副本协调，更慢、可用性更脆。'},
+  {t:'Eventual Consistency', zh:'最终一致', cat:'data', src:['Day 2'], link:L.d2,
+   def:'副本最终会收敛，但短时间内可能读到旧值；以一致性换更低延迟与更高可用。'},
+  {t:'Determinism', zh:'确定性', cat:'data', src:['讨论'], link:L.d2,
+   def:'同样输入 → 同样输出的计算性质，与有几个副本无关。注意：这不是 consistency。'},
+  {t:'Reproducibility', zh:'可复现性', cat:'data', src:['Day 1','讨论'], link:L.d1,
+   def:'给定当时的输入与版本，能一模一样地复现当时的结果；受监管定价的一等公民。'},
+  {t:'Replication', zh:'复制', cat:'data', src:['讨论'], link:L.d2,
+   def:'把数据存成多份副本（为可用与扩展）；随之带来“读到的是不是最新值”的一致性问题。'},
+  {t:'Leader / Primary', zh:'权威副本', cat:'data', src:['讨论'], link:L.d2,
+   def:'指定一份副本为“老大”，写都先写它、读也读它 → 永远最新；代价是单点瓶颈。'},
+  {t:'Quorum (W+R>N)', zh:'多数派', cat:'data', src:['讨论'], link:L.d2,
+   def:'写要 ≥W 份确认、读问 ≥R 份，W+R>N 保证读写集必有交集 → 一定读到最新值。'},
+  {t:'Synchronous Replication', zh:'同步复制', cat:'data', src:['讨论'], link:L.d2,
+   def:'写下去后等足够多副本确认才算成功；读哪份都新，但更慢、副本不通就卡。'},
+  {t:'Leader Election', zh:'主节点选举', cat:'data', src:['讨论'], link:L.d2,
+   def:'权威副本（leader）挂了，集群按规则重新选出一个新 leader。Day 19 细讲。'},
+  {t:'Immutable Versioning', zh:'不可变版本', cat:'data', src:['讨论'], link:L.d2,
+   def:'费率表 v1/v2 都存着不动，用一个小指针指向“当前生效版本” → 把强一致范围缩到最小。'},
+
+  // ── 分布式 · 异步处理 ──
+  {t:'Idempotent', zh:'幂等', cat:'async', src:['讨论'], link:L.dp,
+   def:'同一操作执行一次或多次，结果一样；批处理重跑不出错的关键。'},
+  {t:'Watermark', zh:'水位线', cat:'async', src:['讨论'], link:L.dp,
+   def:'批处理选“算谁”时用“上次成功跑完之后到现在”，保证漏了能补、重跑结果一样（不漏不重）。'},
+  {t:'Cron / Scheduled Trigger', zh:'定时触发', cat:'async', src:['讨论'], link:L.dp,
+   def:'scheduler 到点拉起 job（“到点就跑”）；决定何时开跑。'},
+  {t:'Event-driven Trigger', zh:'事件触发', cat:'async', src:['讨论'], link:L.dp,
+   def:'状态变了才触发（如新 rate table 版本发出事件 → 触发针对性重算）。'},
+  {t:'Working Set', zh:'工作集', cat:'async', src:['讨论'], link:L.dp,
+   def:'job 启动后通过一个查询圈出“这次到底要处理哪些”；决定算谁（区别于何时开跑）。'},
+  {t:'Logic Drift', zh:'逻辑漂移', cat:'async', src:['讨论'], link:L.dp,
+   def:'两套代码算同一件事，改了一边忘同步另一边 → 同一输入两个结果；拆双路径最大的隐患。'},
+
+  // ── 架构 · 运维 · 合规 ──
+  {t:'Auditability', zh:'可审计性', cat:'arch', src:['Day 1'], link:L.d1,
+   def:'每个结果能否被复现、解释、追溯到其依据（含 traceability）；受监管行业的一等公民。'},
+  {t:'Operability / Explainability', zh:'可操作性 · 可解释性', cat:'arch', src:['讨论'], link:L.d1,
+   def:'系统每一步对操作它的人透明、可理解、可干预；决定能否从半自动走向全自动。'},
+  {t:'Shared Core', zh:'共享核心', cat:'arch', src:['讨论'], link:L.dp,
+   def:'把核心逻辑（如定价）抽成一个共享组件，多条路径都调它、而不是各写一遍 → 守住一致性。'},
+  {t:'Dual-path Architecture', zh:'双路径架构', cat:'arch', src:['讨论'], link:L.dp,
+   def:'把“实时单笔”与“夜间批量”拆成两条路各自优化（low latency vs high throughput），共享定价 core。'},
+
+  // ── 数学 · 估算工具 ──
+  {t:'Indicator Function 1[·]', zh:'指示函数', cat:'math', src:['讨论'], link:L.ll,
+   def:'括号内条件成立取 1、否则取 0；用它把 N(t) 写成一串线段的叠加。'},
+  {t:"Tonelli's Theorem", zh:'Tonelli 定理', cat:'math', src:['讨论'], link:L.ll,
+   def:'对非负函数，求和与积分可无条件交换次序；Little’s Law 严谨性的落点。'},
+  {t:'Sample-path Proof', zh:'样本轨迹证明', cat:'math', src:['讨论'], link:L.ll,
+   def:'不靠概率假设、对单条真实轨迹就成立的证明；Little’s Law 即属此类。'},
+  {t:'Stability', zh:'稳定性', cat:'math', src:['讨论'], link:L.ll,
+   def:'长期到达 ≈ 离开、队列不无限增长；Little’s Law 成立的唯一前提。'},
+  {t:'Boundary Effect', zh:'边界效应', cat:'math', src:['讨论'], link:L.ll,
+   def:'有限观察窗末尾未离开的请求带来的 O(1) 截断误差；T → ∞ 时可忽略。'},
+];
+
+/* ── 渲染 / 搜索 / 筛选 ── */
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function hl(text, q){
+  const e = esc(text);
+  if(!q) return e;
+  const safe = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return e.replace(new RegExp('('+safe+')','gi'), '<mark>$1</mark>');
+}
+const catById = Object.fromEntries(CATS.map(c => [c.id, c]));
+
+// 来源下拉：从数据收集，Day 按数字排、讨论垫底
+const srcSet = [...new Set(TERMS.flatMap(t => t.src))].sort((a,b)=>{
+  const na = a.match(/\d+/), nb = b.match(/\d+/);
+  if(na && nb) return +na[0]-+nb[0];
+  if(na) return -1; if(nb) return 1; return a.localeCompare(b);
+});
+const srcSel = $('#src');
+srcSet.forEach(s => { const o=document.createElement('option'); o.value=s; o.textContent=s; srcSel.appendChild(o); });
+
+// 主题跳转 chips
+$('#chips').innerHTML = CATS.map(c => `<a href="#cat-${c.id}">${esc(c.name)}</a>`).join('');
+
+function render(){
+  const q = $('#q').value.trim();
+  const ql = q.toLowerCase();
+  const src = srcSel.value;
+  $('#clr').style.display = q ? 'block' : 'none';
+
+  let shown = 0;
+  const html = CATS.map(cat => {
+    const items = TERMS.filter(t => t.cat===cat.id)
+      .filter(t => src==='all' || t.src.includes(src))
+      .filter(t => !ql || (t.t+' '+t.zh+' '+t.def).toLowerCase().includes(ql))
+      .sort((a,b) => a.t.toLowerCase().localeCompare(b.t.toLowerCase()));
+    if(!items.length) return '';
+    shown += items.length;
+    const cards = items.map(t => {
+      const srcTags = t.src.map(s =>
+        `<span class="src${s==='讨论'?' talk':''}">${esc(s)}</span>`).join('');
+      const jump = t.link ? `<a class="jump" href="${t.link}" title="去对应学习资源">↗</a>` : '';
+      return `<article class="card">
+        <div class="card-h">
+          <span class="term">${hl(t.t,q)}</span>
+          <span class="zh">${hl(t.zh,q)}</span>
+          <span class="grow"></span>
+          <span class="tag">${esc(cat.tag)}</span>${srcTags}${jump}
+        </div>
+        <p class="def">${hl(t.def,q)}</p>
+      </article>`;
+    }).join('');
+    return `<section id="cat-${cat.id}">
+      <div class="cat-head">
+        <h2>${esc(cat.name)}</h2><span class="en">${esc(cat.en)}</span>
+        <span class="cc">${items.length}</span>
+      </div>${cards}
+    </section>`;
+  }).join('');
+
+  $('#main').innerHTML = html || `<div class="empty">没有匹配的术语，换个词试试。</div>`;
+  $('#count').textContent = (q||src!=='all')
+    ? `显示 ${shown} / 共 ${TERMS.length} 条`
+    : `共 ${TERMS.length} 条`;
+}
+
+$('#q').addEventListener('input', render);
+srcSel.addEventListener('change', render);
+$('#clr').addEventListener('click', () => { $('#q').value=''; render(); $('#q').focus(); });
+render();
+</script>
+</body>
+</html>

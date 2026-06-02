@@ -38,6 +38,7 @@ Matt 的 30 天 System Design 自学项目。每天早上 8 点，一个**独立
 - 套用 `notes/_TEMPLATE.md` 的结构：**今日思考题 / 提问 & 解答 / 我的理解 / 待深挖**。
 - **追加**补充，不要覆盖 Matt 已经写下的内容。
 - **只读不改** `Day-NN-*.html` 和 `index.html`（它们由日常流程维护）。
+- 讨论后顺手更新主目录的 `glossary.html`：把**新出现的术语**（当日术语表里的 + 提问中冒出来的）同步进去——数据在文件顶部的 `TERMS` 数组，去重、多来源并到一条、尽量挂上关联链接。
 
 ## 每天的用法（给 Matt 自己看）
 1. 打开当天的 `Day-NN-*.html`（或从 `index.html` 点进去），读约 30 分钟。
@@ -90,6 +91,7 @@ Matt 的 30 天 System Design 自学项目。每天早上 8 点，一个**独立
 System-Design-Study/
 ├── index.html                    # 目录首页（按日期自动点亮，勿改）
 ├── Day-NN-<slug>.html            # 每天 8 点生成的学习文档（勿改）
+├── glossary.html                 # 集中术语表（讨论中维护、数据驱动；非日常流程）
 ├── CLAUDE.md                     # 本文件
 └── notes/
     ├── _TEMPLATE.md              # 笔记模板
