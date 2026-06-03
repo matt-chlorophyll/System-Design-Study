@@ -127,6 +127,7 @@ const CATS = [
   {id:'perf',  name:'性能 · 延迟 · 吞吐',  en:'Performance',                tag:'性能'},
   {id:'avail', name:'可用性 · 可扩展性',   en:'Availability & Scalability', tag:'可用·扩展'},
   {id:'data',  name:'数据 · 一致性 · 复制', en:'Data & Consistency',        tag:'数据'},
+  {id:'infra', name:'存储 · 网络 · 缓存',   en:'Storage, Network & Caching', tag:'存储·网络'},
   {id:'async', name:'分布式 · 异步处理',   en:'Distributed & Async',        tag:'异步'},
   {id:'arch',  name:'架构 · 运维 · 合规',  en:'Architecture, Ops & Compliance', tag:'架构'},
   {id:'math',  name:'数学 · 估算工具',     en:'Math & Estimation',          tag:'数学'},
@@ -135,8 +136,10 @@ const CATS = [
 const L = {
   d1:'Day-01-Intro-and-Requirements.html',
   d2:'Day-02-quantifying-nfrs.html',
+  d3:'Day-03-estimation-and-capacity.html',
   ll:'notes/Day-02-littles-law.html',
   dp:'notes/Day-01-dual-path-pricing.html',
+  sh:'notes/Day-03-storage-hierarchy.html',
 };
 
 const TERMS = [
@@ -245,6 +248,54 @@ const TERMS = [
    def:'长期到达 ≈ 离开、队列不无限增长；Little’s Law 成立的唯一前提。'},
   {t:'Boundary Effect', zh:'边界效应', cat:'math', src:['讨论'], link:L.ll,
    def:'有限观察窗末尾未离开的请求带来的 O(1) 截断误差；T → ∞ 时可忽略。'},
+
+  // ── Day 3：估算 · 容量规划 ──
+  {t:'Back-of-the-envelope', zh:'餐巾纸估算', cat:'math', src:['Day 3'], link:L.d3,
+   def:'用心算快速得到量级，目的是排除错误方案而非求精确；一切四舍五入到 10 的幂。'},
+  {t:'Order of Magnitude', zh:'数量级', cat:'math', src:['Day 3'], link:L.d3,
+   def:'10 的幂。估算只要量级对就够，2 倍误差通常无伤大雅。'},
+  {t:'Latency Numbers', zh:'关键延迟数字', cat:'math', src:['Day 3'], link:L.d3,
+   def:'各存储介质 / 网络层级的量级延迟（RAM≈100ns、SSD≈16µs、磁盘≈10ms、跨洲≈150ms），用来凭直觉判断瓶颈。'},
+  {t:'Peak Factor', zh:'峰值因子', cat:'math', src:['Day 3','讨论'], link:L.d3,
+   def:'峰值 QPS ÷ 平均 QPS（常 2~10×），是需明说的假设。注意它量的是日内瞬时高峰，不是日间（旺日 / 淡日）波动。'},
+  {t:'bit vs Byte (÷8)', zh:'比特与字节', cat:'math', src:['Day 3'], link:L.d3,
+   def:'带宽用 bit/秒（Gbps，小写 b）、数据量用 Byte（大写 B），1 Byte=8 bit → 1 Gbps=125 MB/s；不换算就差 8 倍。'},
+  {t:'Headroom', zh:'余量', cat:'perf', src:['Day 3'], link:L.d3,
+   def:'刻意预留的利用率空间（常压到 50~70%），用于吸收峰值、故障转移与增长。'},
+  {t:'Utilization', zh:'利用率', cat:'perf', src:['Day 3'], link:L.d3,
+   def:'资源被占用的比例。过高会排队、推高尾延迟；过低则浪费成本。'},
+  {t:'Capacity Planning', zh:'容量规划', cat:'avail', src:['Day 3'], link:L.d3,
+   def:'据估算决定机器 / 存储 / 带宽数量、N+1 冗余与扩展时机；按峰值备、留余量、留增长。'},
+
+  // ── 存储 · 网络 · 缓存（Day 3 讨论延伸）──
+  {t:'Cache', zh:'缓存', cat:'infra', src:['Day 3','讨论'], link:L.sh,
+   def:'把贵的获取结果暂存到更快的一层，下次直接拿、跳过那次贵的获取。Day 7 主题。'},
+  {t:'Cache Hit / Miss', zh:'命中 / 未命中', cat:'infra', src:['讨论'], link:L.sh,
+   def:'命中=缓存里有，走快路；未命中=回源头取，慢，并顺手写回缓存。'},
+  {t:'Cache-aside', zh:'旁路缓存', cat:'infra', src:['讨论'], link:L.sh,
+   def:'应用先查缓存、miss 再查源头并写回。最常见的缓存读模式。'},
+  {t:'Locality', zh:'局部性', cat:'infra', src:['讨论'], link:L.sh,
+   def:'访问不均匀，少部分热数据占大部分访问——缓存只放热子集（working set）也能高命中率的原因。'},
+  {t:'Storage Hierarchy', zh:'存储层级', cat:'infra', src:['讨论'], link:L.sh,
+   def:'寄存器→CPU cache→RAM→SSD→HDD→远程，逐层更慢更便宜更大，每跨一层延迟约跳一个数量级。'},
+  {t:'SSD (Solid-State Drive)', zh:'固态硬盘', cat:'infra', src:['讨论'], link:L.sh,
+   def:'用 NAND 闪存、无机械部件；随机读 ~16µs，比 HDD 快约 600×，贵、抗震、省电。'},
+  {t:'HDD (Hard Disk Drive)', zh:'机械硬盘', cat:'infra', src:['讨论'], link:L.sh,
+   def:'磁碟旋转 + 磁头寻道；随机读 ~10ms，便宜、大容量，适合冷数据 / 归档。'},
+  {t:'NVMe / SATA', zh:'SSD 接口', cat:'infra', src:['讨论'], link:L.sh,
+   def:'SSD 的两种接口：NVMe 走 PCIe，比 SATA 快好几倍。同是 SSD 也分快慢。'},
+  {t:'SRAM / DRAM', zh:'静态 / 动态内存', cat:'infra', src:['讨论'], link:L.sh,
+   def:'SRAM=CPU cache 用的超快内存；DRAM=主存（内存条）用的内存，稍慢、更便宜大。'},
+  {t:'Storage Tiering (Hot/Warm/Cold)', zh:'冷热分层', cat:'infra', src:['讨论'], link:L.sh,
+   def:'按访问频率把数据分到热（在线 DB/RAM）、温、冷（对象存储归档）各层，平衡延迟与成本。'},
+  {t:'Object Storage', zh:'对象存储', cat:'infra', src:['讨论'], link:L.sh,
+   def:'只按 key 取整个 blob、不支持 SQL，但极便宜、海量、高耐久（S3 / Glacier）；审计日志归档的典型选择。'},
+  {t:'Lifecycle Policy', zh:'生命周期策略', cat:'infra', src:['讨论'], link:L.sh,
+   def:'对象写入 N 天后自动降级到更冷的层；让数据按时间自动「降温」迁移，无需人工搬。'},
+  {t:'Link / Bandwidth', zh:'链路 / 带宽', cat:'infra', src:['Day 3'], link:L.d3,
+   def:'链路=两个网络节点间的数据通道；带宽=它每秒能搬多少（像水管多粗）。1 Gbps≈125 MB/s。'},
+  {t:'WORM / Object Lock', zh:'一次写多次读 / 对象锁', cat:'arch', src:['讨论'], link:L.sh,
+   def:'对象锁定后，保留期内谁都改不掉删不掉；满足监管对审计日志「不可篡改 + 保留 7 年」的硬要求。'},
 ];
 
 /* ── 渲染 / 搜索 / 筛选 ── */
