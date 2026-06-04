@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 05 · API 设计深入</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:16.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 5 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 1 周 · 基础与思维方式</span>
+    <h1>API:系统对外的那份<br>“合同”怎么写</h1>
+    <p class="lede">昨天看清了一次请求<em>怎么在网络里传</em>;今天设计这份合同本身——对外接口长什么样、出错怎么说、重试安全不安全、以后怎么改才不坑掉所有调用方。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>昨日回顾 · Day 4</div>
+    <ul>
+      <li>昨天把一次报价请求拆成<strong>四层</strong>:DNS 找地址 → TCP 建可靠管道 → TLS 加密验身 → HTTP 跑业务。我们顺手看到了 HTTP 的<strong>方法</strong>(GET/POST/PUT/DELETE)和<strong>状态码</strong>(2xx/4xx/5xx),还埋了个伏笔:方法的语义直接关系到“能不能安全重试”——也就是<strong>幂等性</strong>,今天专门展开。昨天讲的是“怎么把请求<em>送过去</em>”,今天讲“这份请求/响应的<em>契约</em>该怎么设计”。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>理解 API 为什么是<strong>“契约”</strong>:一旦发布就有人依赖,改它的代价从这里开始</li>
+      <li>分清四种风格:<strong>REST / RPC / gRPC / GraphQL</strong>,各自适合什么、QuoteFlow 怎么选</li>
+      <li>吃透<strong>幂等性(idempotency)</strong>与安全重试,以及 idempotency key 怎么用</li>
+      <li>掌握<strong>版本化与向后兼容</strong>:什么改动安全、什么是 breaking change</li>
+      <li>会做<strong>分页(pagination)</strong>与一致的<strong>错误返回</strong>设计</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>API 是一份契约</div>
+    <h2>一旦有人用,它就不再只是你的代码</h2>
+    <p>API(Application Programming Interface)是系统<strong>对外暴露的接口</strong>:别人不需要知道你内部怎么实现,只要照着这份“合同”发请求、按约定收响应。Day 1 我们画过 QuoteFlow 的 <code class="inl">POST /v1/quotes</code> 契约草图——今天我们认真把它当“合同”来设计。</p>
+    <p>为什么把它叫合同?因为 API 一旦发布、有人开始集成,<strong>它就不再是你能随便改的内部代码了</strong>。QuoteFlow 的报价 API 一旦给 broker 接入,对方的系统就硬编码了你的字段名、路径、状态码。你这边删一个字段、改一个含义,可能就让对方的夜间对账批量任务在凌晨三点全线报错——而你甚至不知道有谁在用。<strong>API 设计的本质,是设计一份“以后还要长期遵守、且很难反悔”的承诺。</strong></p>
+    <p>所以一个好 API 的几个性质,都是围绕“好用 + 好演进”来的:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:26%">好 API 的性质</th><th>含义</th><th>对 QuoteFlow 的体现</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">一致 / 可预测</span></td><td>命名、结构、错误格式全站统一</td><td>所有列表都用同一套分页参数,不用每个接口现学</td></tr>
+          <tr><td><span class="lab">明确的错误</span></td><td>出错用对状态码 + 结构化错误体</td><td>参数非法 <code class="inl">400</code>、限流 <code class="inl">429</code>,而不是一律 200 塞 body</td></tr>
+          <tr><td><span class="lab">可安全重试</span></td><td>网络抖动时重发不会出乱子</td><td>投保申请重试不会签出两张保单</td></tr>
+          <tr><td><span class="lab">可演进</span></td><td>能加功能而不破坏老调用方</td><td>报价响应加字段,broker 的旧代码照常跑</td></tr>
+          <tr><td><span class="lab">可审计</span></td><td>每次调用可追溯、可解释</td><td>每条报价带 <code class="inl">quote_id</code> 与用的规则版本(合规一等公民)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 注意最后两行——<strong>可演进</strong>和<strong>可审计</strong>是今天的两条暗线,后面每一节都会踩到它们。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>四种风格</div>
+    <h2>REST / RPC / gRPC / GraphQL,各管一摊</h2>
+    <p>“API 风格”说的是:<strong>你把对外接口组织成什么形状</strong>。主流有四种思路,核心差别是“以资源为中心”还是“以动作为中心”,以及谁决定返回哪些数据。</p>
+
+    <h3>REST —— 以资源为中心</h3>
+    <p>把系统看成一堆<strong>资源(名词)</strong>:报价、保单、申请。用 HTTP 方法(动词)去操作它们:<code class="inl">POST /quotes</code> 建报价、<code class="inl">GET /policies/123</code> 读保单、<code class="inl">DELETE /policies/123</code> 删保单。无状态、用 HTTP 状态码、人类可读。它是<strong>公开 API 的事实标准</strong>——broker、第三方最容易理解和接入。</p>
+
+    <h3>RPC —— 以动作为中心</h3>
+    <p>RPC(Remote Procedure Call)把远程调用<strong>当成调一个本地函数</strong>:<code class="inl">repricePolicy(policyId)</code>、<code class="inl">runUnderwriting(appId)</code>。围绕“动作”而不是“资源”。适合那些天然是“命令/操作”、套不进 CRUD 资源模型的内部接口。</p>
+
+    <h3>gRPC —— 高性能的 RPC</h3>
+    <p>gRPC 是 Google 的 RPC 框架:跑在 <strong>HTTP/2</strong> 上(还记得 Day 4 的多路复用吗),用 <strong>Protocol Buffers</strong> 做二进制序列化,先写 <code class="inl">.proto</code> 契约再生成各语言的强类型代码。优点是<strong>快、省带宽、强类型、还支持流式</strong>。代价是不那么人类可读、浏览器直连支持差。所以它的主场是<strong>内部服务之间</strong>,而不是面向公众。</p>
+
+    <h3>GraphQL —— 让客户端自己点菜</h3>
+    <p>REST 常有两个烦恼:<strong>over-fetching</strong>(一个接口返回一大坨,客户端只用得上一半)和 <strong>under-fetching</strong>(一屏要的数据散在 3 个接口,得发 3 次请求)。GraphQL 用<strong>单个 endpoint</strong> + 一套<em>查询语言</em>解决:客户端在请求里<strong>声明自己要哪些字段</strong>,服务端按需返回,一次拿全。代价是服务端更复杂、缓存更难做、容易被一个“巨型查询”打爆。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:14%"></th><th>REST</th><th>gRPC</th><th>GraphQL</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">组织方式</span></td><td>资源 + HTTP 动词</td><td>动作 / 函数调用</td><td>图 + 客户端声明字段</td></tr>
+          <tr><td><span class="lab">数据格式</span></td><td>JSON(文本,可读)</td><td>Protobuf(二进制,高效)</td><td>JSON,字段按需</td></tr>
+          <tr><td><span class="lab">取数粒度</span></td><td>服务端定,易 over/under-fetch</td><td>服务端定,强类型</td><td>客户端定,精确</td></tr>
+          <tr><td><span class="lab">最佳场景</span></td><td>公开 API、第三方集成</td><td>内部微服务间、低延迟高频</td><td>聚合多源、前端一屏多数据</td></tr>
+          <tr><td><span class="lab">主要代价</span></td><td>多端点、易冗余传输</td><td>不易调试、浏览器不友好</td><td>服务端复杂、缓存/限流难</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 没有“最好”,只有“最合适”。同一个公司里三种风格<strong>常常并存</strong>:对外用 REST,内部用 gRPC,前端聚合层用 GraphQL。这正是 Day 1 说的“约束下的取舍”。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>QuoteFlow 会怎么混用</div>
+      <ul>
+        <li><strong>对外报价 / 保单 API → REST</strong>:broker 和第三方最熟悉,JSON 可读、好调试、好接入。</li>
+        <li><strong>内部定价、核保、再保服务之间 → gRPC</strong>:调用频繁、要低延迟、字段契约要强类型不能传错——昨天讲的 HTTP/2 多路复用在这里直接派上用场。</li>
+        <li><strong>App 首页一屏要拼“保单 + 待缴账单 + 最近报价” → GraphQL / BFF</strong>:一次请求按需取齐,省掉移动端的多次跨洲往返(Day 23 的 BFF 会再回到这)。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>幂等性与安全重试</div>
+    <h2>同一个请求发两次,会不会出两张保单</h2>
+    <p>这是 Day 4 埋的伏笔。<strong>幂等(idempotent)</strong>的定义很简单:<em>同一个请求,执行一次和执行多次,对系统状态的影响完全相同。</em>它之所以是 API 设计的核心,是因为<strong>网络天生不可靠</strong>:客户端发了请求却没等到响应(可能请求丢了,也可能响应在回来的路上丢了),它<strong>无法区分这两种情况</strong>,于是只能重试。问题来了——这次重试,是“补发”还是“重复操作”?</p>
+    <p>HTTP 方法本身就带幂等语义,设计 API 时要顺着它:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:18%">方法</th><th>语义</th><th>幂等?</th><th>重试安全吗</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">GET</span></td><td>读,不改状态</td><td>是(也安全)</td><td>随便重试</td></tr>
+          <tr><td><span class="lab">PUT</span></td><td>把资源整体设成某个值</td><td>是</td><td>重试结果一样</td></tr>
+          <tr><td><span class="lab">DELETE</span></td><td>删除</td><td>是(删两次还是没了)</td><td>安全</td></tr>
+          <tr><td><span class="lab">POST</span></td><td>创建 / 触发动作</td><td><strong>否</strong></td><td><strong>裸重试会重复创建</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ <code class="inl">PUT /policies/123 {status:"lapsed"}</code> 发几次结果都是“把 123 设为 lapsed”,幂等;而 <code class="inl">POST /applications</code> 每发一次就想新建一张申请——这才是真正危险的地方。</p>
+    <p>那 QuoteFlow 最怕的场景就清楚了:用户点“提交投保”,网络抖了一下没收到响应,前端自动重试——结果<strong>签出了两张保单、扣了两次首期保费</strong>。解决办法是行业标准做法:<strong>idempotency key(幂等键)</strong>。客户端为这次“逻辑操作”生成一个唯一 key 放进 header;服务端第一次处理时把 <code class="inl">key → 结果</code> 存下来,后续<strong>带同一个 key 的请求直接返回当时的结果,不再执行第二次</strong>。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">POST /v1/applications · 用 idempotency key 防重复</span></div>
+<pre><code><span class="c-com">// 第 1 次:客户端为这次"提交投保"生成一个唯一 key</span>
+<span class="c-key">POST</span> /v1/applications
+<span class="c-key">Idempotency-Key:</span> <span class="c-str">"a3f1c9e2-..."</span>      <span class="c-com">// 同一逻辑操作复用同一个 key</span>
+{ <span class="c-str">"quote_id"</span>: <span class="c-str">"q_8f3a"</span>, <span class="c-str">"applicant_id"</span>: <span class="c-str">"u_55"</span> }
+
+<span class="c-key">201 Created</span>
+{ <span class="c-str">"application_id"</span>: <span class="c-str">"app_77"</span>, <span class="c-str">"status"</span>: <span class="c-str">"submitted"</span> }
+
+<span class="c-com">// 响应没收到 → 客户端超时重试,key 不变 ↓</span>
+<span class="c-key">POST</span> /v1/applications
+<span class="c-key">Idempotency-Key:</span> <span class="c-str">"a3f1c9e2-..."</span>      <span class="c-com">// 服务端认出这个 key 处理过了</span>
+{ <span class="c-str">"quote_id"</span>: <span class="c-str">"q_8f3a"</span>, <span class="c-str">"applicant_id"</span>: <span class="c-str">"u_55"</span> }
+
+<span class="c-key">200 OK</span>                                <span class="c-com">// 返回第一次的同一结果,不再新建</span>
+{ <span class="c-str">"application_id"</span>: <span class="c-str">"app_77"</span>, <span class="c-str">"status"</span>: <span class="c-str">"submitted"</span> }
+<span class="c-com">//      ↑ 只有一张 app_77,只扣了一次费</span></code></pre>
+    </div>
+    <p>几个工程细节值得记:key 由<strong>客户端</strong>生成(它才知道“这是同一次操作”);服务端要给 key 设一个<strong>保存期限</strong>(比如 24h);还要防一种坑——<strong>同一个 key 配了不同的 body</strong>,这通常说明客户端用错了,应该报 <code class="inl">422</code> 而不是默默返回旧结果。这套机制 Day 18(幂等、重试、死信队列)还会从异步消息的角度再讲一遍。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>版本化与演进</div>
+    <h2>怎么改 API 才不在凌晨三点炸掉 broker</h2>
+    <p>回到第 1 节的核心焦虑:API 有人用之后就很难改。但业务一定会变——新增产品、调整字段、改规则。关键概念是<strong>向后兼容(backward compatibility)</strong>:<em>老的调用方不改一行代码,也能继续正常工作。</em>分清哪些改动安全,是 API 长寿的关键。</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:34%">改动</th><th>安全吗</th><th>为什么</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">响应里加一个新字段</span></td><td>✅ 通常安全(additive)</td><td>老调用方忽略不认识的字段即可</td></tr>
+          <tr><td><span class="lab">新增一个可选的请求参数</span></td><td>✅ 安全</td><td>不传就用默认行为,老调用方无感</td></tr>
+          <tr><td><span class="lab">删字段 / 改字段名</span></td><td>❌ breaking</td><td>老调用方读不到它依赖的字段</td></tr>
+          <tr><td><span class="lab">改字段含义或类型</span></td><td>❌ breaking(最阴险)</td><td>编译不报错,但语义变了,悄悄算错</td></tr>
+          <tr><td><span class="lab">把可选参数改成必填</span></td><td>❌ breaking</td><td>老调用方没传,直接被拒</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 黄金法则:<strong>只增不改不删(additive only)</strong>能走得很远。真要做破坏性变更,就得上版本号。</p>
+    <p>当不得不做 breaking change,就<strong>开新版本</strong>,让新老并存、给调用方迁移时间。常见三种放法:放 URL 路径 <code class="inl">/v2/quotes</code>(最直观、最常见)、放 header <code class="inl">Accept: application/vnd.quoteflow.v2+json</code>(URL 干净但不显眼)、放 query 参数 <code class="inl">?version=2</code>(简单但易被忽略)。多数公开 API 选 <strong>URL path 版本</strong>,胜在一眼可见、好路由、好缓存。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>别把两种“版本”搞混(合规视角)</div>
+      <ul>
+        <li><strong>API 版本</strong>(<code class="inl">/v1</code>):管的是<em>接口契约</em>的形状——字段、路径怎么变。是给<strong>调用方</strong>看的。</li>
+        <li><strong>业务版本</strong>(<code class="inl">rate_table_version: "2026-06"</code>,Day 1 见过):管的是<em>这条报价用哪一版费率表/规则算的</em>。是给<strong>审计与可复现</strong>用的。</li>
+        <li>对 QuoteFlow,两者都要、且要分开:同一个 <code class="inl">/v1</code> 契约下,昨天和今天的报价可能用了不同版本的费率表;监管要的是“这条报价当时<strong>用哪版规则、能否原样重算</strong>”——这跟 API 怎么演进是两个正交的维度。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>分页与错误设计</div>
+    <h2>列表不能一次吐百万条,出错要说人话</h2>
+    <p>最后两件天天用到、却最容易做随便的事。第一件是<strong>分页(pagination)</strong>:<code class="inl">GET /policies</code> 背后可能是百万级 in-force 保单,绝不能一次全返回——会拖垮数据库、撑爆带宽、超时。要分页。常见两种:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:24%"></th><th>Offset 分页</th><th>Cursor 分页(keyset)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">形式</span></td><td><code class="inl">?limit=50&amp;offset=10000</code></td><td><code class="inl">?limit=50&amp;cursor=eyJpZCI6...</code></td></tr>
+          <tr><td><span class="lab">深翻页性能</span></td><td>越翻越慢(要跳过前 N 行)</td><td>稳定快(从游标位置接着走)</td></tr>
+          <tr><td><span class="lab">数据在变时</span></td><td>会漏/会重(行号漂移)</td><td>稳定,不受新增删除干扰</td></tr>
+          <tr><td><span class="lab">能跳到第 N 页吗</span></td><td>能</td><td>不能,只能顺序往下</td></tr>
+          <tr><td><span class="lab">适合</span></td><td>小数据集、要页码跳转</td><td>大数据集、无限滚动、批量遍历</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ QuoteFlow 的夜间批量重定价要<strong>遍历全部 in-force 保单</strong>——这种“稳定地从头扫到尾”的场景,<strong>cursor 分页</strong>几乎是唯一正确选择:offset 在百万行深处又慢又会因为同时有保单签发/失效而漏算重算。(底层为什么 cursor 快,要等 Day 9 索引那天才能说透。)</p>
+    <p>第二件是<strong>错误返回</strong>。承接 Day 4:用对状态码(<code class="inl">400</code> 参数错、<code class="inl">401</code> 没认证、<code class="inl">409</code> 冲突、<code class="inl">429</code> 限流、<code class="inl">500</code> 服务端炸),并配一个<strong>全站一致的结构化错误体</strong>——让调用方能用程序判断、能给用户显示、还能留痕审计:</p>
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">一致的错误体 · QuoteFlow 报价校验失败</span></div>
+<pre><code><span class="c-key">422 Unprocessable Entity</span>
+{
+  <span class="c-str">"error"</span>: {
+    <span class="c-str">"code"</span>: <span class="c-str">"INVALID_SUM_INSURED"</span>,        <span class="c-com">// 机器可判断,稳定不变</span>
+    <span class="c-str">"message"</span>: <span class="c-str">"sum_insured 超出该产品上限"</span>,   <span class="c-com">// 人能看懂</span>
+    <span class="c-str">"field"</span>: <span class="c-str">"sum_insured"</span>,                  <span class="c-com">// 定位到具体字段</span>
+    <span class="c-str">"max_allowed"</span>: <span class="c-num">2000000</span>,
+    <span class="c-str">"request_id"</span>: <span class="c-str">"req_5c1a"</span>               <span class="c-com">// 可追溯:对上日志,审计/排障</span>
+  }
+}</code></pre>
+    </div>
+    <p>注意那个 <code class="inl">request_id</code>:它把一次失败的调用<strong>钉在了日志里</strong>,客服、排障、合规审计都能凭它把整条链路捞出来——这正是 Day 1 那条“auditability 是一等公民”的暗线,落到了错误设计这一层。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>贯穿案例</div>
+    <h2>QuoteFlow 的 API 全貌</h2>
+    <p>把今天五节拼成一张图:三类调用方,对应三种风格,各取所长——这就是真实系统“多风格并存”的样子。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 396" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- callers -->
+        <text x="120" y="26" font-size="12" font-weight="700" fill="#15a06a" text-anchor="middle">调用方</text>
+        <rect x="40" y="38" width="160" height="44" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="120" y="58" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">网站</text>
+        <text x="120" y="74" font-size="11" fill="#6a7872" text-anchor="middle">浏览器</text>
+        <rect x="40" y="92" width="160" height="44" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="120" y="112" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">移动 App</text>
+        <text x="120" y="128" font-size="11" fill="#6a7872" text-anchor="middle">一屏多数据</text>
+        <rect x="40" y="146" width="160" height="44" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="120" y="166" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">Broker 系统</text>
+        <text x="120" y="182" font-size="11" fill="#6a7872" text-anchor="middle">机器对机器</text>
+
+        <!-- edge -->
+        <rect x="288" y="78" width="150" height="72" rx="13" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="363" y="106" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">API 边缘</text>
+        <text x="363" y="125" font-size="11" fill="#6a7872" text-anchor="middle">REST / GraphQL</text>
+        <text x="363" y="140" font-size="11" fill="#6a7872" text-anchor="middle">路由 · 认证 · 限流</text>
+
+        <!-- internal services -->
+        <text x="610" y="26" font-size="12" font-weight="700" fill="#15a06a" text-anchor="middle">内部服务 · gRPC</text>
+        <rect x="520" y="44" width="180" height="42" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="610" y="70" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">定价服务 Pricing</text>
+        <rect x="520" y="96" width="180" height="42" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="610" y="122" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">核保服务 Underwriting</text>
+        <rect x="520" y="148" width="180" height="42" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="610" y="174" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">保单服务 Policy</text>
+
+        <!-- caller -> edge -->
+        <path d="M200 60 C250 60 248 96 286 100" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="243" y="62" font-size="10.5" fill="#4a5852" text-anchor="middle">REST</text>
+        <path d="M200 114 L284 114" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="243" y="108" font-size="10.5" fill="#4a5852" text-anchor="middle">GraphQL</text>
+        <path d="M200 168 C250 168 248 134 286 128" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="243" y="170" font-size="10.5" fill="#4a5852" text-anchor="middle">REST (mTLS)</text>
+
+        <!-- edge -> internal -->
+        <path d="M438 100 C480 100 480 66 518 66" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M438 114 L518 116" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M438 128 C480 128 480 168 518 168" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- bottom contract bar -->
+        <rect x="40" y="232" width="660" height="132" rx="13" fill="#fbfdfc" stroke="#e3ebe6"/>
+        <text x="60" y="258" font-size="13" font-weight="700" fill="#0f3d2e">同一份契约里,今天的五个设计点各就各位:</text>
+        <text x="60" y="284" font-size="12.5" fill="#3a463f">· <tspan font-weight="600" fill="#0c7a50">POST /v1/quotes</tspan> 报价  ·  <tspan font-weight="600" fill="#0c7a50">POST /v1/applications</tspan> 投保(带 Idempotency-Key)</text>
+        <text x="60" y="308" font-size="12.5" fill="#3a463f">· <tspan font-weight="600" fill="#0c7a50">GET /v1/policies?cursor=…</tspan> 列表用 cursor 分页(夜间批量遍历也走它)</text>
+        <text x="60" y="332" font-size="12.5" fill="#3a463f">· 版本走 URL <tspan font-weight="600" fill="#0c7a50">/v1</tspan>,只增字段保持向后兼容;一致的错误体带 <tspan font-weight="600" fill="#0c7a50">request_id</tspan></text>
+        <text x="60" y="356" font-size="12.5" fill="#3a463f">· 每条结果带 <tspan font-weight="600" fill="#0c7a50">quote_id</tspan> + 业务版本(<tspan font-weight="600" fill="#0c7a50">rate_table_version</tspan>)→ 可追溯 / 可复现 / 合规</text>
+      </svg>
+      <figcaption>图 1 · QuoteFlow 的 API 全貌:对外 REST + 移动端 GraphQL,内部服务间 gRPC;底部是今天五个设计点在同一份契约里的落点。</figcaption>
+    </figure>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">为什么这套划分是“合理取舍”而不是“炫技”</h3>
+      <p>对外只暴露 <strong>REST</strong>,是因为 broker 和第三方的接入成本最低、最好排障——公开契约的首要目标是<em>别人好用、好演进</em>。内部服务间用 <strong>gRPC</strong>,是因为定价/核保/保单之间调用频繁、要低延迟、字段不能传错,强类型 + 二进制正好对症。移动端那条 <strong>GraphQL</strong>,是为了省掉跨洲多次往返(呼应 Day 4 的延迟预算)。三种风格不是堆叠,而是<strong>每一类调用方的约束不同,就给不同的合同</strong>。</p>
+      <h3>合规的线,从契约层就拉好</h3>
+      <p>投保这类“一次不能多”的写操作上 <strong>idempotency key</strong>;每条报价带 <code class="inl">quote_id</code> 和 <code class="inl">rate_table_version</code> 做<strong>可追溯 + 可复现</strong>;错误体带 <code class="inl">request_id</code> 让审计能对上日志;面向 broker 的机器通道叠 <strong>mTLS</strong>(Day 4)。受监管定价里,API 不只是“功能接口”,它是审计链条的第一环。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>API 是一份<strong>难反悔的契约</strong>:一旦有人用,删字段/改语义都可能在凌晨炸掉调用方。设计时就为<strong>演进</strong>留余地。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>REST / gRPC / GraphQL</strong> 常并存:对外 REST、内部 gRPC、前端聚合 GraphQL。按<strong>每类调用方的约束</strong>选,不是非此即彼。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>幂等性</strong>决定能否安全重试。GET/PUT/DELETE 天然幂等;POST 不是,写操作用 <strong>idempotency key</strong> 防重复(投保不签出两张保单)。</p></div>
+      <div class="tk"><span class="n">4</span><p>演进守则:<strong>只增不删不改</strong>;破坏性变更才上版本号。分页选 <strong>cursor</strong> 扛大数据集;错误用对状态码 + 一致错误体 + <code class="inl">request_id</code>。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">用户提交投保后没收到响应、前端自动重发,怎么保证不签出两张保单?</span></summary>
+        <div class="ans"><b>用 idempotency key。</b>客户端为这次"提交投保"生成一个唯一 key 放进 header;服务端第一次处理后记下 <code>key → 结果</code>,之后带同一个 key 的重试<b>直接返回原结果、不再执行</b>。因为 POST 不是幂等的,裸重试会重复创建。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">给报价响应<b>加</b>一个新字段 <code>risk_band</code>,是 breaking change 吗?那<b>改</b>一个字段的含义呢?</span></summary>
+        <div class="ans"><b>加字段通常不是</b>(additive)——老调用方忽略不认识的字段即可。<b>改含义/类型是,而且最阴险</b>:编译不报错,但语义变了,调用方会悄悄算错。真要做破坏性变更,就开新版本(如 <code>/v2</code>)让新老并存。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">夜间批量要遍历百万条 in-force 保单,该用 offset 还是 cursor 分页?为什么?</span></summary>
+        <div class="ans"><b>cursor。</b>offset 在深处要"跳过前 N 行",越翻越慢;而且批量跑的同时有保单签发/失效,行号漂移会导致<b>漏算或重算</b>。cursor 从游标位置接着走,既稳定又快,正适合"从头扫到尾"的遍历。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 的网站、App、broker 三类调用方,你会给他们<strong>同一套 API 还是不同风格</strong>?各自的取舍是什么?(提示:接入成本 vs 性能 vs 灵活取数)<br>② 投保 <code class="inl">POST /applications</code> 上了 idempotency key——这个 key 该由<strong>谁生成、存多久</strong>?如果<strong>同一个 key 配了不一样的 body</strong>,服务端该怎么处理?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>API</dt><dd>Application Programming Interface,系统对外暴露的接口契约;一旦发布即成长期承诺。</dd></dl>
+      <dl><dt>REST</dt><dd>以资源(名词)为中心、用 HTTP 动词操作的风格;公开 API 的事实标准。</dd></dl>
+      <dl><dt>RPC / gRPC</dt><dd>以动作(函数调用)为中心;gRPC 跑在 HTTP/2 + Protobuf 上,强类型高效,主用于内部服务间。</dd></dl>
+      <dl><dt>GraphQL</dt><dd>单 endpoint + 查询语言,客户端自己声明要哪些字段,解决 over/under-fetching。</dd></dl>
+      <dl><dt>Idempotency</dt><dd>幂等性:同一请求执行一次与多次对系统状态的影响相同,是安全重试的前提。</dd></dl>
+      <dl><dt>Idempotency Key</dt><dd>客户端为一次逻辑写操作生成的唯一键,让服务端对重复请求只执行一次。</dd></dl>
+      <dl><dt>Backward Compatibility</dt><dd>向后兼容:老调用方不改代码仍能正常工作;只增字段安全,删/改字段为 breaking change。</dd></dl>
+      <dl><dt>Cursor Pagination</dt><dd>游标分页(keyset),从上次位置接着取;比 offset 在大数据集与数据变动时更稳更快。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 6</div>
+      <div class="t">负载均衡与反向代理、L4/L7、横向 vs 纵向扩展——今天设计好了对外那份契约,明天看一个请求进来后<strong>怎么被分到成百上千台机器</strong>上去处理,以及量涨了系统怎么"长大"</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 05 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

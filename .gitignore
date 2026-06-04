@@ -1,5 +1,6 @@
 # Claude Code 本地设置（个人机器专属，不入库）
 .claude/settings.local.json
+.claude/hooks/
 
 # Windows / OneDrive 杂物
 Thumbs.db
