@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 06 · 负载均衡与扩展</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:20.00%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 6 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 1 周 · 基础与思维方式</span>
+    <h1>一个请求进来,<br>怎么分给上千台机器</h1>
+    <p class="lede">昨天定好了对外那份契约;今天看请求落地后的第一道分水岭——它先撞上谁、被分到哪台机器,以及当流量翻倍时,系统是“换台更大的”还是“多摆几台”。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>昨日回顾 · Day 5</div>
+    <ul>
+      <li>昨天把 API 当成一份<strong>难反悔的契约</strong>来设计:REST / gRPC / GraphQL 按调用方各取所长、用 <strong>idempotency key</strong> 让投保能安全重试、靠<strong>只增不改</strong>保持向后兼容。但我们一直把“服务端”当成<em>一台</em>机器在讲。今天捅破这层假设——真实的 QuoteFlow 报价 API 背后是<strong>一群</strong>机器,而<strong>负载均衡器(load balancer)</strong>就是站在契约和这群机器之间、决定每个请求去哪儿的那道关口。昨天的“可安全重试”在这里会立刻变得重要:请求被分到哪台、那台挂了怎么办,全看今天这道关。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>说清单台机器的<strong>天花板</strong>,以及<strong>reverse proxy(反向代理)</strong>到底站在哪、干什么</li>
+      <li>分清两种长大方式:<strong>vertical(纵向 / scale up)</strong> vs <strong>horizontal(横向 / scale out)</strong>,各自的取舍</li>
+      <li>知道负载均衡器<strong>怎么决定</strong>把请求发给谁:round robin / least connections / 加权 / hash</li>
+      <li>区分 <strong>L4 vs L7</strong> 负载均衡,以及为什么 QuoteFlow 两层都要</li>
+      <li>理解横向扩展的<strong>前提条件</strong>:无状态(stateless)+ 健康检查(health check),以及会话粘性的坑</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>单台机器的天花板</div>
+    <h2>一台再强,也有撑不住的那一刻</h2>
+    <p>QuoteFlow 刚上线时,一台应用服务器足够:网站发来 <code class="inl">POST /v1/quotes</code>,它算完返回,绰绰有余。但只要业务跑起来,两件事会同时逼近——<strong>请求量涨</strong>(新产品上线、广告投放、broker 接入),以及<strong>那台机器会挂</strong>(硬件故障、要打补丁重启、机房断电)。单台架构对这两件事都没有答案:量一大就排队变慢,机器一挂就<strong>整个报价业务归零</strong>。</p>
+    <p>第二点尤其致命。Day 1 我们把 <strong>availability</strong> 列为一等公民——可单台服务器就是一个<strong>单点故障(single point of failure, SPOF)</strong>:它的可用性就是整个系统的可用性上限。要突破,唯一的路是<strong>摆多台</strong>。可一旦有多台,新问题立刻冒出来:客户端该连哪一台?这就需要在它们前面放一个<strong>统一入口</strong>,由它来分发——这就是负载均衡器和反向代理登场的地方。</p>
+
+    <h3>反向代理:替这群机器对外说话</h3>
+    <p><strong>Reverse proxy(反向代理)</strong>是一个站在<strong>服务端这一侧</strong>、代表后端机器接收所有外部请求的中间层。客户端只知道这个入口的地址(比如 <code class="inl">api.quoteflow.com</code>),根本不知道、也不需要知道后面到底有几台机器、它们的真实 IP 是什么。反向代理收到请求后,挑一台后端把请求转过去,再把响应带回来。</p>
+    <p>这里有个容易混的对照:Day 4 提过浏览器可能走的 <em>forward proxy(正向代理)</em>是代表<strong>客户端</strong>出门(替你访问外网、隐藏你);<strong>reverse proxy 正相反,代表服务器迎客</strong>(隐藏后端、替后端挡在前面)。负载均衡器就是反向代理最常见的一种——它在“转给谁”这件事上做得特别讲究。除了分发,这道关口顺手还能干很多活:TLS 终止(Day 4 的握手在这里统一做)、压缩、限流、把静态内容挡在前面。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>一句话分清三个词</div>
+      <ul>
+        <li><strong>Reverse proxy</strong>:站在服务端前面的统一入口(代表后端迎客)。是个<em>角色</em>。</li>
+        <li><strong>Load balancer</strong>:专门负责“把请求公平/聪明地分给多台后端”的反向代理。是个<em>专精的反向代理</em>。</li>
+        <li><strong>API gateway</strong>:在负载均衡之上再叠认证、路由、限流、聚合等业务能力(Day 23 专讲)。是个<em>加了料的入口</em>。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>两种长大方式</div>
+    <h2>换台更大的,还是多摆几台</h2>
+    <p>当一台撑不住,扩容(scaling)有两条根本不同的路。这是系统设计里最基础、也最常被考的一组取舍:</p>
+    <p><strong>Vertical scaling(纵向扩展 / scale up)</strong>:给<em>同一台</em>机器加资源——更多 CPU、更大内存、更快磁盘。像是把厨房里那个厨师换成一个手更快的。<strong>简单、不改架构</strong>,代码一行不用动。但它有硬天花板(单机配置就那么高)、价格<strong>非线性飙升</strong>(顶配机器贵得离谱),而且<strong>没解决 SPOF</strong>——再强也还是一台,挂了照样全停。</p>
+    <p><strong>Horizontal scaling(横向扩展 / scale out)</strong>:<em>多摆几台</em>一样的机器,让负载均衡器把流量摊开。像是再雇几个厨师一起出菜。它几乎<strong>没有上限</strong>(不够就再加)、用便宜的普通机器拼也很划算,而且天然<strong>消除了 SPOF</strong>(挂一台,其余顶上)。代价是<strong>架构变复杂</strong>:要有负载均衡、要处理“状态放哪”、要管多台机器的部署和一致性——这也正是这门课后面大半内容的来由。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:20%"></th><th>Vertical(scale up)</th><th>Horizontal(scale out)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">怎么做</span></td><td>同一台加 CPU/内存/磁盘</td><td>多加几台一样的机器,流量摊开</td></tr>
+          <tr><td><span class="lab">上限</span></td><td>有硬天花板(单机配置封顶)</td><td>近乎无限(不够就再加)</td></tr>
+          <tr><td><span class="lab">成本曲线</span></td><td>顶配非线性飙升,越往上越贵</td><td>普通机器线性叠加,更划算</td></tr>
+          <tr><td><span class="lab">可用性 / SPOF</span></td><td>仍是单点,挂了全停</td><td>天然冗余,挂一台其余顶上</td></tr>
+          <tr><td><span class="lab">复杂度</span></td><td>低,代码/架构不动</td><td>高:要 LB、要处理状态与一致性</td></tr>
+          <tr><td><span class="lab">何时先用</span></td><td>早期、量小、想快速顶一下</td><td>要高可用、要长期扩到很大</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 现实里不是二选一:常先 scale up 快速顶过早期,等架构理顺再 scale out 做长期。但只要 availability 是硬需求,<strong>横向扩展几乎是必经之路</strong>——因为只有它能去掉单点。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>对 QuoteFlow 的两条路径(呼应 Day 1)</div>
+      <ul>
+        <li><strong>实时报价 API</strong>(要 low latency + 高可用):典型的横向扩展——一排无状态的报价服务,前面一个负载均衡器,挂一台不影响出报价。今天主要讲这条。</li>
+        <li><strong>夜间批量重定价</strong>(要 high throughput):也靠“多摆几台 worker 并行跑”来提速,但它的“分发”逻辑和实时请求不同(是切分数据、不是分发请求)——这条线 Day 15/17 讲消息队列与批处理时再展开。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>分给谁</div>
+    <h2>负载均衡器怎么挑后端</h2>
+    <p>有了一排机器,核心问题就剩一个:<strong>下一个请求发给哪台?</strong>这就是负载均衡<em>算法</em>。它们在“简单”和“均匀”之间各有取舍:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:26%">算法</th><th>怎么挑</th><th>适合 / 注意</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Round Robin</span><br>轮询</td><td>1→2→3→1→2… 挨个轮</td><td>最简单;假设每台一样强、每个请求差不多重</td></tr>
+          <tr><td><span class="lab">Weighted RR</span><br>加权轮询</td><td>按权重分,强的机器多分</td><td>机器配置不均时用(8 核的比 4 核的多拿)</td></tr>
+          <tr><td><span class="lab">Least Connections</span><br>最少连接</td><td>发给当前活跃连接最少的</td><td>请求耗时差异大时更均匀(报价快、核保慢)</td></tr>
+          <tr><td><span class="lab">Least Response Time</span><br>最快响应</td><td>挑近期响应最快的</td><td>更聪明,但要持续测量每台的延迟</td></tr>
+          <tr><td><span class="lab">IP / Key Hash</span><br>哈希</td><td>按来源 IP 或某个 key 算哈希定台</td><td>同一来源总落同一台(会话粘性,见第 5 节)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 默认从 round robin 起步足够好用;当请求<strong>轻重不均</strong>(QuoteFlow 的简单报价 vs 复杂核保)时,<strong>least connections</strong> 往往更稳——否则轮询可能把好几个慢请求恰好堆到同一台。</p>
+
+    <p>用伪代码把前三种放在一起,差别一眼就清楚——注意它们读的是<strong>不同的信息</strong>:轮询只数到第几个,加权看配置,最少连接看实时状态。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">load_balancer.py · 三种挑后端策略(示意)</span></div>
+<pre><code><span class="c-com"># 一排健康的后端(只有通过健康检查的才在池子里,见第 5 节)</span>
+backends = [<span class="c-str">"pricing-1"</span>, <span class="c-str">"pricing-2"</span>, <span class="c-str">"pricing-3"</span>]
+
+<span class="c-key">def</span> <span class="c-fn">round_robin</span>(state):
+    <span class="c-com"># 只记"上次发到第几个",挨个轮 —— 最简单</span>
+    state.i = (state.i + <span class="c-num">1</span>) % len(backends)
+    <span class="c-key">return</span> backends[state.i]
+
+<span class="c-key">def</span> <span class="c-fn">least_connections</span>(backends):
+    <span class="c-com"># 看实时活跃连接数,发给最闲的 —— 抗"轻重不均"</span>
+    <span class="c-key">return</span> min(backends, key=<span class="c-key">lambda</span> b: b.active_conns)
+
+<span class="c-key">def</span> <span class="c-fn">weighted_pick</span>(backends):
+    <span class="c-com"># 8 核的 weight=2,4 核的 weight=1 → 强的多拿</span>
+    pool = [b <span class="c-key">for</span> b <span class="c-key">in</span> backends <span class="c-key">for</span> _ <span class="c-key">in</span> range(b.weight)]
+    <span class="c-key">return</span> random.choice(pool)
+
+<span class="c-com"># 关键前提:backends 里永远只有"健康"的机器。</span>
+<span class="c-com"># 一台挂了 → 健康检查把它摘掉 → 这里自动不会再选它。</span></code></pre>
+    </div>
+    <p>最后一行注释是今天最重要的伏笔:负载均衡之所以能提供高可用,不只是“会分发”,而是它<strong>只往健康的机器分</strong>。这就引出了让横向扩展真正成立的两个前提——第 5 节。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>L4 还是 L7</div>
+    <h2>在“第几层”做分发,能看到的东西不一样</h2>
+    <p>负载均衡可以发生在网络的不同层次(回忆 Day 4 的分层)。最常见的两类是 <strong>L4</strong> 和 <strong>L7</strong>,差别在于:<strong>它拆开请求看了多深</strong>。看得越浅越快,看得越深越聪明。</p>
+    <p><strong>L4(传输层)负载均衡</strong>只看 TCP/UDP 这一层的信息——源/目标 IP 和端口。它<strong>不拆开</strong>里面的 HTTP 内容,基本就是“把这条连接的字节流原样转给某台后端”。因为不解析内容,它<strong>极快、开销极低、吞吐极高</strong>;但也因此<strong>看不懂业务</strong>:无法按 URL 路径、Cookie、header 来路由。</p>
+    <p><strong>L7(应用层)负载均衡</strong>会把 HTTP 请求<strong>完整拆开</strong>:能看到路径(<code class="inl">/v1/quotes</code> vs <code class="inl">/v1/policies</code>)、header、Cookie、甚至 body。于是它能做<strong>聪明的、内容感知的路由</strong>:把报价请求发给定价服务集群、把保单请求发给保单集群;还能在这一层统一做 TLS 终止、按路径限流、改写 header。代价是要解析内容,<strong>每个请求开销更大、稍慢一点</strong>。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%"></th><th>L4(传输层)</th><th>L7(应用层)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">看到什么</span></td><td>IP + 端口(TCP/UDP)</td><td>完整 HTTP:路径 / header / cookie / body</td></tr>
+          <tr><td><span class="lab">能不能按内容路由</span></td><td>不能,只认连接</td><td>能,按 URL/header 精细分流</td></tr>
+          <tr><td><span class="lab">速度 / 开销</span></td><td>极快,开销极低</td><td>稍慢,每请求要解析</td></tr>
+          <tr><td><span class="lab">TLS 终止</span></td><td>一般不做(透传加密流)</td><td>常在这里统一做(Day 4 握手)</td></tr>
+          <tr><td><span class="lab">典型角色</span></td><td>最外层入口,海量分流</td><td>内层智能路由 / API 边缘</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 不是二选一,而是<strong>常常叠用</strong>:最外面用 L4 扛住海量连接、快速摊开,后面再用 L7 按业务做精细路由。下一节的图就是这个两层结构。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>横向扩展的前提</div>
+    <h2>无状态 + 健康检查,缺一不可</h2>
+    <p>“多摆几台、负载均衡摊开”听着简单,但它有两个<strong>隐含前提</strong>。这两条没做到,横向扩展不仅不工作,还会偷偷算错——对 QuoteFlow 这种受监管系统是大忌。</p>
+
+    <h3>前提一:应用服务器要无状态(stateless)</h3>
+    <p><strong>无状态</strong>的意思是:服务器<em>自己不在本地内存里保存“两次请求之间的关键数据”</em>。每个请求都自带它需要的一切(或从共享存储里取),所以发给<strong>哪一台都得到一样的结果</strong>。这正是负载均衡能随意分发的根基——既然每台都等价,round robin 才有意义。</p>
+    <p>反例最能说明问题:假设报价服务把“用户的报价进度”存在<strong>本台机器的内存</strong>里。客户端第一步请求落在 pricing-1,第二步被负载均衡分到了 pricing-2——pricing-2 根本不知道第一步发生过什么,流程就断了。所以横向扩展的铁律是:<strong>状态不要放在应用服务器本地</strong>,把它挪到共享的地方去——数据库、或一个共享缓存(Day 7 的 Redis 正是干这个的)。应用层因此可以随便加减机器、随便挂随便换。</p>
+
+    <h3>前提二:负载均衡要做健康检查(health check)</h3>
+    <p>负载均衡器必须持续探测每台后端是否还活着——通常是定期请求一个轻量的 <code class="inl">GET /healthz</code> 端点。<strong>探测失败的机器会被自动从池子里摘掉</strong>,新请求不再发给它;等它恢复、连续探测成功,再放回池子。这就是为什么“挂一台,其余顶上”能<strong>自动</strong>发生——客户端甚至无感。第 3 节伪代码里“池子里永远只有健康机器”的承诺,靠的就是它。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>会话粘性(session stickiness)——一个诱人的陷阱</div>
+      <ul>
+        <li>有人会用 <strong>sticky session</strong>(按 cookie/IP 哈希,让同一用户总落同一台)来回避“状态放本地”的问题。它能用,但代价是:那台机器一挂,<strong>粘在上面的用户全部丢状态</strong>;而且负载会变得<strong>不均</strong>(热点用户压垮某一台)。所以它是权宜之计——<strong>真正干净的解法仍是无状态 + 共享存储</strong>。受监管的写路径(如投保、保单变更)尤其不该依赖粘性,否则一次故障转移就可能让审计链路断掉。</li>
+      </ul>
+    </div>
+
+    <h3>顺带一提:负载均衡器自己别成了新的单点</h3>
+    <p>我们把单点从应用服务器挪走,可别让它<strong>跑到负载均衡器身上</strong>。生产里负载均衡器自身也要冗余(主备或多活 + 健康切换),否则它一挂,前面所有努力归零。这也是云厂商的托管负载均衡(它们内部已做好高可用)如此常用的原因。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>贯穿案例</div>
+    <h2>QuoteFlow 的入口拓扑</h2>
+    <p>把今天的零件拼起来:外层 L4 扛连接、内层 L7 按业务分流、后面是无状态的服务集群、状态全挪到共享存储,健康检查让坏机器自动下线。这就是昨天那份 API 契约<strong>真正落地</strong>的样子。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 416" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- clients -->
+        <text x="74" y="30" font-size="12" font-weight="700" fill="#15a06a" text-anchor="middle">调用方</text>
+        <rect x="20" y="44" width="108" height="40" rx="10" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="74" y="69" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">网站 / App</text>
+        <rect x="20" y="92" width="108" height="40" rx="10" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="74" y="117" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">Broker 系统</text>
+
+        <!-- L4 -->
+        <rect x="172" y="58" width="104" height="60" rx="12" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="224" y="82" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">L4 LB</text>
+        <text x="224" y="100" font-size="10.5" fill="#6a7872" text-anchor="middle">看 IP/端口</text>
+        <text x="224" y="113" font-size="10.5" fill="#6a7872" text-anchor="middle">海量分流</text>
+
+        <!-- L7 -->
+        <rect x="316" y="48" width="116" height="80" rx="12" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="374" y="72" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">L7 LB</text>
+        <text x="374" y="90" font-size="10.5" fill="#6a7872" text-anchor="middle">看路径路由</text>
+        <text x="374" y="104" font-size="10.5" fill="#6a7872" text-anchor="middle">TLS 终止</text>
+        <text x="374" y="118" font-size="10.5" fill="#6a7872" text-anchor="middle">+ 健康检查</text>
+
+        <!-- pricing pool -->
+        <text x="556" y="30" font-size="12" font-weight="700" fill="#15a06a" text-anchor="middle">无状态服务集群(可随意加减)</text>
+        <rect x="472" y="44" width="104" height="38" rx="10" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="524" y="68" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">pricing-1</text>
+        <circle cx="486" cy="63" r="4" fill="#15a06a"/>
+        <rect x="472" y="90" width="104" height="38" rx="10" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="524" y="114" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">pricing-2</text>
+        <circle cx="486" cy="109" r="4" fill="#15a06a"/>
+        <rect x="472" y="136" width="104" height="38" rx="10" fill="#fbf1f0" stroke="#e8c9c6"/>
+        <text x="524" y="160" font-size="12" font-weight="600" fill="#b04a3f" text-anchor="middle">pricing-3</text>
+        <circle cx="486" cy="155" r="4" fill="#d06a5d"/>
+        <text x="640" y="160" font-size="10" fill="#b04a3f" text-anchor="middle">✕ 探测失败</text>
+        <text x="640" y="172" font-size="9.5" fill="#b04a3f" text-anchor="middle">自动摘除</text>
+
+        <!-- policy pool -->
+        <rect x="472" y="196" width="104" height="38" rx="10" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="524" y="220" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">policy-1</text>
+        <circle cx="486" cy="215" r="4" fill="#15a06a"/>
+        <rect x="472" y="242" width="104" height="38" rx="10" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="524" y="266" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">policy-2</text>
+        <circle cx="486" cy="261" r="4" fill="#15a06a"/>
+
+        <!-- shared state -->
+        <rect x="280" y="320" width="360" height="62" rx="13" fill="#fbfdfc" stroke="#e3ebe6"/>
+        <text x="460" y="346" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">共享存储(状态住这里,不在应用机器本地)</text>
+        <text x="460" y="367" font-size="11.5" fill="#6a7872" text-anchor="middle">数据库 · 共享缓存 Redis(Day 7)→ 应用层因此可无状态</text>
+
+        <!-- arrows clients -> L4 -->
+        <path d="M128 64 C150 64 152 80 170 82" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M128 112 C150 112 152 96 170 94" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <!-- L4 -> L7 -->
+        <path d="M276 88 L314 88" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <!-- L7 -> pricing -->
+        <path d="M432 76 C452 76 452 63 470 63" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="452" y="56" font-size="9.5" fill="#4a5852" text-anchor="middle">/quotes</text>
+        <path d="M432 92 C452 92 452 109 470 109" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <!-- L7 -> policy -->
+        <path d="M432 110 C452 130 452 215 470 215" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="452" y="200" font-size="9.5" fill="#4a5852" text-anchor="middle">/policies</text>
+        <path d="M432 118 C452 150 452 261 470 261" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <!-- services -> shared state -->
+        <path d="M524 174 C524 250 480 300 462 318" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#ah)"/>
+        <path d="M524 280 C524 300 500 308 488 318" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#ah)"/>
+      </svg>
+      <figcaption>图 1 · QuoteFlow 入口拓扑:L4 在最外层扛连接、L7 按路径把 <code>/quotes</code> 与 <code>/policies</code> 分到不同集群;服务无状态、状态下沉到共享存储;pricing-3 健康检查失败被自动摘除,客户端无感。</figcaption>
+    </figure>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">为什么这套结构对“受监管定价”特别重要</h3>
+      <p>横向扩展 + 健康检查带来的<strong>高可用</strong>,直接服务 Day 1 的一等公民 availability:承保渠道任何时刻都能拿到报价,挂一台不影响出单。但合规视角还要多想一层——<strong>每台报价服务必须算出完全一样的数</strong>。这就要求“算报价依赖的东西”(费率表版本、核保规则、定价模型)统一来自<strong>共享、版本化的源</strong>,而不是某台机器本地的副本。否则负载均衡把你随机分到一台“规则没更新”的机器,就可能出一个<strong>不可复现</strong>的报价——在受监管场景里这是要命的。无状态在这里不只是工程优雅,更是 <strong>reproducibility / auditability</strong> 的前提。</p>
+      <h3>和昨天那份契约的接口</h3>
+      <p>昨天讲的 idempotency key 今天有了用武之地:请求被分到哪台、那台中途挂了触发重试,只要写操作带幂等键,就<strong>不会因为故障转移而签出两张保单</strong>。负载均衡(今天)+ 幂等(昨天)合起来,才凑齐“多机环境下既高可用、又不出错”的下半句。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>单台机器既有<strong>性能天花板</strong>又是<strong>单点故障</strong>。突破靠多摆几台,前面放一个<strong>反向代理 / 负载均衡器</strong>做统一入口。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>纵向(scale up)</strong>简单但有上限、没去掉单点;<strong>横向(scale out)</strong>近乎无限且天然冗余,代价是架构复杂。要高可用就得横向。</p></div>
+      <div class="tk"><span class="n">3</span><p>分发算法从 <strong>round robin</strong> 起步;请求轻重不均时 <strong>least connections</strong> 更稳。<strong>L4</strong> 快但只认 IP/端口,<strong>L7</strong> 慢一点但能按内容路由,常叠用。</p></div>
+      <div class="tk"><span class="n">4</span><p>横向扩展的两个前提:应用<strong>无状态</strong>(状态下沉到共享存储)+ 负载均衡做<strong>健康检查</strong>(坏机器自动下线)。会话粘性是权宜之计、别依赖。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">QuoteFlow 报价量翻倍,你会优先 scale up 还是 scale out?为什么?</span></summary>
+        <div class="ans"><b>长期看是 scale out(横向)。</b>纵向有硬天花板、顶配越来越贵,而且<b>没解决单点故障</b>——而 availability 是 QuoteFlow 的一等公民。横向多摆几台 + 负载均衡,既能持续扩,又天然冗余(挂一台其余顶上)。早期想快速顶一下可以先 scale up,但要高可用,横向是必经之路。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">为什么说“应用服务器要无状态”是横向扩展的前提?状态该放哪?</span></summary>
+        <div class="ans"><b>因为负载均衡会把同一用户的多次请求分到不同机器。</b>如果把关键数据存在某台机器的本地内存,下一个请求落到别的机器就读不到、流程断掉。所以状态要<b>下沉到共享存储</b>(数据库 / 共享缓存 Redis),让每台应用服务器等价、可随意加减和替换。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">L4 和 L7 负载均衡,哪个能“把 /quotes 和 /policies 分到不同集群”?为什么另一个不行?</span></summary>
+        <div class="ans"><b>L7(应用层)能。</b>它会拆开 HTTP 请求、看得到 URL 路径,所以能按内容路由。<b>L4 不行</b>:它只看 TCP 的 IP/端口,不解析 HTTP 内容,因此快但“看不懂业务”。真实系统常两层叠用:外层 L4 扛连接,内层 L7 做精细路由。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 我们把单点从应用服务器移走了,可<strong>负载均衡器自己</strong>会不会成为新的单点?生产里该怎么避免?<br>② QuoteFlow 的报价请求<strong>轻重差别很大</strong>(简单产品秒出、含核保的慢得多)。在这种情况下,round robin 可能出什么问题?换成哪种算法、为什么会更好?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Load Balancer</dt><dd>把进入的请求分发到多台后端的组件,是负载均衡专精的反向代理;靠健康检查实现“挂一台其余顶上”。</dd></dl>
+      <dl><dt>Reverse Proxy</dt><dd>站在服务端前面、代表后端接收所有外部请求的中间层;隐藏后端、统一做 TLS/限流等。</dd></dl>
+      <dl><dt>Vertical Scaling</dt><dd>纵向扩展 / scale up:给同一台机器加 CPU/内存;简单但有上限、不去除单点。</dd></dl>
+      <dl><dt>Horizontal Scaling</dt><dd>横向扩展 / scale out:多加同样的机器并摊开流量;近乎无限、天然冗余,代价是架构复杂。</dd></dl>
+      <dl><dt>L4 / L7</dt><dd>传输层 / 应用层负载均衡:L4 只看 IP·端口(快),L7 拆开 HTTP 可按路径/header 路由(智能)。</dd></dl>
+      <dl><dt>Round Robin</dt><dd>最简单的分发算法,挨个轮发;假设各后端等价、请求等重。</dd></dl>
+      <dl><dt>Stateless</dt><dd>无状态:服务器不在本地保存请求间的关键数据,发给哪台都同结果——横向扩展的前提。</dd></dl>
+      <dl><dt>Health Check</dt><dd>负载均衡定期探测后端是否存活,失败的自动摘出池子、恢复后放回,实现自动故障转移。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 7</div>
+      <div class="t">缓存全景:浏览器 / CDN / 应用 / Redis、命中率、失效与一致性策略、缓存陷阱——今天把状态“下沉到共享存储”埋了个伏笔,明天就讲那层共享缓存怎么让系统又快又不出错,以及它最容易踩的坑</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 06 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
