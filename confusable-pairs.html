@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>易混对子 · System Design 30 天</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6; --card:#ffffff; --ink:#0f3d2e; --body:#3a463f; --muted:#6a7872;
+    --accent:#15a06a; --accent-ink:#0c7a50; --accent-soft:#e8f6ef; --accent-soft-2:#eef9f3;
+    --border:#e3ebe6; --border-soft:#eef3f0;
+    --amber:#8a5a00; --amber-soft:#fbf1da; --amber-bd:#f1e0b8;
+    --radius:16px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--font);font-size:16px;line-height:1.65;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:880px;margin:0 auto;padding:0 22px 96px;}
+
+  /* sticky control bar */
+  .bar{position:sticky;top:0;z-index:30;background:rgba(243,250,246,.92);backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid var(--border);}
+  .bar .inner{max-width:880px;margin:0 auto;padding:14px 22px 12px;}
+  .titlerow{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:11px;}
+  .titlerow h1{font-size:22px;color:var(--ink);font-weight:700;margin:0;letter-spacing:-.01em;}
+  .titlerow .sub{font-size:13px;color:var(--muted);}
+  .count{margin-left:auto;font-size:13px;color:var(--accent-ink);font-weight:600;font-family:var(--mono);}
+  .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .search{flex:1;min-width:200px;position:relative;}
+  .search input{width:100%;font-family:var(--font);font-size:15px;color:var(--ink);background:var(--card);
+    border:1px solid var(--border);border-radius:99px;padding:9px 36px 9px 38px;outline:none;transition:border-color .15s,box-shadow .15s;}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .search .ic{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--muted);}
+  .search .clr{position:absolute;right:11px;top:50%;transform:translateY(-50%);border:none;background:none;color:var(--muted);
+    cursor:pointer;font-size:17px;line-height:1;padding:2px;display:none;}
+  .search .clr:hover{color:var(--ink);}
+  /* quiz toggle */
+  .toggle{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;font-weight:600;color:var(--ink);
+    background:var(--card);border:1px solid var(--border);border-radius:99px;padding:7px 13px;cursor:pointer;user-select:none;transition:border-color .15s,background .15s;white-space:nowrap;}
+  .toggle:hover{border-color:#cfe7da;}
+  .toggle .sw{position:relative;width:34px;height:19px;border-radius:99px;background:#d6e2dc;transition:background .18s;flex-shrink:0;}
+  .toggle .sw::after{content:'';position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.18);transition:transform .18s;}
+  .toggle.on{background:var(--accent-soft);border-color:#bfe6d2;color:var(--accent-ink);}
+  .toggle.on .sw{background:var(--accent);}
+  .toggle.on .sw::after{transform:translateX(15px);}
+
+  .intro{font-size:13.5px;color:var(--muted);margin:18px 2px 4px;line-height:1.6;}
+  .intro b{color:var(--accent-ink);font-weight:600;}
+
+  main{margin-top:14px;}
+
+  /* pair card */
+  .pc{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px 14px;margin-bottom:14px;
+    box-shadow:var(--shadow);transition:border-color .15s;}
+  .pc:hover{border-color:#cfe7da;}
+  .pc.trip{border-color:var(--amber-bd);background:linear-gradient(180deg,#fffdf7,#ffffff 60%);}
+  .pc-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+  .badge{font-size:11px;font-weight:700;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-bd);padding:2px 9px;border-radius:99px;white-space:nowrap;}
+  .grow{flex:1;}
+  .src{font-size:11px;color:var(--accent-ink);background:#eef9f3;border:1px solid #cdeede;padding:2px 8px;border-radius:99px;white-space:nowrap;}
+  .jump{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;color:var(--accent);
+    text-decoration:none;font-size:14px;border:1px solid var(--border);background:var(--card);transition:background .15s,color .15s;}
+  .jump:hover{background:var(--accent);color:#fff;}
+
+  /* two-term compare */
+  .vs{display:grid;grid-template-columns:1fr 34px 1fr;gap:0;align-items:stretch;}
+  .side{padding:12px 14px;border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--accent-soft-2);}
+  .side .term{font-family:var(--mono);font-size:14.5px;font-weight:600;color:var(--ink);}
+  .side .zh{font-size:12.5px;color:var(--accent-ink);font-weight:600;margin:1px 0 6px;}
+  .side .sdef{font-size:13px;color:var(--body);line-height:1.55;}
+  .vsmid{display:flex;align-items:center;justify-content:center;}
+  .vsmid span{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--muted);background:var(--card);border:1px solid var(--border);
+    border-radius:99px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;}
+
+  /* reveal area */
+  .reveal{margin-top:13px;}
+  .row{display:flex;gap:9px;font-size:13.5px;line-height:1.6;padding:7px 0;border-top:1px dashed var(--border);}
+  .row:first-child{border-top:none;}
+  .rk{flex-shrink:0;font-weight:700;font-size:11.5px;letter-spacing:.02em;width:62px;padding-top:2px;}
+  .rk.diff{color:var(--accent-ink);}
+  .rk.eg{color:#0d8a5a;}
+  .rk.mn{color:var(--amber);}
+  .rv{flex:1;color:var(--body);}
+  .rv b{color:var(--ink);font-weight:600;}
+  .row.mn .rv{background:var(--amber-soft);border:1px solid var(--amber-bd);border-radius:8px;padding:6px 10px;color:#6b4e10;font-weight:500;}
+
+  /* quiz mode: hide reveal behind a tap */
+  .quiz .reveal{display:none;}
+  .quiz .pc.open .reveal{display:block;}
+  .tap{display:none;margin-top:12px;text-align:center;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px dashed #bfe6d2;border-radius:var(--radius-sm);padding:9px;cursor:pointer;user-select:none;}
+  .tap:hover{background:#d8f0e4;}
+  .quiz .pc:not(.open) .tap{display:block;}
+
+  .empty{text-align:center;color:var(--muted);font-size:15px;padding:60px 20px;}
+  footer{text-align:center;margin-top:40px;padding-top:22px;border-top:1px solid var(--border);font-size:12.5px;color:var(--muted);}
+
+  @media (max-width:600px){
+    .count{width:100%;margin-left:0;}
+    .vs{grid-template-columns:1fr;gap:8px;}
+    .vsmid{height:8px;}
+    .vsmid span{transform:rotate(90deg);}
+    .rk{width:54px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div class="inner">
+    <div class="titlerow">
+      <h1>易混对子 Confusable Pairs</h1>
+      <span class="sub">System Design · 30 天</span>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="controls">
+      <div class="search">
+        <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="q" type="text" placeholder="搜索英文 / 中文 / 解释…" autocomplete="off" spellcheck="false">
+        <button class="clr" id="clr" title="清空" aria-label="清空">×</button>
+      </div>
+      <div class="toggle" id="quizBtn" role="switch" aria-checked="false" tabindex="0">
+        <span class="sw"></span>测验模式
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <p class="intro">
+    每张卡是一对<b>容易混的概念</b>：两边各一句定义，下面是<b>关键区别 / QuoteFlow 例子 / 记一句</b>。
+    标 <span class="badge">⚠ 你栽过</span> 的是你前五天实际答偏过的，优先复习。
+    打开<b>测验模式</b>会盖住答案——先自己说出区别，再点开核对。
+  </p>
+  <main id="main"></main>
+  <footer>
+    System Design · 30 天学习计划　·　易混对子复习卡（讨论中维护，配套 glossary.html）<br>
+    贯穿案例：QuoteFlow（虚构的寿险报价 + 保单管理平台，纯属虚构）
+  </footer>
+</div>
+
+<script>
+/* ──────────────────────────────────────────────────────────────
+   维护说明：加新对子只改下面 PAIRS 数组，一条一个对象。字段：
+     a / b   两个易混概念，各含 {t 英文, zh 中文, def 一句定义}
+     diff    关键区别（最重要的一行）
+     eg      QuoteFlow 例子（可省略）
+     mn      记一句 / 口诀
+     src     来源，如 'Day 2'
+     link    关联学习资源（用 L.xx）
+     trip    true = Matt 实际栽过 → 标「⚠ 你栽过」并置顶
+   排序、搜索、测验模式全自动，无需改结构。
+   ────────────────────────────────────────────────────────────── */
+
+const L = {
+  d1:'Day-01-Intro-and-Requirements.html',
+  d2:'Day-02-quantifying-nfrs.html',
+  d3:'Day-03-estimation-and-capacity.html',
+  d4:'Day-04-networking-fundamentals.html',
+  d5:'Day-05-api-design.html',
+};
+
+const PAIRS = [
+  { trip:true, src:'Day 2', link:L.d2,
+    a:{t:'Consistency (strong)', zh:'强一致 · 数据存储层', def:'多副本下，写入后别处能不能立刻读到最新值。'},
+    b:{t:'Reproducibility / Determinism', zh:'可复现 / 确定性 · 计算逻辑层', def:'同样输入算出同样结果，与有几个副本无关。'},
+    diff:'一个问“大家看到的是不是同一份数据”（副本同步），一个问“同样输入算不算得出同一个数”（算法确定）。哪怕单机无副本，掺了随机数 / 时间戳也会破坏 reproducibility，却与 consistency 无关。',
+    eg:'费率表 v1→v2 切换，不能让用户 A 读到 v1、B 读到 v2 = consistency；同一投保人、同信息两次报价必须分毫不差 = reproducibility。两者一起支撑 auditability。',
+    mn:'consistency = 同一份；reproducibility = 同一个数。' },
+
+  { trip:true, src:'Day 3', link:L.d3,
+    a:{t:'Mutual Exclusion (lock)', zh:'互斥访问 / 锁 · 并发控制', def:'同一资源，同一刻只允许一个访问者。'},
+    b:{t:'Mutually Exclusive Events', zh:'互斥事件 · 概率', def:'两个事件不可能同时发生。'},
+    diff:'中文都叫“互斥”，其实毫不相干——一个是锁（并发），一个是概率。容量估算撞车时影响相反：抢同一资源的“互斥访问”→ 排队 → 需求相加；“互斥事件”（不同时发生）→ 反而不该相加。',
+    eg:'夜间批量与早高峰报价抢同一份 CPU（互斥访问）→ 用 peak + peak 叠加估容量。',
+    mn:'锁的互斥 = “同一刻只一个能进”；概率的互斥 = “俩不会一起来”。' },
+
+  { trip:true, src:'Day 5', link:L.d5,
+    a:{t:'Under-fetching', zh:'获取不足', def:'一屏要的数据散在多个接口，得发多次请求 → 延迟高。'},
+    b:{t:'Over-fetching', zh:'过度获取', def:'一个接口返回一大坨，只用得上一半字段 → 浪费带宽。'},
+    diff:'under = 取得太少（要多跑几趟）；over = 取得太多（拿了用不上）。GraphQL 让客户端精确点字段，一次解决两者。',
+    eg:'拼客户档案要调 /customer + /policies + /quotes 三次 = under；调 /customer 返回几十个用不到的字段 = over。',
+    mn:'under = 跑太多趟；over = 拿太多货。' },
+
+  { trip:true, src:'Day 1', link:L.d1,
+    a:{t:'Latency levers', zh:'延迟杠杆 · 要快', def:'单条处理 · 留余量（ρ 压低）· 随机点查 · 热缓存常驻。'},
+    b:{t:'Throughput levers', zh:'吞吐杠杆 · 要多', def:'攒批处理 · 吃满利用率（ρ 拉高）· 顺序扫 · 流式。'},
+    diff:'几乎每一项都相反——batching 是 throughput 的朋友、latency 的敌人；高利用率提吞吐却推高尾延迟。同一台机没法又留空又吃满。',
+    eg:'实时报价压 latency（留余量 + 热费率表）vs 夜间批量拉 throughput（攒批 + 吃满）→ 所以拆成两条路。',
+    mn:'要快 → 留空 + 单条 + 热缓存；要多 → 攒批 + 吃满 + 顺序扫。' },
+
+  { src:'Day 2', link:L.d2,
+    a:{t:'Strong Consistency', zh:'强一致', def:'任何读都拿到最新写入；要跨副本协调 → 更慢、可用性更脆。'},
+    b:{t:'Eventual Consistency', zh:'最终一致', def:'副本最终收敛，短时间可能读到旧值；换低延迟、高可用。'},
+    diff:'强 = 立刻一致（贵）；最终 = 迟早一致（省）。按“读到旧值能不能忍”来选。',
+    eg:'当前生效费率表版本 → 强一致（红线）；喂分析下游的数据 → 最终一致就够。',
+    mn:'强一致 = 立刻；最终一致 = 迟早。' },
+
+  { src:'Day 2', link:L.d2,
+    a:{t:'Serial fan-out', zh:'串行扇出', def:'一个下游回来才发下一个 → 总延迟 ≈ sum（各段之和）。'},
+    b:{t:'Parallel fan-out', zh:'并行扇出', def:'同时发所有下游 → 总延迟 ≈ max（只等最慢那个）。'},
+    diff:'并行把 sum 压成 max（好事），但 max 会放大尾延迟——只要一个慢，整体就慢（达标概率 0.99^N）。',
+    eg:'报价同时取费率表 + 核保 + 再保参数，并行只等最慢那项；但扇出越多，至少一个落尾部的概率越高。',
+    mn:'串行加总（sum）；并行取最大（max）。' },
+
+  { src:'Day 5', link:L.d5,
+    a:{t:'Offset pagination', zh:'offset 分页 · 按位置', def:'LIMIT/OFFSET 从头数；能跳任意页 / 算总数，但深翻 O(offset) 越来越慢、增删会重复漏算。'},
+    b:{t:'Cursor pagination (keyset)', zh:'cursor 分页 · 按书签', def:'记住上次最后一行要其后的；有索引则 O(limit) 翻多深都一样快、不重不漏，但不能跳页 / 无总数。'},
+    diff:'offset 从头数（可跳页但深翻慢、会错位）；cursor 接着书签（快且稳，但只能往后）。',
+    eg:'后台带页码的表格 → offset；无限滚动 / 夜间批量遍历 → cursor。',
+    mn:'offset = 从头数；cursor = 接着书签。' },
+
+  { src:'Day 4', link:L.d4,
+    a:{t:'mTLS / Authentication', zh:'你是谁', def:'验证身份——传输层互验证书（机器对机器）。'},
+    b:{t:'Token / Authorization', zh:'你能干什么', def:'授权范围——应用层 scope / 权限。'},
+    diff:'不是二选一，是分层互补：先确认“你是谁”（authn），再决定“你能干什么”（authz）。',
+    eg:'broker 通道用 mTLS 验“是哪个 broker”（你是谁）+ 再带 token 限定“能调哪些接口、限流多少”（你能干什么）。',
+    mn:'mTLS / authn = 你是谁；token / authz = 你能干什么。' },
+
+  { src:'Day 5', link:L.d5,
+    a:{t:'Additive change', zh:'向后兼容变更', def:'只增字段、不删不改 → 老调用方不受影响，不用动版本。'},
+    b:{t:'Breaking change', zh:'破坏性变更', def:'删字段、改类型 / 语义、加必填 → 老调用方会失败，必须上新版本号。'},
+    diff:'只增 = 兼容（原地改）；删改 = 破坏（上 /v2）。API 是“难反悔的契约”，默认只增不改不删。',
+    eg:'给报价响应加一个新可选字段 = additive；把 price 从字符串改成数字 = breaking → /v2。',
+    mn:'只增 = 兼容；删改 = 破坏，上版本。' },
+];
+
+/* ── 渲染 / 搜索 / 测验 ── */
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function hl(text, q){
+  const e = esc(text);
+  if(!q) return e;
+  const safe = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  return e.replace(new RegExp('('+safe+')','gi'), '<mark style="background:#fff0b8;border-radius:3px;padding:0 1px;">$1</mark>');
+}
+
+function render(){
+  const q = $('#q').value.trim();
+  const ql = q.toLowerCase();
+  $('#clr').style.display = q ? 'block' : 'none';
+
+  const matches = PAIRS
+    .map((p,i)=>({p,i}))
+    .filter(({p}) => !ql ||
+      (p.a.t+' '+p.a.zh+' '+p.a.def+' '+p.b.t+' '+p.b.zh+' '+p.b.def+' '+p.diff+' '+(p.eg||'')+' '+p.mn)
+        .toLowerCase().includes(ql))
+    .sort((x,y) => (y.p.trip?1:0)-(x.p.trip?1:0));   // 栽过的置顶
+
+  $('#main').innerHTML = matches.length ? matches.map(({p,i}) => {
+    const badge = p.trip ? '<span class="badge">⚠ 你栽过</span>' : '';
+    const jump = p.link ? `<a class="jump" href="${p.link}" title="去对应学习文档">↗</a>` : '';
+    const eg = p.eg ? `<div class="row eg"><span class="rk eg">例子</span><span class="rv">${hl(p.eg,q)}</span></div>` : '';
+    return `<article class="pc${p.trip?' trip':''}" data-i="${i}">
+      <div class="pc-h">${badge}<span class="grow"></span><span class="src">${esc(p.src)}</span>${jump}</div>
+      <div class="vs">
+        <div class="side">
+          <div class="term">${hl(p.a.t,q)}</div><div class="zh">${hl(p.a.zh,q)}</div>
+          <div class="sdef">${hl(p.a.def,q)}</div>
+        </div>
+        <div class="vsmid"><span>vs</span></div>
+        <div class="side">
+          <div class="term">${hl(p.b.t,q)}</div><div class="zh">${hl(p.b.zh,q)}</div>
+          <div class="sdef">${hl(p.b.def,q)}</div>
+        </div>
+      </div>
+      <div class="tap">👆 先自己说出区别，点开核对</div>
+      <div class="reveal">
+        <div class="row diff"><span class="rk diff">关键区别</span><span class="rv">${hl(p.diff,q)}</span></div>
+        ${eg}
+        <div class="row mn"><span class="rk mn">记一句</span><span class="rv">${hl(p.mn,q)}</span></div>
+      </div>
+    </article>`;
+  }).join('') : `<div class="empty">没有匹配的对子，换个词试试。</div>`;
+
+  const trips = PAIRS.filter(p=>p.trip).length;
+  $('#count').textContent = q ? `显示 ${matches.length} / 共 ${PAIRS.length} 对`
+                              : `共 ${PAIRS.length} 对 · ⚠ ${trips} 对栽过`;
+}
+
+// 测验模式：盖住答案，点卡片翻开
+const quizBtn = $('#quizBtn');
+function toggleQuiz(){
+  const on = document.body.classList.toggle('quiz');
+  quizBtn.classList.toggle('on', on);
+  quizBtn.setAttribute('aria-checked', on);
+  if(!on) document.querySelectorAll('.pc.open').forEach(el=>el.classList.remove('open'));
+}
+quizBtn.addEventListener('click', toggleQuiz);
+quizBtn.addEventListener('keydown', e=>{ if(e.key===' '||e.key==='Enter'){e.preventDefault();toggleQuiz();} });
+
+// 测验模式下点卡片（避开链接）翻开
+$('#main').addEventListener('click', e=>{
+  if(!document.body.classList.contains('quiz')) return;
+  if(e.target.closest('.jump')) return;
+  const card = e.target.closest('.pc');
+  if(card) card.classList.toggle('open');
+});
+
+$('#q').addEventListener('input', render);
+$('#clr').addEventListener('click', () => { $('#q').value=''; render(); $('#q').focus(); });
+render();
+</script>
+</body>
+</html>
