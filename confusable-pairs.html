@@ -163,6 +163,7 @@ const L = {
   d3:'Day-03-estimation-and-capacity.html',
   d4:'Day-04-networking-fundamentals.html',
   d5:'Day-05-api-design.html',
+  d6:'Day-06-load-balancing-scaling.html',
 };
 
 const PAIRS = [
@@ -228,6 +229,41 @@ const PAIRS = [
     diff:'只增 = 兼容（原地改）；删改 = 破坏（上 /v2）。API 是“难反悔的契约”，默认只增不改不删。',
     eg:'给报价响应加一个新可选字段 = additive；把 price 从字符串改成数字 = breaking → /v2。',
     mn:'只增 = 兼容；删改 = 破坏，上版本。' },
+
+  { trip:true, src:'Day 6', link:L.d6,
+    a:{t:'Sticky routing', zh:'靠路由保平安', def:'按 cookie/IP 让同一用户 / 重试总落同一台，靠“回到那台”读到之前的状态。'},
+    b:{t:'Stateless + Shared Store', zh:'落哪台都行', def:'状态 / 幂等记录放共享存储，任何一台都能查到 → 不依赖回到同一台。'},
+    diff:'一个靠“路由到同一台”、一个靠“状态在共享处”。重试常因那台挂了才发生 → sticky 在故障时恰恰失效；干净解是 stateless + 共享存储。',
+    eg:'我一度以为“重试带同 idempotency key → LB 认得 key → 路由回原机判重”。错：LB 不认识 key，幂等记录在共享存储，重试落到任意一台查 key 即可判重。',
+    mn:'别靠“回同一台”；靠“状态在共享处”，落哪台都对。' },
+
+  { src:'Day 6', link:L.d6,
+    a:{t:'Vertical (scale up)', zh:'纵向 · 换台更大的', def:'同一台加 CPU/内存/磁盘；简单不改代码，但有硬天花板、价格非线性、仍是单点。'},
+    b:{t:'Horizontal (scale out)', zh:'横向 · 多摆几台', def:'多加同样的机器、LB 摊开流量；近乎无限、天然冗余去掉单点，代价是架构变复杂。'},
+    diff:'up = 把一台变强（有上限、没去单点）；out = 多摆几台（无上限、天然冗余）。要高可用必须 out。',
+    eg:'早期量小先 scale up 顶一下；报价 API 要高可用 → 一排无状态服务 + LB = scale out。',
+    mn:'up 换大的（仍一台）；out 摆多台（去单点）。' },
+
+  { src:'Day 6', link:L.d6,
+    a:{t:'L4 load balancing', zh:'看 IP/端口', def:'只看 TCP/UDP 的 IP+端口、不拆 HTTP；极快、开销低，但看不懂业务、不能按路径路由。'},
+    b:{t:'L7 load balancing', zh:'看 HTTP 内容', def:'拆开 HTTP 看得到路径/header/cookie；能按内容路由、做 TLS 终止，稍慢、每请求要解析。'},
+    diff:'看得多深决定多聪明——L4 只到端口（快、粗分流）；L7 到应用层（能按 /quotes vs /policies 分流）。常叠用。',
+    eg:'外层 L4 扛海量连接，内层 L7 把 /quotes 送定价集群、/policies 送保单集群。',
+    mn:'L4 看端口（快）；L7 看路径（聪明）。' },
+
+  { src:'Day 6', link:L.d6,
+    a:{t:'Round Robin', zh:'轮询 · 盲发', def:'1→2→3 挨个轮；只数轮到第几个、看不到机器此刻忙不忙。假设请求等重。'},
+    b:{t:'Least Connections', zh:'最少连接 · 看实时', def:'发给当前活跃连接最少（最闲）的；用连接数当“有多忙”的代理指标。'},
+    diff:'RR 盲发（不看实时状态、慢请求照堆）；least conn 读实时连接数、自动绕开被压住的机器。请求轻重不均时后者稳。',
+    eg:'QuoteFlow 报价快、核保慢 → RR 可能把几个慢请求堆到一台；least connections 避免。',
+    mn:'RR 数到第几个；least conn 看谁最闲。' },
+
+  { src:'Day 6', link:L.d6,
+    a:{t:'Reverse Proxy', zh:'反向代理 · 替后端迎客', def:'站在服务端前面接收所有外部请求的统一入口；隐藏后端，LB 就是它一种。'},
+    b:{t:'Forward Proxy', zh:'正向代理 · 替客户端出门', def:'代表客户端去访问外网、隐藏客户端。'},
+    diff:'方向相反——reverse 代表服务器迎客（护后端）；forward 代表客户端出门（护你）。',
+    eg:'QuoteFlow 的 api.quoteflow.com 入口 = reverse proxy；公司内网统一出外网的代理 = forward proxy。',
+    mn:'reverse 迎客（护后端）；forward 出门（护客户端）。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */
