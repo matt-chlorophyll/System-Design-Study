@@ -164,6 +164,7 @@ const L = {
   d4:'Day-04-networking-fundamentals.html',
   d5:'Day-05-api-design.html',
   d6:'Day-06-load-balancing-scaling.html',
+  d7:'Day-07-caching.html',
 };
 
 const PAIRS = [
@@ -264,6 +265,41 @@ const PAIRS = [
     diff:'方向相反——reverse 代表服务器迎客（护后端）；forward 代表客户端出门（护你）。',
     eg:'QuoteFlow 的 api.quoteflow.com 入口 = reverse proxy；公司内网统一出外网的代理 = forward proxy。',
     mn:'reverse 迎客（护后端）；forward 出门（护客户端）。' },
+
+  { trip:true, src:'讨论', link:L.d7,
+    a:{t:'KV Cache', zh:'注意力 KV 缓存 · 省算力', def:'LLM 生成时缓存已算 token 的 K/V 向量，每步只算新 token → 省 FLOPs / 延迟，模型内部自动，不直接省 token 账单。'},
+    b:{t:'Prompt Caching', zh:'提示词缓存 · 省 token 钱', def:'把一段 prefix 的 KV 状态跨请求存住，命中按 ~0.1× 计费；真正降低 token 消耗的那个。'},
+    diff:'KV Cache 是一次生成内部复用（省算力）；Prompt Caching 是跨请求持久化 + 按一折计费（省钱）。后者是前者思想的放大版，带 TTL、prefix 精确匹配。',
+    eg:'我一度以为「hit KV Cache 就能降低 token 消耗」——其实省 token 钱的是 prompt caching（缓 system prompt / 长文档这种每次都一样的 prefix），KV Cache 只是让单次生成更快。',
+    mn:'KV Cache 省算力（内部）；Prompt Caching 省钱（跨请求、打一折）。' },
+
+  { src:'Day 7', link:L.d7,
+    a:{t:'Cache Stampede', zh:'惊群 / 击穿 · 一个点决堤', def:'单个热 key 刚过期，瞬间大量请求同时 miss、一起去重算同一个值砸向库。'},
+    b:{t:'Cache Avalanche', zh:'雪崩 · 整片决堤', def:'大批 key 同一时刻集体过期（或缓存集群挂掉），流量整片涌向库把它压垮。'},
+    diff:'stampede = 一个热 key 失效引发的局部洪峰（单飞锁挡）；avalanche = 大量 key 同时失效 / 缓存整体挂引发的全面洪峰（TTL 打散 + 缓存高可用 + 限流熔断）。',
+    eg:'爆款产品费率那个 key 一过期 → stampede；夜里一批 key 用了同一个固定 TTL 同时到期 → avalanche。',
+    mn:'stampede 一个点决堤（单飞锁）；avalanche 整片决堤（TTL 打散 + HA）。' },
+
+  { src:'Day 7', link:L.d7,
+    a:{t:'Expiration', zh:'过期 · 按时间', def:'到了 TTL，这条数据该失效——跟时间有关。'},
+    b:{t:'Eviction', zh:'逐出 · 按容量', def:'缓存内存满了要腾地方，踢掉某些数据（LRU/LFU）——跟它过没过期无关。'},
+    diff:'过期看时间（TTL 到没到）；逐出看容量（内存满没满）。一条没过期的数据，内存满时照样可能被逐出。',
+    eg:'费率表缓存 TTL=1 天到点失效 = 过期；Redis 内存压满、LRU 把最久没碰的报价进度踢掉 = 逐出。',
+    mn:'过期 = 到点了（时间）；逐出 = 没地方了（容量）。' },
+
+  { src:'Day 7', link:L.d7,
+    a:{t:'TTL invalidation', zh:'TTL 失效 · 用过时窗口换简单', def:'写入设个存活时间到点自动失效；简单，但窗口内会读到旧值（stale 窗口）。'},
+    b:{t:'Versioned immutable key', zh:'版本化不可变 key · 没有 stale 窗口', def:'版本号写进 key、内容不可变，更新=新建 key+改指针；根本没有「同一 key 内容变了」的时刻。'},
+    diff:'TTL 容忍一段过时窗口（受监管定价里那几分钟可能算出不可复现的报价）；版本化 key 把失效问题直接消掉，盖章的版本号 = 取数的 key，永远对得上。',
+    eg:'用 TTL=5 分钟缓费率表 → 费率刚更新后 5 分钟内有人用旧表报价、且审计日志可能「盖新章用旧数」→ 违规；改用 rate:2026-07 版本化 key 根治。',
+    mn:'TTL = 迟早一致（有 stale 窗口）；版本化 key = 当场无窗口（换 key 即换版本）。' },
+
+  { src:'Day 7', link:L.d7,
+    a:{t:'Write-through', zh:'写穿透 · 先落库', def:'同时写缓存+数据库，都成功才算成功；缓存总最新、读永远命中新值，但写更慢。'},
+    b:{t:'Write-back', zh:'写回 · 先写缓存', def:'先只写缓存立刻返回，稍后异步刷回库；写极快，但缓存一挂、没刷回的就丢了。'},
+    diff:'through 先落库再返回（不丢、慢）；back 先写缓存、后台再刷库（快、可能丢）。受监管写路径（签发 / 扣款 / audit log）绝不能用 write-back——丢一笔 = 审计链断。',
+    eg:'QuoteFlow 写路径以数据库为权威源、别图快用 write-back；缓存只在读侧帮忙。',
+    mn:'through 先落库（稳）；back 先写缓存（快但可能丢）。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */

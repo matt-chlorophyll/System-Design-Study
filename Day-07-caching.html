@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 07 · 缓存全景</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:23.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 7 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 1 周 · 基础与思维方式</span>
+    <h1>同一个答案,<br>别每次都重新算一遍</h1>
+    <p class="lede">昨天我们把状态“下沉到共享存储”埋了个伏笔。今天就讲那层东西——缓存:把算过、取过一次的结果放到离使用者更近的地方,让系统又快又省;以及它为什么是出了名的“最容易出错的优化”。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>昨日回顾 · Day 6</div>
+    <ul>
+      <li>昨天我们让 QuoteFlow 从一台机器变成<strong>一排无状态机器</strong>:负载均衡器在前面分发、健康检查让坏机器自动下线,于是“挂一台,其余顶上”。但横向扩展有个铁律——<strong>状态不能放在应用机器本地</strong>,得<em>下沉到一个共享的地方</em>。那个“共享的地方”里,有一类专门为<strong>又快又省</strong>而生:<strong>缓存(cache)</strong>。今天就把它讲透:缓存能让报价从“每次都查库重算”变成“命中就秒回”,但它同时是系统设计里最容易埋雷的一环——尤其对一条报价必须<em>可复现、可审计</em>的 QuoteFlow。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>说清缓存到底<strong>买到了什么</strong>(latency + 给下游减负),以及它的命脉指标 <strong>hit rate(命中率)</strong></li>
+      <li>看清一条请求路上的<strong>多层缓存</strong>:浏览器 → CDN → 应用本地 → 分布式缓存(Redis)</li>
+      <li>掌握读写策略:<strong>cache-aside</strong> / read-through / <strong>write-through</strong> / write-back / write-around</li>
+      <li>啃下缓存最难的一块:<strong>失效与一致性</strong>——TTL、显式失效、<strong>版本化 key</strong>,以及 eviction(LRU/LFU)</li>
+      <li>认全经典<strong>缓存陷阱</strong>:stampede(惊群)、penetration(穿透)、avalanche(雪崩)、hot key、stale</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>缓存买到了什么</div>
+    <h2>把贵的事,只做一次</h2>
+    <p>缓存的全部思想就一句话:<strong>把“算一次/取一次很贵”的结果,先存在离使用者更近、更快的地方,下次直接拿。</strong>QuoteFlow 的费率表(rate table)一天里被读上百万次、却几乎不变——每次报价都去数据库重新拉一遍同一张表,纯属浪费。把它放进内存里的缓存,第二次起就省下了那一整趟数据库往返。</p>
+    <p>这趟“省下的往返”值多少?回忆 Day 3 的<strong>关键延迟数字</strong>——不同存储介质的速度差着好几个数量级。缓存的价值,本质就是把请求从“慢介质”挪到“快介质”:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:42%">这一步去哪里取数据</th><th>量级(数量级感觉)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">本机内存(进程内缓存)</span></td><td>~100 纳秒(ns)</td></tr>
+          <tr><td><span class="lab">同机房一次 Redis 往返</span></td><td>~0.5–1 毫秒(ms)</td></tr>
+          <tr><td><span class="lab">一次数据库查询</span></td><td>~几 ms 到几十 ms</td></tr>
+          <tr><td><span class="lab">跨区 / 调用外部 API</span></td><td>~几十到几百 ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 缓存命中,常常意味着把一次请求从“几十毫秒”压到“亚毫秒”——快上一两个数量级。差距越大,缓存越值。</p>
+
+    <p>而且缓存买到的<strong>不只是快</strong>。它同时给下游<em>减负</em>:命中的请求根本不打到数据库,于是数据库的负载、连接数、成本都降下来,同样的库能扛更多流量——这直接呼应 Day 2 的 <strong>throughput</strong> 和 Day 6 的<strong>扩展</strong>。一层好缓存,常常比加几台数据库副本还划算。</p>
+
+    <h3>命脉指标:hit rate(命中率)</h3>
+    <p>缓存的价值几乎全押在一个数字上:<strong>命中率 = 命中次数 / 总请求次数</strong>。命中(hit)= 要的东西缓存里有,直接返回;未命中(miss)= 缓存里没有,只能回去查源头、再顺手把结果<em>回填</em>进缓存。命中率 95% 的缓存,意味着 95% 的请求都走了那条亚毫秒的快路。</p>
+    <p>但这里有个反直觉的坑:<strong>miss 不是“白跑一趟”,而是“比没有缓存还慢一点”</strong>——因为它先查了一次缓存(扑空),才又去查源头。所以如果一份数据访问很分散、几乎不重复(命中率极低),加缓存反而是净亏:每个请求都多付了一次查缓存的开销,却很少命中。<strong>缓存只对“读多、且会重复读同一批热数据”的场景划算</strong>——QuoteFlow 的费率表、核保规则正是教科书级的好候选。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>缓存住在哪</div>
+    <h2>一条请求路上,有好几层缓存</h2>
+    <p>“缓存”不是一个东西,而是<strong>一连串关卡</strong>。从用户的浏览器到最深处的数据库,请求路上每一层都可能拦下它、直接给答案。越靠近用户的缓存越快、越省(连网络都不用走),但你越<strong>管不动它</strong>(数据已经发出去了,想改也改不回来)。理解这条链,才知道一份数据该缓在哪一层。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- nodes along the path -->
+        <rect x="16" y="96" width="96" height="58" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="64" y="120" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">浏览器</text>
+        <text x="64" y="138" font-size="10" fill="#6a7872" text-anchor="middle">本地缓存</text>
+
+        <rect x="148" y="96" width="96" height="58" rx="11" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="196" y="120" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">CDN</text>
+        <text x="196" y="138" font-size="10" fill="#6a7872" text-anchor="middle">边缘节点</text>
+
+        <rect x="280" y="96" width="96" height="58" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="328" y="116" font-size="12" font-weight="700" fill="#0f3d2e" text-anchor="middle">应用服务器</text>
+        <text x="328" y="133" font-size="10" fill="#6a7872" text-anchor="middle">进程内</text>
+        <text x="328" y="146" font-size="10" fill="#6a7872" text-anchor="middle">本地缓存</text>
+
+        <rect x="412" y="96" width="104" height="58" rx="11" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="464" y="120" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">Redis</text>
+        <text x="464" y="138" font-size="10" fill="#6a7872" text-anchor="middle">分布式共享缓存</text>
+
+        <rect x="552" y="96" width="104" height="58" rx="11" fill="#fbfdfc" stroke="#e3ebe6"/>
+        <text x="604" y="120" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">数据库</text>
+        <text x="604" y="138" font-size="10" fill="#6a7872" text-anchor="middle">源头(source of truth)</text>
+
+        <!-- forward arrows (miss path) -->
+        <path d="M112 125 L146 125" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M244 125 L278 125" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M376 125 L410 125" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M516 125 L550 125" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- labels top -->
+        <text x="64"  y="74" font-size="10.5" fill="#15a06a" text-anchor="middle" font-weight="600">最快·最管不动</text>
+        <text x="604" y="74" font-size="10.5" fill="#b04a3f" text-anchor="middle" font-weight="600">最慢·最权威</text>
+        <path d="M120 64 L548 64" stroke="#cfe0d7" stroke-width="1.5" stroke-dasharray="4 4" fill="none"/>
+
+        <!-- hit return arrows (curved back) -->
+        <path d="M196 154 C196 200 120 200 80 200 C72 200 66 175 64 156" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#ah)"/>
+        <path d="M464 156 C464 240 200 250 130 250 C90 250 70 200 64 158" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#ah)"/>
+        <text x="360" y="270" font-size="11" fill="#3d9c74" text-anchor="middle" font-style="italic">命中(hit):任意一层有,就提前掉头返回 —— 越早命中越快</text>
+
+        <text x="320" y="225" font-size="10.5" fill="#6a7872" text-anchor="middle">未命中(miss):一路往右,查到源头再回填各层</text>
+      </svg>
+      <figcaption>图 1 · 一条请求路上的多层缓存。实线 = 未命中时一路向右回源;虚线 = 任意一层命中就提前返回。越靠左越快、越靠右越权威。</figcaption>
+    </figure>
+
+    <h3>逐层看一眼</h3>
+    <p><strong>浏览器缓存</strong>:最靠近用户。靠 Day 4 提过的 HTTP 头(<code class="inl">Cache-Control</code>、<code class="inl">ETag</code>)决定一份资源能在用户本地存多久。QuoteFlow 官网的 logo、JS、CSS 第二次访问直接读本地,连请求都不发。</p>
+    <p><strong>CDN(内容分发网络)</strong>:把内容复制到<em>地理上离用户近</em>的边缘节点。悉尼的用户从悉尼节点拿官网静态资源,不用千里迢迢回源站。CDN 主要缓静态内容,也能缓“对所有人都一样”的动态响应。</p>
+    <p><strong>应用进程内缓存(local / in-process)</strong>:数据就放在<em>那台应用服务器自己的内存</em>里,读取是纳秒级、最快。但它有 Day 6 的老问题——<strong>每台机器一份、各存各的</strong>:10 台服务器就有 10 份可能不一致的副本,且每台容量有限。适合存“极少变、且不一致也无所谓”的小东西。</p>
+    <p><strong>分布式缓存(Redis / Memcached)</strong>:一个<em>所有应用服务器共享的</em>独立缓存集群。比进程内多走一次网络(亚毫秒),但换来<strong>全局一份、一致、容量大</strong>。这正是 Day 6 说的“状态下沉到共享存储”里那层共享缓存——让应用层可以无状态、随意加减机器。QuoteFlow 的费率表、报价进度都适合放这。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:24%"></th><th>进程内本地缓存</th><th>分布式缓存(Redis)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">数据放哪</span></td><td>那台应用机器自己的内存</td><td>独立的共享缓存集群</td></tr>
+          <tr><td><span class="lab">速度</span></td><td>纳秒级,最快(不走网络)</td><td>亚毫秒,多一次网络往返</td></tr>
+          <tr><td><span class="lab">一致性</span></td><td>每台一份,容易互相不一致</td><td>全局一份,天然一致</td></tr>
+          <tr><td><span class="lab">容量</span></td><td>受单机内存限制</td><td>可独立扩容,大得多</td></tr>
+          <tr><td><span class="lab">适合存</span></td><td>极少变、不一致也无妨的小数据</td><td>需共享/一致的热数据、会话状态</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 不是二选一:高级玩法是<strong>两层叠用</strong>——进程内缓存兜最热的一小撮(扛住 hot key),分布式缓存做全局主力。第 5 节会看到这招怎么救命。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>读写策略</div>
+    <h2>缓存和数据库,谁先谁后</h2>
+    <p>有了缓存,就要决定一件事:<strong>读和写的时候,缓存与数据库怎么配合</strong>?这几种“缓存模式”是面试高频,差别在于<em>谁负责回填、写的时候先写谁</em>。</p>
+
+    <h3>读:cache-aside —— 最常用的那个</h3>
+    <p><strong>Cache-aside(旁路缓存,又叫 lazy loading)</strong>是默认选择,逻辑由<em>应用代码</em>掌控:先问缓存,有就返回(hit);没有就回数据库查,<strong>再把结果写回缓存</strong>,下次就有了(miss + 回填)。“懒”在于——只有被真正请求过的数据才会进缓存。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">rate_cache.py · cache-aside 读取费率表(示意)</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">get_rate_table</span>(version):
+    key = <span class="c-str">f"rate:{version}"</span>          <span class="c-com"># 版本化 key,见第 4 节</span>
+
+    cached = cache.<span class="c-fn">get</span>(key)
+    <span class="c-key">if</span> cached <span class="c-key">is not</span> <span class="c-key">None</span>:
+        <span class="c-key">return</span> cached              <span class="c-com"># ① 命中 → 亚毫秒返回</span>
+
+    <span class="c-com"># ② 未命中:回数据库取源头</span>
+    table = db.<span class="c-fn">load_rate_table</span>(version)
+
+    <span class="c-com"># ③ 回填缓存,下次就命中(费率表按版本不可变 → 可设很长 TTL)</span>
+    cache.<span class="c-fn">set</span>(key, table, ttl=<span class="c-num">86400</span>)
+    <span class="c-key">return</span> table</code></pre>
+    </div>
+    <p>注意:cache-aside 下,<strong>缓存里没有的数据不会自动出现</strong>——只有读过一次才进缓存。优点是简单、只缓真正用到的东西、缓存挂了系统也只是变慢(不会错);缺点是每个 key 第一次读总是 miss,且失效逻辑要应用自己管(下一节的雷区)。</p>
+
+    <h3>写:三种姿势</h3>
+    <p>写数据时,缓存和数据库的先后顺序,决定了“快”和“别读到旧数据”之间的取舍:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">策略</th><th>写的时候做什么</th><th>取舍</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Write-through</span><br>写穿透</td><td>同时写缓存 + 数据库,都成功才算成功</td><td>缓存总是最新、读永远命中新值;写更慢(两处都写)</td></tr>
+          <tr><td><span class="lab">Write-back</span><br>写回 / write-behind</td><td>先只写缓存、立刻返回,<strong>稍后</strong>异步刷回数据库</td><td>写极快、吞吐高;但缓存一挂、还没刷回的数据<strong>就丢了</strong>(受监管写路径慎用)</td></tr>
+          <tr><td><span class="lab">Write-around</span><br>绕写</td><td>只写数据库,<strong>不</strong>动缓存(让它下次读时 miss 再回填)</td><td>避免“写进去却没人读”的数据占缓存;但刚写的数据第一次读必然 miss</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 一个常被忽略的细节:写的时候,与其“更新缓存里的旧值”,不如直接<strong>删掉(invalidate)</strong>那个 key,让下次读自然 miss 回填——这样能避开一类“并发更新把旧值写回缓存”的竞态。删除比更新更安全,是个反复出现的实战经验。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>失效与一致性</div>
+    <h2>缓存最难的事,是让它适时“忘掉”</h2>
+    <p>计算机界有句广为流传的玩笑:<em>“真正难的只有两件事——缓存失效,和给变量起名。”</em>失效(invalidation)之所以难,是因为缓存的本质是<strong>一份副本</strong>:源头一变,副本就<em>过时(stale)</em>了。系统该怎么知道、又该多快让副本跟上?这就是缓存的核心张力——<strong>性能 vs 一致性</strong>:你缓得越久越快、却越可能读到旧数据;追求时时最新,缓存的意义又被削弱。三种主流办法,从“凑合”到“干净”:</p>
+
+    <h3>① TTL —— 给每条缓存设个保质期</h3>
+    <p><strong>TTL(time to live)</strong>:写入时设一个存活时间,到点自动失效、下次读重新回源。最简单、最常用,本质是<strong>用“可容忍的过时窗口”换简单</strong>。设 TTL=60s,就等于声明“这份数据最多旧 60 秒,我能接受”。问题是:在窗口内,读到的<strong>就是旧值</strong>——对官网的营销文案无所谓,对一条刚刚改了的费率,可能就是大事。</p>
+
+    <h3>② 显式失效 —— 数据一变就主动删缓存</h3>
+    <p>写数据库的同时,主动把相关 key 从缓存删掉(或更新)。准、即时,但<strong>难做对</strong>:容易漏删某个 key、容易在分布式下出现“删缓存”和“别的请求回填旧值”的竞态、一份数据散在多层多个 key 时更难一网打尽。强一致需求会用它,但它是 bug 的高发区。</p>
+
+    <h3>③ 版本化 key —— 最干净的一招(对 QuoteFlow 尤其重要)</h3>
+    <p>把<strong>版本号写进 key 本身</strong>:不存 <code class="inl">rate_table</code>,而存 <code class="inl">rate:2026-06</code>、<code class="inl">rate:2026-07</code>。每个版本的内容<strong>不可变(immutable)</strong>——一旦生成就永不修改。于是“失效”这个难题<em>直接消失了</em>:费率表要更新?不是去改 <code class="inl">rate:2026-06</code>,而是生成一个全新的 <code class="inl">rate:2026-07</code>,让应用改读新 key。旧 key 自然没人读、慢慢被淘汰,新 key 第一次读 miss 回填。<strong>没有“同一个 key 内容变了”的时刻,也就没有 stale 的窗口。</strong></p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>为什么版本化对受监管定价是“正解”</div>
+      <ul>
+        <li>QuoteFlow 的费率表 / 核保规则 / 定价模型本来就该是<strong>版本化、不可变</strong>的(Day 1 的 auditability)。把这套版本号顺手用作缓存 key,就一箭双雕:既拿到缓存的速度,又<strong>永远不会因为缓存读到“半新半旧”的费率而算出不可复现的报价</strong>。一条报价钉住了 <code class="inl">rate_table_version</code>(还记得 Day 1 那份契约吗?),无论命中缓存还是回源,拿到的都是<em>那个</em>版本——这正是 reproducibility 的根。</li>
+      </ul>
+    </div>
+
+    <h3>顺带分清:expiration(过期)≠ eviction(逐出)</h3>
+    <p>两个常被混的词。<strong>过期</strong>是“到 TTL 了,这条数据该失效”——按时间。<strong>逐出</strong>是“缓存内存满了,得腾地方,踢掉某些数据”——按容量,跟它过没过期无关。缓存满时踢谁,由<strong>逐出策略</strong>决定,最常见的是 <strong>LRU(Least Recently Used,踢最久没被用的)</strong>,还有 <strong>LFU(Least Frequently Used,踢用得最少的)</strong> 和 FIFO。LRU 的直觉很对:最近没人碰的,大概率接下来也用不上。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>缓存陷阱</div>
+    <h2>四个经典的“缓存反而把你拖垮”</h2>
+    <p>缓存平时是救星,出事时却能<strong>反过来放大故障</strong>——因为大家都指望它挡在数据库前面,它一旦失灵,所有压力瞬间砸向后面那个本来扛不住全量的数据库。认全这四个经典陷阱,是“会用缓存”和“被缓存坑过”的分水岭:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">陷阱</th><th>怎么发生的</th><th>怎么防</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Stampede</span><br>惊群 / 缓存击穿</td><td>一个<strong>热</strong> key 刚好过期,瞬间一大批请求同时 miss、齐刷刷砸向数据库重算同一个值</td><td>加锁 / single-flight(只放一个去重算,其余等结果);TTL 加随机抖动;热点提前异步刷新</td></tr>
+          <tr><td><span class="lab">Penetration</span><br>穿透</td><td>反复查一个<strong>根本不存在</strong>的 key,缓存永远 miss,每次都白穿到数据库(常是恶意扫描)</td><td>把“查无此项”也缓存成空值(设短 TTL);用 bloom filter 先挡掉绝不存在的</td></tr>
+          <tr><td><span class="lab">Avalanche</span><br>雪崩</td><td>大批 key <strong>同一时刻</strong>集体过期,或整个缓存集群挂掉,流量整片涌向数据库把它压垮</td><td>TTL 打散(别用同一个固定值);缓存做高可用 + 多副本;前面加限流 / 熔断(Day 20)</td></tr>
+          <tr><td><span class="lab">Hot key</span><br>热点 key</td><td>某一个 key 太火(如爆款产品费率),所有流量集中打到存它的<strong>那一个</strong>缓存节点,把单节点打爆</td><td>在应用进程内再缓一层兜住它;把热 key 复制到多个节点分摊</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 共同点:平时被缓存挡住的洪水,在某个瞬间一起决堤砸向数据库。所以缓存层的设计,要顺带想清楚“它失灵那一刻,后面扛不扛得住”。</p>
+
+    <p>用伪代码看 <strong>stampede</strong> 的解法最直观——核心是“同一个热 key,同一时刻只让一个请求去重算,其余的等它”:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">stampede.py · 用单飞锁挡住惊群(示意)</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">get_with_lock</span>(key):
+    val = cache.<span class="c-fn">get</span>(key)
+    <span class="c-key">if</span> val <span class="c-key">is not</span> <span class="c-key">None</span>:
+        <span class="c-key">return</span> val                      <span class="c-com"># 命中,正常返回</span>
+
+    <span class="c-com"># miss:抢一把短锁,只有抢到的那个去查源头</span>
+    <span class="c-key">if</span> cache.<span class="c-fn">set_nx</span>(key + <span class="c-str">":lock"</span>, ttl=<span class="c-num">5</span>):
+        val = db.<span class="c-fn">load</span>(key)            <span class="c-com"># ← 同一时刻只有一个请求走到这</span>
+        cache.<span class="c-fn">set</span>(key, val, ttl=<span class="c-fn">jitter</span>(<span class="c-num">3600</span>))  <span class="c-com"># TTL 加随机,防雪崩</span>
+        cache.<span class="c-fn">delete</span>(key + <span class="c-str">":lock"</span>)
+        <span class="c-key">return</span> val
+    <span class="c-key">else</span>:
+        <span class="c-fn">sleep</span>(<span class="c-num">0.05</span>)                  <span class="c-com"># 没抢到锁的:稍等一下</span>
+        <span class="c-key">return</span> <span class="c-fn">get_with_lock</span>(key)      <span class="c-com"># 再读,这时大概率已被回填</span></code></pre>
+    </div>
+    <p>这段同时用上了两招:<code class="inl">set_nx</code> 的<strong>单飞锁</strong>挡住惊群(stampede),<code class="inl">jitter()</code> 给 TTL 加随机量打散过期时间(防雪崩 avalanche)。两个陷阱、一段代码。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>贯穿案例</div>
+    <h2>QuoteFlow 的缓存地图</h2>
+    <p>把今天的零件落到 QuoteFlow 上,每一层缓什么、用什么策略,一张表就清楚——关键是:<strong>读多变少的用缓存,版本化的当 key,绝不能错的别图快。</strong></p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:26%">缓在哪一层</th><th>QuoteFlow 缓什么</th><th>策略</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">CDN</span></td><td>官网 / App 的静态资源(JS、CSS、图片、产品介绍页)</td><td>长 TTL + 文件名带哈希,改了换名即换缓存</td></tr>
+          <tr><td><span class="lab">分布式缓存 Redis</span></td><td>费率表 / 核保规则 / 定价模型(读多、极少变)</td><td><strong>版本化 key</strong>(<code class="inl">rate:2026-06</code>),不可变 → 永不 stale</td></tr>
+          <tr><td><span class="lab">分布式缓存 Redis</span></td><td>多步投保流程里的“报价进度”会话状态</td><td>cache-aside + 短 TTL;应用因此可无状态(Day 6)</td></tr>
+          <tr><td><span class="lab">不该缓 / 谨慎缓</span></td><td>签发保单、保费扣款等<strong>写路径</strong>与权威记录</td><td>以数据库为准;别用 write-back 图快(丢数据 = 丢审计)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">缓存怎么同时服务“快”和“可审计”</h3>
+      <p>报价路径上,真正贵的是反复拉同一套<strong>费率表 / 核保规则</strong>。把它们按<strong>版本号</strong>缓进 Redis,报价服务命中时亚毫秒拿到、不打数据库——latency 和 throughput 一起改善。而因为 key 是版本化、内容不可变的,无论哪台无状态服务、命中还是回源,拿到的都是<em>同一份</em> <code class="inl">rate:2026-06</code>。这就接上了 Day 1 那份契约里钉死的 <code class="inl">rate_table_version</code>:<strong>缓存在这里不仅没破坏可复现性,反而是它的帮手。</strong></p>
+      <h3>哪条线不能图快</h3>
+      <p>反过来,<strong>签发保单、扣款、写 audit log</strong> 这些写路径,绝不能用 write-back“先写缓存、稍后刷库”——缓存一挂,还没落库的那笔就<strong>凭空消失</strong>,在受监管场景里等于审计链断裂。这类写以数据库为权威源,缓存只在<em>读</em>侧帮忙。判断一份数据该不该缓、能缓多久,本质就是问一句:<strong>“它旧一点会怎样?丢一份会怎样?”</strong>——这正是 Day 2 一致性取舍在缓存层的具体落地。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>缓存 = 把贵的结果存近一点、下次直接拿,买到<strong>低延迟 + 给下游减负</strong>。价值全押在 <strong>hit rate</strong>;读少又分散的数据缓了反而更慢。</p></div>
+      <div class="tk"><span class="n">2</span><p>一条请求路上有<strong>多层缓存</strong>:浏览器 → CDN → 应用本地 → 分布式 Redis。越近越快越管不动;<strong>cache-aside</strong> 是默认读法。</p></div>
+      <div class="tk"><span class="n">3</span><p>最难的是<strong>失效与一致性</strong>:TTL 简单但有 stale 窗口、显式失效准但易错、<strong>版本化不可变 key</strong> 最干净——对受监管定价是正解。</p></div>
+      <div class="tk"><span class="n">4</span><p>缓存失灵会<strong>反向放大故障</strong>:stampede / penetration / avalanche / hot key。设计时要想清“它一挂,后面的库扛不扛得住”。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">某份数据几乎每次请求的 key 都不一样(命中率极低)。给它加缓存,大概率是赚还是亏?为什么?</span></summary>
+        <div class="ans"><b>大概率亏。</b>缓存只对“读多、且重复读同一批热数据”划算。命中率极低时,几乎每个请求都先查一次缓存(扑空)、再回源——等于<b>每次都比没缓存多付一次查缓存的开销</b>,却很少命中。缓存的价值全押在 hit rate 上。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">费率表要更新。用“TTL 到点失效”还是“版本化不可变 key”更适合 QuoteFlow?为什么?</span></summary>
+        <div class="ans"><b>版本化 key 更适合。</b>TTL 方案在“费率刚改、旧缓存还没到期”的那段窗口里,会读到<b>旧费率</b>,在受监管定价里可能算出不可复现的报价。版本化把版本号写进 key(<code>rate:2026-07</code>),内容不可变、改版本就是换 key——<b>根本不存在“同一个 key 内容变了”的 stale 时刻</b>,天然对齐契约里钉死的 rate_table_version。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">什么是 cache stampede(惊群)?和 cache avalanche(雪崩)有什么区别?各怎么缓解?</span></summary>
+        <div class="ans"><b>Stampede</b>:<b>单个热 key</b> 刚过期,瞬间大量请求同时 miss、一起去重算同一个值砸向数据库——用<b>单飞锁</b>(只放一个去算、其余等)缓解。<b>Avalanche</b>:<b>大批 key 同时过期</b>(或缓存整体挂)导致流量整片涌向数据库——用 <b>TTL 加随机抖动</b>打散过期时间 + 缓存高可用 + 限流熔断缓解。一个是“一个点决堤”,一个是“整片决堤”。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 给 QuoteFlow 列一列:哪些数据<strong>适合缓存</strong>、哪些<strong>绝不该缓</strong>?你判断的标准是什么(提示:它旧一点会怎样?丢一份会怎样?)<br>② 假设有人偷懒,用 <code class="inl">TTL=5 分钟</code> 缓存费率表。在“费率表刚更新”后的那 5 分钟里,系统会发生什么?这对<strong>审计 / 合规</strong>意味着什么?你会怎么改?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Cache Hit / Miss</dt><dd>命中=要的数据缓存里有,直接返回;未命中=缓存没有,回源查再回填(还比无缓存多一跳)。</dd></dl>
+      <dl><dt>Hit Rate</dt><dd>命中率=命中数/总请求数;缓存价值的命脉指标,越高越值。</dd></dl>
+      <dl><dt>CDN</dt><dd>内容分发网络:把内容缓存到地理就近的边缘节点,主要服务静态资源。</dd></dl>
+      <dl><dt>Cache-Aside</dt><dd>旁路缓存/lazy loading:应用先查缓存,miss 则查源头并回填;最常用的读策略。</dd></dl>
+      <dl><dt>Write-through / Write-back</dt><dd>写穿透=同写缓存+库(慢但不丢);写回=先写缓存稍后刷库(快但可能丢数据)。</dd></dl>
+      <dl><dt>TTL</dt><dd>缓存条目的存活时间,到点自动失效;用“可容忍的过时窗口”换简单。</dd></dl>
+      <dl><dt>Eviction (LRU/LFU)</dt><dd>缓存满时按策略踢数据腾空间:LRU 踢最久没用的、LFU 踢用得最少的。≠ 过期(按时间)。</dd></dl>
+      <dl><dt>Cache Stampede</dt><dd>惊群/击穿:热 key 一过期,海量请求同时 miss 砸向源头;用单飞锁+TTL 抖动缓解。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 8 · 第 2 周开篇</div>
+      <div class="t">关系数据库与 ACID:第一周一直把数据库当“源头(source of truth)”在用——明天正式走进数据层,在你已有的 SQL 基础上往深里挖:事务到底保证了什么,ACID 四个字母分别在防哪种灾难,以及它为什么是 QuoteFlow 写路径(那条今天说“别图快”的线)的底座</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 07 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
