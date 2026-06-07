@@ -41,6 +41,12 @@ Matt 的 30 天 System Design 自学项目。每天早上 8 点，一个**独立
 - 讨论后顺手更新主目录的 `glossary.html`：把**新出现的术语**（当日术语表里的 + 提问中冒出来的）同步进去——数据在文件顶部的 `TERMS` 数组，去重、多来源并到一条、尽量挂上关联链接。
 - 讨论后也顺手更新主目录的 `confusable-pairs.html`：把这次冒出的**易混对子（Confusable Pairs）**——两个容易混淆、需要刻意区分的概念——加进去。数据在文件底部 `<script>` 的 `PAIRS` 数组，一条一个对象：`a`/`b` 两概念（各含 `t` 英文 / `zh` 中文 / `def` 一句定义）+ `diff` 关键区别 + `eg` QuoteFlow 例子 + `mn` 记一句 + `src` 来源 + `link`（用 `L.dN` 引用当日文档）+ `trip`（Matt **实际答偏过**的标 `true` → 自动置顶并标「⚠ 你栽过」）。判断标准：是「需要并排区分才不混」的一对，而非单纯一个术语（那进 glossary）。
 
+### 原始逐字记录（`question-raw/`，与上面的加工产物分工）
+- 上面 `notes/` `glossary.html` `confusable-pairs.html` 是**压缩过的「解读层」**，且会进**公开** repo——务必 sanitize，案例换成虚构 QuoteFlow，不带真实工作细节。
+- `question-raw/` 是**未总结的「原料层」**：每次讨论后，除了写 `notes/`，把**完整、未经总结**的原始问答 dump 到 `question-raw/Day-NN.md`（meta / 跨日讨论用描述性文件名，如 `meta-YYYY-MM-DD-<slug>.md`）。
+- 这个文件夹已被 `.gitignore` 忽略——**不入库、不公开**，因此**不做 sanitize**，逐字保留即可（含 Matt 随口带出的真实工作细节）。
+- 格式用 Markdown，按发言人分段（`## 🧑 Matt` / `## 🤖 Claude`）。用途：日后重新总结 / 出复习卡的「原料」。
+
 ### 如果 cowork 没生成当天 note（来这边补一个空白框架）
 有时早上的日常流程没顺带生成 `notes/Day-NN.md`，Matt 会让我「按一样的结构生成」。做法：
 1. 读当天的 `Day-NN-*.html`，提取文末「**带回来讨论的思考题**」（那个 amber 色 `.think` 区块里的题）。日期对齐文档生成日（Day 01=06-01、Day 02=06-02…顺推）。
@@ -104,7 +110,9 @@ System-Design-Study/
 ├── glossary.html                 # 集中术语表（讨论中维护、数据驱动；非日常流程）
 ├── confusable-pairs.html         # 易混对子复习卡（讨论中维护、数据驱动；非日常流程）
 ├── CLAUDE.md                     # 本文件
-└── notes/
-    ├── _TEMPLATE.md              # 笔记模板
-    └── Day-NN.md                 # 每天的问答笔记
+├── notes/
+│   ├── _TEMPLATE.md              # 笔记模板
+│   └── Day-NN.md                 # 每天的问答笔记（压缩总结，公开、已 sanitize）
+└── question-raw/                 # 原始逐字问答（.gitignore，本地保真、不公开、不 sanitize）
+    └── Day-NN.md                 # 当天完整未总结的问答原料
 ```
