@@ -165,6 +165,7 @@ const L = {
   d5:'Day-05-api-design.html',
   d6:'Day-06-load-balancing-scaling.html',
   d7:'Day-07-caching.html',
+  d8:'Day-08-relational-db-acid.html',
 };
 
 const PAIRS = [
@@ -300,6 +301,34 @@ const PAIRS = [
     diff:'through 先落库再返回（不丢、慢）；back 先写缓存、后台再刷库（快、可能丢）。受监管写路径（签发 / 扣款 / audit log）绝不能用 write-back——丢一笔 = 审计链断。',
     eg:'QuoteFlow 写路径以数据库为权威源、别图快用 write-back；缓存只在读侧帮忙。',
     mn:'through 先落库（稳）；back 先写缓存（快但可能丢）。' },
+
+  { trip:true, src:'讨论', link:L.d8,
+    a:{t:'MVCC', zh:'多版本并发控制 · 引擎', def:'每次写生成行的新版本、读按快照挑可见版本；读不加锁、读写不互阻。是底层机制，本身不是「某一档」。'},
+    b:{t:'Isolation Level', zh:'隔离级别 · 策略', def:'并发可见度的四档旋钮；档与档的差别在「快照多久换一张」+ 要不要查冲突。'},
+    diff:'MVCC 是引擎、隔离级别是建在它上的策略——同一台 MVCC，第 2 档每语句重拍快照、第 3 档整事务冻住同一张、第 4 档冻住再加冲突裁判。「有快照」不是第 3 档专属，第 2 档也在用。',
+    eg:'我一度以为 MVCC「属于第 2 档（Read Committed）」、又因为它有 snapshot 像第 3 档——其实它哪一档都不是，是四档共用的引擎；让某档成第 3 档的是「快照被冻住、整事务看同一张」。',
+    mn:'MVCC = 相机（引擎）；隔离级别 = 多久拍一张新的（策略）。' },
+
+  { src:'讨论', link:L.d8,
+    a:{t:'Deadlock', zh:'死锁 · 锁等待成环', def:'两事务各攥着对方要的锁、首尾相接死等；运行中发生，悲观锁派。'},
+    b:{t:'Serialization Failure', zh:'序列化失败 · rw 依赖成环', def:'SSI 提交时发现读写依赖绕成危险环；没人阻塞，乐观检测派。'},
+    diff:'都是「砍一个事务 + 应用重试」，但环长在不同地方——deadlock 是运行中真的互相阻塞干等出来的环（锁）；serialization failure 是各自跑完、提交时按读写关系查出来的环（无阻塞）。',
+    eg:'两 worker 按相反顺序锁 policy 100/200 → deadlock；两核保事务各读聚合各插一行、SSI 提交时判环 → serialization failure。',
+    mn:'deadlock = 等出来的环（锁）；serialization failure = 查出来的环（提交时）。' },
+
+  { src:'讨论', link:L.d8,
+    a:{t:'SQL COMMIT', zh:'事务提交 · 并发原语', def:'敲定一批改动并发布：何时对别人可见 / 算数。难题在 isolation、锁、冲突。'},
+    b:{t:'Git commit', zh:'版本提交 · 历史原语', def:'沿时间留一个快照血缘点，基本单写者。难题在分支 / 合并 / 回溯。'},
+    diff:'同一个英文隐喻（暂存→原子敲定一批→此后持久），但啃的硬骨头不同：SQL-commit 解决并发可见性 → 一锤定音（没法 uncommit、撤要补偿事务）+ 立即全局可见；git-commit 解决历史血缘 → 可改写（amend/rebase/reset）+ 仅本地（发布另靠 push）。',
+    eg:'CVS/SVN 的 commit 本就是「推到中央、所有人立刻看到」≈ SQL commit；是 git 故意把 commit 降权成本地、另发明 push（svn commit ≈ git commit + push）。',
+    mn:'SQL commit = 并发·一锤定音·即发布；git commit = 历史·可改写·仅本地。' },
+
+  { src:'讨论', link:L.d8,
+    a:{t:'2PL + Predicate Lock', zh:'锁派 · 悲观预防', def:'锁住读过的谓词范围，别人往里 INSERT 就阻塞；幻读无从出现。'},
+    b:{t:'SSI', zh:'检测派 · 乐观事后', def:'不阻塞、各跑各的快照，提交时查出 rw 冲突环再 abort 一个、重试。'},
+    diff:'两种都能兑现 Serializable，破幻读的思路相反——锁派「锁住行将落进的那段范围」（写者干等、可能 deadlock）；SSI「事后发现你读过的范围被人塞了东西就判你重来」（重试白干）。MySQL InnoDB 走前者，PostgreSQL 走后者。',
+    eg:'InnoDB Serializable 用 next-key lock 挡住区间内的 INSERT；PG 用 SIReadLock 追踪依赖、提交时报 could not serialize access。',
+    mn:'2PL 预防（锁范围、阻塞）；SSI 检测（查冲突、重试）。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */

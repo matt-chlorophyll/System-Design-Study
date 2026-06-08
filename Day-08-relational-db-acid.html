@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 08 · 关系数据库与 ACID</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:26.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 8 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 2 周 · 数据层</span>
+    <h1>数据库凭什么<br>当“权威源”</h1>
+    <p class="lede">第一周我们反复把数据库当成 source of truth 在用——缓存可以丢、可以旧,但“以库为准”。今天正式走进数据层,在你已有的 SQL 基础上往深里挖:它凭什么配当那个“准”——答案是 <strong>transaction</strong> 和 <strong>ACID</strong>。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>昨日回顾 · Day 7</div>
+    <ul>
+      <li>昨天讲缓存:把贵的结果存近一点、下次直接拿,买到低延迟 + 给下游减负。我们反复强调一句——<strong>缓存可以旧、可以丢,但写路径(签发保单、扣款、写 audit log)必须以数据库为权威源,别用 write-back 图快</strong>。今天就把“数据库凭什么是那个权威源”讲透:不是因为它存得多,而是因为它提供了 <strong>transaction</strong> 这层保证。一旦 <code class="inl">COMMIT</code>,数据就<em>真的、原子地、持久地</em>在那儿了——这正是缓存给不了的东西。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>说清 <strong>transaction(事务)</strong> 到底保证了什么:一组操作“要么全成、要么全不成”</li>
+      <li>逐字啃透 <strong>ACID</strong>——Atomicity / Consistency / Isolation / Durability 分别在防哪种灾难</li>
+      <li>搞懂并发下的三种经典异常(dirty / non-repeatable / phantom read)与对应的<strong>隔离级别</strong></li>
+      <li>认识 ACID 的代价与边界,以及它为什么是 QuoteFlow <strong>写路径</strong>的底座(那条昨天说“别图快”的线)</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>事务:一个原子单元</div>
+    <h2>“要么全做,要么全不做”</h2>
+    <p>你已经写过无数 <code class="inl">INSERT</code> / <code class="inl">UPDATE</code>。今天换个角度看它们:很多业务动作<strong>不是一条语句,而是好几条必须捆在一起的语句</strong>。捆不住,系统就会留下“半成品”。</p>
+    <p>QuoteFlow 签发一张保单,数据库里至少要发生三件事:写入<strong>保单主记录</strong>(policies)、建立<strong>首期账单</strong>(billing)、写一条<strong>审计日志</strong>(audit_log,合规要求:谁、何时、依据哪个 rate_table_version 签发)。现在设想:第一条写成功了,服务器在写第二条时<em>崩了</em>。结果是——一张<strong>有保单、没账单、没留痕</strong>的孤儿记录。在受监管的寿险里,这不是 bug,是事故。</p>
+    <p>事务(transaction)就是为这个而生的:把这几条语句声明成<strong>一个不可分割的单元</strong>。<code class="inl">BEGIN</code> 开启,中间随便写多少条,最后 <code class="inl">COMMIT</code> 让它们<em>一起</em>生效;只要中途任何一步出错,<code class="inl">ROLLBACK</code> 让它们<em>一起</em>当作没发生过。没有“写了一半”的中间态对外可见。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 286" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- BEGIN -->
+        <rect x="14" y="116" width="84" height="46" rx="13" fill="#15a06a"/>
+        <text x="56" y="138" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">BEGIN</text>
+        <text x="56" y="153" font-size="9.5" fill="#d8f3e6" text-anchor="middle">开启事务</text>
+        <path d="M98 139 L126 139" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- transaction card -->
+        <rect x="130" y="54" width="232" height="170" rx="14" fill="url(#g1)" stroke="#cfe2d7" stroke-dasharray="6 4"/>
+        <text x="246" y="78" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">一个事务 = 一个原子单元</text>
+
+        <rect x="150" y="92" width="192" height="34" rx="8" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="166" y="113" font-size="11.5" fill="#0f3d2e">① INSERT policies</text>
+        <rect x="150" y="132" width="192" height="34" rx="8" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="166" y="153" font-size="11.5" fill="#0f3d2e">② INSERT billing</text>
+        <rect x="150" y="172" width="192" height="34" rx="8" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="166" y="193" font-size="11.5" fill="#0f3d2e">③ INSERT audit_log</text>
+
+        <!-- branches -->
+        <path d="M362 100 L400 100 L400 92 L432 92" stroke="#7fd3ad" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M362 188 L400 188 L400 196 L432 196" stroke="#d8a39b" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- COMMIT outcome -->
+        <rect x="436" y="58" width="272" height="74" rx="12" fill="#eafaf2" stroke="#9bd9bd"/>
+        <text x="452" y="82" font-size="13" font-weight="700" fill="#0c7a50">COMMIT ✓ 三条一起永久生效</text>
+        <text x="452" y="103" font-size="11" fill="#3a463f">Atomicity:全有 · Durability:落盘后</text>
+        <text x="452" y="119" font-size="11" fill="#3a463f">断电/重启也还在</text>
+
+        <!-- ROLLBACK outcome -->
+        <rect x="436" y="158" width="272" height="74" rx="12" fill="#fbeeec" stroke="#e6b3aa"/>
+        <text x="452" y="182" font-size="13" font-weight="700" fill="#b04a3f">任一步出错 → ROLLBACK ✗</text>
+        <text x="452" y="203" font-size="11" fill="#3a463f">三条一起消失,绝不留下“有保单</text>
+        <text x="452" y="219" font-size="11" fill="#3a463f">没账单”的半成品</text>
+      </svg>
+      <figcaption>图 1 · 事务的两个出口:要么 COMMIT(全部生效且持久),要么 ROLLBACK(全部回退)。外界永远看不到“写了一半”的中间态。</figcaption>
+    </figure>
+
+    <p>这就是数据库“配当权威源”的第一块基石。下面把这套保证拆成四个字母——<strong>ACID</strong>。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>ACID 逐字拆解</div>
+    <h2>四个字母,各防一种灾难</h2>
+    <p>ACID 不是一个抽象口号,而是<strong>四条互相独立的保证</strong>,每一条都在堵住一类具体的事故。用 QuoteFlow 签发保单这一笔事务挨个对照:</p>
+
+    <h3>A — Atomicity(原子性)</h3>
+    <p>事务里的所有操作,<strong>要么全部生效,要么全部不生效</strong>,没有中间态。上面那个“有保单没账单”的孤儿记录,正是原子性在防的灾难。它的实现机制(概念级)是 <strong>write-ahead log(WAL)</strong>:改动先写进一份日志,崩溃重启时按日志把没 commit 的事务<em>回滚</em>干净。</p>
+
+    <h3>C — Consistency(一致性)</h3>
+    <p>这里的 consistency 容易和 Day 2 讲的“分布式一致性”混。<strong>ACID 的 C 指的是:事务结束后,数据库仍满足所有既定规则</strong>——主键唯一、外键有效、CHECK 约束、以及你自定义的业务不变量(如“保额必须 &gt; 0”“in-force 保单必须有对应 billing”)。事务把数据库从一个<em>合法状态</em>搬到另一个<em>合法状态</em>,不会停在违规状态。(注意:这个 C 和 CAP 里的 C 是两码事,Day 12 会专门厘清。)</p>
+
+    <h3>I — Isolation(隔离性)</h3>
+    <p>多个事务<strong>并发</strong>跑时,彼此不应该互相看到对方“写了一半”的脏数据;理想情况下,并发执行的结果应当<em>等价于某种串行执行</em>。这是 ACID 里最微妙、代价最高、也最常被调档的一条——下一节单独展开。</p>
+
+    <h3>D — Durability(持久性)</h3>
+    <p>一旦 <code class="inl">COMMIT</code> 返回成功,数据就<strong>真的落到了非易失存储</strong>(磁盘 / SSD),哪怕下一秒断电、进程崩溃,重启后它依然在。这正是昨天 Day 7 那句“write-back 缓存可能丢数据”的<strong>反面</strong>:审计日志、保单、扣款这类记录,必须落到有 durability 保证的库里,不能停在易失的内存缓存上。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>给受监管定价的一句话</div>
+      <ul><li>对 QuoteFlow 这种系统,<strong>A + D 直接撑起了 auditability</strong>:原子性保证“签发”和“留痕”同生同灭(不会有签了却没记的保单),持久性保证留痕一旦写下就不会丢。监管要的“每笔都可追溯”,技术底座就在这两个字母上。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>Isolation 深入</div>
+    <h2>并发的三种异常,与四档隔离级别</h2>
+    <p>Isolation 难,是因为它有<strong>档位</strong>——隔离越强越安全,但锁越多、并发越低。要选对档,先得认识它在防的三种经典并发异常(都假设事务 T1、T2 同时在跑):</p>
+
+    <p><strong>① Dirty read(脏读)</strong>:T1 读到了 T2 <em>还没 commit</em> 的修改;万一 T2 随后 rollback,T1 就基于一个“从未存在过”的值做了决定。<br>
+    <strong>② Non-repeatable read(不可重复读)</strong>:T1 在同一事务里读<em>同一行</em>两次,中间 T2 改了它并 commit,于是两次读到<em>不同的值</em>。<br>
+    <strong>③ Phantom read(幻读)</strong>:T1 用同一个条件查<em>一组行</em>两次(如“所有 product=TERM_LIFE_20Y 的报价”),中间 T2 插入/删除了符合条件的行,于是两次查到的<em>行数/集合</em>变了——凭空多出或少掉“幻影”行。</p>
+
+    <p>SQL 标准用四档隔离级别,逐级把这些异常关掉:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:26%">隔离级别</th><th>脏读</th><th>不可重复读</th><th>幻读</th><th>代价 / 谁在用</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Read Uncommitted</span></td><td>可能</td><td>可能</td><td>可能</td><td>几乎不防,极少使用</td></tr>
+          <tr><td><span class="lab">Read Committed</span></td><td>挡住</td><td>可能</td><td>可能</td><td>开销小;<strong>PostgreSQL / Oracle / SQL Server 默认</strong></td></tr>
+          <tr><td><span class="lab">Repeatable Read</span></td><td>挡住</td><td>挡住</td><td>可能*</td><td>更多锁/快照;<strong>MySQL InnoDB 默认</strong></td></tr>
+          <tr><td><span class="lab">Serializable</span></td><td>挡住</td><td>挡住</td><td>挡住</td><td>最强最贵,可能更多锁冲突/重试</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 越往下越安全,但并发吞吐越低。*按 SQL 标准 Repeatable Read 仍可能幻读;MySQL InnoDB 靠 MVCC + gap lock 实际上也挡住了大部分幻读——“标准定义”和“某数据库的实现”常常对不齐,这是个高频坑。</p>
+
+    <p>怎么用得起“强隔离又不太慢”?现代数据库的答案多是 <strong>MVCC(multi-version concurrency control,多版本并发控制)</strong>:每个事务看到的是一份数据在它开始那一刻的<em>快照</em>,读不加锁、读写不互相阻塞——读多的报价场景因此能既一致又快。这也是为什么 PostgreSQL 默认的 Read Committed 在实践中体感很好。</p>
+
+    <p>对 QuoteFlow 的取舍直觉:<strong>报价(读多)路径</strong>通常 Read Committed 足够;但<strong>涉及钱、额度、状态翻转</strong>的写(签发、扣款、调整保额)往往需要更强隔离,否则会撞上经典的 <em>lost update</em>(两笔并发更新,后写覆盖前写,丢了一次)。判断标准还是 Day 2 那句:这份数据“读到旧一点 / 看到别人写一半”会不会出事?</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>落到代码与边界</div>
+    <h2>事务长什么样,以及它的代价</h2>
+    <p>把第 1 节那笔签发写成事务,ACID 就具体了:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">issue_policy.sql  ·  QuoteFlow 签发一张保单(示意)</span></div>
+<pre><code><span class="c-key">BEGIN</span>;                                  <span class="c-com">-- 从这里到 COMMIT 是一个原子单元</span>
+
+  <span class="c-com">-- ① 写保单主记录</span>
+  <span class="c-key">INSERT INTO</span> policies (policy_id, applicant_id, product, sum_insured, status)
+  <span class="c-key">VALUES</span> (<span class="c-str">'p_77a2'</span>, <span class="c-str">'a_1043'</span>, <span class="c-str">'TERM_LIFE_20Y'</span>, <span class="c-num">500000</span>, <span class="c-str">'IN_FORCE'</span>);
+
+  <span class="c-com">-- ② 建首期账单</span>
+  <span class="c-key">INSERT INTO</span> billing (policy_id, amount, due_date)
+  <span class="c-key">VALUES</span> (<span class="c-str">'p_77a2'</span>, <span class="c-num">38.20</span>, <span class="c-str">'2026-07-01'</span>);
+
+  <span class="c-com">-- ③ 写审计日志:谁、何时、依据哪个版本签发(合规一等公民)</span>
+  <span class="c-key">INSERT INTO</span> audit_log (entity, entity_id, action, rate_table_version, actor, at)
+  <span class="c-key">VALUES</span> (<span class="c-str">'policy'</span>, <span class="c-str">'p_77a2'</span>, <span class="c-str">'ISSUE'</span>, <span class="c-str">'2026-06'</span>, <span class="c-str">'underwriting-svc'</span>, <span class="c-fn">now</span>());
+
+<span class="c-key">COMMIT</span>;                                 <span class="c-com">-- 三步一起生效;任一步报错 → ROLLBACK,一起作废</span></code></pre>
+    </div>
+    <p>注意 <code class="inl">rate_table_version='2026-06'</code> 又出现了——它从 Day 1 的接口契约、Day 7 的版本化缓存 key,一路贯穿到这里的 audit_log。<strong>同一个版本号在报价、缓存、落库三处对齐,就是 reproducibility 的实现方式</strong>:任何一笔报价/保单,日后都能复现出“当时用的是哪套费率”。</p>
+
+    <p>但 ACID 不是免费的,用之前要知道它的<strong>边界</strong>:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:30%">代价 / 限制</th><th>含义与后果</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">锁与争用 (contention)</span></td><td>强隔离靠加锁;事务持锁越久,别的事务等得越久,吞吐下降。<strong>事务要短、别在事务里调外部 API 或等用户输入。</strong></td></tr>
+          <tr><td><span class="lab">死锁 (deadlock)</span></td><td>两个事务互等对方的锁。数据库会检测并 kill 掉一个让它重试——应用要能<strong>容忍重试</strong>。</td></tr>
+          <tr><td><span class="lab">单机为主</span></td><td>经典 ACID 在<strong>一台数据库</strong>上最自然。一旦数据跨多台机器/多服务,要凑齐 ACID 就极难——这就引出了 Day 12(复制/CAP)和 Day 14(分布式事务 / saga)。</td></tr>
+          <tr><td><span class="lab">不是万能存储</span></td><td>它擅长强一致的事务型写(OLTP),不擅长海量松散写或灵活 schema——那是后面 NoSQL(Day 11)的地盘。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">事务边界画在哪</h3>
+      <p>QuoteFlow 里值得用一个事务包起来的,是那些“<strong>必须同生共死</strong>”的写:签发(policy + billing + audit)、扣款(扣 billing + 记 ledger + 写 audit)、保额调整(改 policy + 记 audit)。它们一旦只做一半,就会产生对账对不平、审计链断裂的灾难。</p>
+      <h3>哪里不该硬塞进一个大事务</h3>
+      <p>反过来,<strong>夜间给百万保单批量重定价</strong>就不该用“一个超大事务包住全部”——那会把锁持有几个小时、一处失败整批回滚、还可能撑爆日志。更合理的是<em>每张保单(或每小批)一个小事务</em>,各自原子、独立 commit、失败的单独重试。这正是“原子性该多原子”的边界判断,Day 17(批处理 vs 流处理)会把这条夜间链路完整展开。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>Transaction</strong> = 把多条语句捆成一个原子单元:<code class="inl">COMMIT</code> 全生效、<code class="inl">ROLLBACK</code> 全作废,外界看不到“写一半”。这是数据库配当权威源的根基。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>ACID</strong> 四字各防一灾:A 不留半成品、C 不违反规则、I 并发不互相污染、D 提交后不丢。受监管定价的 auditability 主要落在 <strong>A + D</strong>。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>Isolation 有档位</strong>:脏读 / 不可重复读 / 幻读逐级被关掉,越强越慢。多数库默认 Read Committed,靠 <strong>MVCC</strong> 做到读不加锁。</p></div>
+      <div class="tk"><span class="n">4</span><p>ACID 有代价(锁、争用、死锁)且<strong>单机最自然</strong>。事务要短;边界按“是否必须同生共死”画;跨机器的 ACID 是后面 Day 12/14 的硬骨头。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">签发保单要写 policies / billing / audit_log 三张表,写到 billing 时进程崩了。ACID 哪个字母保证不会留下“有保单、没账单”的孤儿记录?靠什么机制?</span></summary>
+        <div class="ans"><b>Atomicity(原子性)。</b>三条 INSERT 在一个事务里,崩溃时未 commit 的改动会被<b>整体 ROLLBACK</b>(机制概念上是 write-ahead log:改动先写日志,重启按日志回滚未提交事务),于是“要么三条都在、要么一条都没有”,绝不留半成品。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">PostgreSQL 默认是 Read Committed。在它下面,一个事务里两次 SELECT 同一行,可能读到不同的值吗?这叫什么异常?想避免该升到哪一档?</span></summary>
+        <div class="ans"><b>可能,这叫 non-repeatable read(不可重复读)</b>——两次读之间有别的事务改了那行并 commit。Read Committed 只挡脏读,不挡这个。要让同一事务里重复读保持一致,升到 <b>Repeatable Read</b>(它对同一行给你一份稳定快照)。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">把昨天 Day 7 的“write-back 缓存可能丢数据”和今天的 Durability 联系起来——它们是什么关系?对 QuoteFlow 的写路径意味着什么?</span></summary>
+        <div class="ans"><b>Durability 正是 write-back 风险的反面。</b>write-back 先写易失内存、稍后才刷库,缓存一挂,没刷的就凭空消失;而 durability 保证 COMMIT 一返回数据就已落到非易失存储。所以 QuoteFlow 的<b>审计、保单、扣款</b>这类写必须落进有 durability 保证的数据库事务里,缓存只在<b>读侧</b>帮忙——这就是“写路径别图快”的技术理由。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 夜间给<strong>百万</strong>保单批量重定价,事务边界该画在“每张保单一个小事务”还是“整批一个大事务”?各有什么取舍(想想锁持有时间、失败回滚范围、日志大小)?<br>② 同一个 QuoteFlow,为什么<strong>报价(读)路径</strong>和<strong>签发/扣款(写)路径</strong>可以选不同强度的隔离级别?你会怎么给这两条路径各定一档,理由是什么?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Transaction</dt><dd>一组要么全部生效、要么全部回退的数据库操作单元(BEGIN…COMMIT/ROLLBACK)。</dd></dl>
+      <dl><dt>ACID</dt><dd>事务的四条保证:Atomicity / Consistency / Isolation / Durability。</dd></dl>
+      <dl><dt>Atomicity</dt><dd>原子性:事务内操作全成或全不成,不留中间态;靠回滚实现。</dd></dl>
+      <dl><dt>Durability</dt><dd>持久性:COMMIT 成功后数据落到非易失存储,崩溃/断电也不丢。</dd></dl>
+      <dl><dt>Isolation Level</dt><dd>并发事务彼此可见程度的档位:Read Uncommitted / Committed / Repeatable Read / Serializable。</dd></dl>
+      <dl><dt>Dirty / Non-repeatable / Phantom Read</dt><dd>三种并发异常:读到未提交值 / 同一行两次读不一致 / 同一查询两次行集变化。</dd></dl>
+      <dl><dt>MVCC</dt><dd>多版本并发控制:每个事务读它开始时的快照,读不加锁、读写不互阻。</dd></dl>
+      <dl><dt>WAL (Write-Ahead Log)</dt><dd>预写日志:改动先写日志再改数据,支撑原子性与崩溃恢复。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 9</div>
+      <div class="t">索引与查询性能:你已经知道“索引能让查询变快”,明天往下挖一层——B-tree 到底长什么样、为什么能把全表扫描压成几次跳转、什么是覆盖索引(covering index),以及怎么读执行计划(EXPLAIN)来判断一条慢 SQL 到底卡在哪</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 08 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
