@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 09 · 索引与查询性能</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:30.00%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 9 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 2 周 · 数据层</span>
+    <h1>同样一条 SQL<br>凭什么快一万倍</h1>
+    <p class="lede">你早就知道“加个索引能让查询变快”。今天往下挖一层:索引到底长什么样(<strong>B-tree</strong>)、它凭什么把百万行的全表扫描压成三四次跳转、什么是<strong>覆盖索引</strong>,以及怎么读 <strong>EXPLAIN</strong> 来判断一条慢 SQL 究竟卡在哪。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>昨日回顾 · Day 8</div>
+    <ul>
+      <li>昨天讲清了数据库“凭什么当权威源”:<strong>transaction + ACID</strong>——一组写要么全成、要么全不成,COMMIT 后落盘不丢。那是<strong>写路径</strong>的正确性底座。但“写得对”不等于“读得快”:同一张 in-force 保单表,签发时一笔事务几毫秒就落了库,可一旦你要从里面<em>捞数据</em>——按投保人查保单、按产品+状态筛、追溯某张保单的全部审计记录——数据库怎么找到那几行,才决定了体感快慢。今天这一课,讲的就是数据库内部<strong>怎么找数据</strong>:有没有索引,是“一秒”和“几分钟”的差别。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>说清没有索引时的代价:<strong>full table scan</strong> 为什么是 O(n),量大了就拖垮</li>
+      <li>看懂 <strong>B-tree / B+tree</strong> 的形状:为什么它能把百万行定位压成 <strong>3~4 次磁盘 IO</strong></li>
+      <li>掌握三个高频概念:<strong>composite index(最左前缀)</strong>、<strong>covering index(免回表)</strong>、<strong>selectivity(选择性)</strong></li>
+      <li>会读 <strong>EXPLAIN</strong>:从 Seq Scan / Index Scan / Index Only Scan 判断一条慢 SQL 卡在哪、该不该加索引</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>没有索引会怎样</div>
+    <h2>全表扫描:行数翻倍,时间翻倍</h2>
+    <p>先建立最朴素的认知。一张表在磁盘上,本质就是<strong>一摞按写入顺序堆着的行</strong>(heap)。现在你执行:</p>
+    <p style="margin-left:2px"><code class="inl">SELECT * FROM policies WHERE applicant_id = 'a_1043';</code></p>
+    <p>如果这一列上<strong>没有索引</strong>,数据库别无选择,只能从第一行<em>一行一行</em>读到最后一行,逐行比对 <code class="inl">applicant_id</code> 是否等于 <code class="inl">'a_1043'</code>。这叫 <strong>full table scan(全表扫描)</strong>,在 PostgreSQL 的执行计划里写作 <code class="inl">Seq Scan</code>。它的代价是 <strong>O(n)</strong>:表里有 100 万行就要读 100 万行,有 2 亿行就读 2 亿行——行数翻倍,时间也翻倍。</p>
+    <p>换个画面就懂了:一本 800 页、没有目录也没有索引的书,你要找“B-tree”这个词在哪一页,只能<strong>从第一页翻到最后一页</strong>。而书末的索引页让你“B → 第 312 页”一步跳到。数据库索引就是那张索引页——一个<strong>额外维护的、有序的</strong>数据结构,让数据库不必把整本书翻一遍。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>别急着下结论:Seq Scan 不总是坏事</div>
+      <ul><li>有一种情况全表扫描<strong>反而最快</strong>:当你要的行占了全表的一大半(比如“查所有 IN_FORCE 保单”而 95% 的保单都 in-force)。这时一条一条走索引再回表,反而比直接顺序读整张表更慢。记住这个伏笔——第 4 节的 <strong>selectivity</strong> 会把它讲透,它正是“到底该不该加索引”的判据。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>B-tree 的形状</div>
+    <h2>为什么百万行只需跳 3~4 次</h2>
+    <p>关系数据库默认的索引结构,几乎都是 <strong>B-tree</strong>(精确说多是 <strong>B+tree</strong>)。先别被名字吓到,它的核心就一句话:<strong>一棵又矮又宽、永远保持平衡的有序树</strong>。</p>
+    <p>“有序”意味着每个节点里的 key 是排好序的,你可以像查字典一样<em>二分</em>地往下走;“矮而宽”是关键——每个节点不是只存 1 个 key、分 2 个叉(那是二叉树),而是存<strong>几百个 key、分几百个叉</strong>(高 fan-out)。叉一多,树就长不高:百万行的索引,树高通常只有 <strong>3~4 层</strong>。于是“定位一行”不再是走百万步,而是<strong>从根往下跳 3~4 次</strong>——每跳一次读一个节点(一次磁盘 IO),复杂度从 O(n) 降到 <strong>O(log n)</strong>。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ahg" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+          <marker id="ahr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L7.5,3 L0,6 Z" fill="#46cf94"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- root -->
+        <rect x="318" y="20" width="84" height="42" rx="10" fill="#15a06a"/>
+        <text x="360" y="46" font-size="15" font-weight="700" fill="#fff" text-anchor="middle">100</text>
+        <text x="360" y="12" font-size="11" fill="#0f3d2e" text-anchor="middle" font-weight="600">根节点 root</text>
+
+        <!-- branch level -->
+        <rect x="120" y="135" width="84" height="42" rx="10" fill="url(#g1)" stroke="#9bd9bd"/>
+        <text x="162" y="161" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">40</text>
+        <rect x="516" y="135" width="84" height="42" rx="10" fill="url(#g1)" stroke="#9bd9bd"/>
+        <text x="558" y="161" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">160</text>
+        <text x="650" y="161" font-size="11" fill="#6a7872" text-anchor="start">分支层</text>
+
+        <!-- root -> branch pointers (highlight left path for key 80) -->
+        <path d="M345 62 L172 133" stroke="#15a06a" stroke-width="2.4" fill="none" marker-end="url(#ahg)"/>
+        <path d="M378 62 L552 133" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="238" y="104" font-size="10.5" fill="#0c7a50" text-anchor="middle" font-style="italic">80 &lt; 100 → 左</text>
+
+        <!-- leaf level -->
+        <rect x="34"  y="258" width="104" height="46" rx="10" fill="url(#g1)" stroke="#cfe2d7"/>
+        <text x="86"  y="286" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">10 · 25</text>
+        <rect x="178" y="258" width="104" height="46" rx="10" fill="#e8f6ef" stroke="#15a06a" stroke-width="2"/>
+        <text x="230" y="286" font-size="13" font-weight="700" fill="#0c7a50" text-anchor="middle">55 · 80</text>
+        <rect x="438" y="258" width="104" height="46" rx="10" fill="url(#g1)" stroke="#cfe2d7"/>
+        <text x="490" y="286" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">110 · 140</text>
+        <rect x="582" y="258" width="104" height="46" rx="10" fill="url(#g1)" stroke="#cfe2d7"/>
+        <text x="634" y="286" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">180 · 210</text>
+        <text x="86" y="328" font-size="11" fill="#6a7872" text-anchor="middle">叶子层:存 key + 指向数据行的指针</text>
+
+        <!-- branch -> leaf pointers -->
+        <path d="M150 177 L96 256"  stroke="#15a06a" stroke-width="2.4" fill="none" marker-end="url(#ahg)"/>
+        <path d="M176 177 L226 256" stroke="#15a06a" stroke-width="2.4" fill="none" marker-end="url(#ahg)"/>
+        <path d="M546 177 L496 256" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M572 177 L628 256" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="232" y="232" font-size="10.5" fill="#0c7a50" text-anchor="middle" font-style="italic">80 ≥ 40 → 右</text>
+
+        <!-- leaf linked list (range scan) -->
+        <path d="M138 296 L176 296" stroke="#46cf94" stroke-width="2" stroke-dasharray="4 3" fill="none" marker-end="url(#ahr)"/>
+        <path d="M282 296 L436 296" stroke="#46cf94" stroke-width="2" stroke-dasharray="4 3" fill="none" marker-end="url(#ahr)"/>
+        <path d="M542 296 L580 296" stroke="#46cf94" stroke-width="2" stroke-dasharray="4 3" fill="none" marker-end="url(#ahr)"/>
+        <text x="360" y="350" font-size="11.5" fill="#3d9c74" text-anchor="middle" font-style="italic">叶子节点串成有序链表 → 范围查询(BETWEEN / ORDER BY)顺着链走即可</text>
+      </svg>
+      <figcaption>图 1 · 查 key=80:根(80&lt;100 走左)→ 分支(80≥40 走右)→ 叶子,三次跳转命中。每个真实节点扇出几百,所以百万行也只 3~4 层。绿色虚线是 B+tree 的叶子链表,让范围扫描无需回到根。</figcaption>
+    </figure>
+
+    <p>两个值得记住的细节。其一,<strong>B+tree</strong>(数据库实际用的变体)只在<em>叶子节点</em>存数据指针,且把所有叶子<strong>串成一个有序链表</strong>——所以 <code class="inl">WHERE premium BETWEEN 30 AND 50</code> 或 <code class="inl">ORDER BY created_at</code> 这种<strong>范围/排序</strong>查询特别快:定位到起点后顺着链表扫一段就行。其二,树<strong>始终保持平衡</strong>(每条根到叶的路径一样长),所以无论数据怎么插入删除,查询代价都稳定在 O(log n),不会退化。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>复合索引与覆盖索引</div>
+    <h2>列的顺序很重要,回不回表更重要</h2>
+    <p>真实查询很少只筛一列。QuoteFlow 的报价/保单系统里,一个高频查询是“某投保人、某产品、还在 in-force 的保单”。这时你会建一个 <strong>composite index(复合索引)</strong>,比如 <code class="inl">(applicant_id, product, status)</code>。它的内部就是按这个<strong>列顺序</strong>拼成一个组合 key 来排序的——而这带来一条最容易踩的规则:<strong>最左前缀原则(leftmost prefix)</strong>。</p>
+    <p>把复合索引想成<strong>电话簿按“姓→名”排序</strong>:给定姓(可以再给名),你能瞬间定位;但只给“名”、不给“姓”,这本电话簿对你毫无帮助——你还是得一页页翻。同理 <code class="inl">(applicant_id, product, status)</code> 这个索引:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:46%">查询条件</th><th>能用上 <code class="inl">(applicant_id, product, status)</code> 吗</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">WHERE applicant_id=?</span></td><td>✅ 用上(命中最左列)</td></tr>
+          <tr><td><span class="lab">WHERE applicant_id=? AND product=?</span></td><td>✅ 用上(命中最左两列)</td></tr>
+          <tr><td><span class="lab">WHERE applicant_id=? AND status=?</span></td><td>⚠️ 部分用上(用 applicant_id 定位,status 跳过了 product 只能在结果里再过滤)</td></tr>
+          <tr><td><span class="lab">WHERE product=? AND status=?</span></td><td>❌ 基本用不上(<strong>缺了最左列 applicant_id</strong>,只能退回 Seq Scan)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 最左前缀:复合索引只能从<strong>最左列开始连续命中</strong>。建索引前先想清最常见的查询长什么样,再决定列的顺序——把<strong>等值、最常出现、选择性高</strong>的列放左边。</p>
+
+    <p>第二个关键概念是 <strong>covering index(覆盖索引)</strong>。普通的二级索引里只存了“索引列 + 一个指向真实数据行的指针”。所以当你 <code class="inl">SELECT premium</code> 而 premium 不在索引里时,数据库要先在索引里找到行的位置,<strong>再回到主表去把 premium 那一列读出来</strong>——这一步叫<strong>回表(table lookup)</strong>,是额外的随机 IO。</p>
+    <p>如果一个查询<strong>所需要的列,全都已经在索引里</strong>了,数据库就能“只读索引、不回表”直接返回结果。这种索引对这个查询就是<em>覆盖</em>的,执行计划里会出现最理想的 <code class="inl">Index Only Scan</code>。做法是把要 select 的列也放进索引——在 PostgreSQL/SQL Server 里可以用 <code class="inl">INCLUDE</code> 把它们挂在叶子上而不参与排序:</p>
+    <p style="margin-left:2px"><code class="inl">CREATE INDEX ... ON quotes (applicant_id) INCLUDE (premium, computed_at);</code></p>
+    <p>对 QuoteFlow 的<strong>实时报价读路径</strong>(Day 2 说的低延迟一等公民)来说,覆盖索引是把 p99 压下去的常用招:让那几个最热的查询全程不碰主表。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>索引不是越多越好:写放大与 auditability</div>
+      <ul><li>每加一个索引,<strong>读</strong>可能更快,但<strong>每一次 INSERT / UPDATE / DELETE 都要顺带维护所有相关索引</strong>(write amplification,写放大),还要占额外磁盘。这对 QuoteFlow 尤其要权衡两处:① <strong>夜间批量重定价</strong>是海量写,索引越多批处理越慢;② <strong>audit_log</strong> 表只增不减、会长到几亿行,审计追溯(“调出某保单的全部历史”“按时间范围抽查”)离不开索引,但又不能为了查询便利在这张高写入表上堆一堆索引。典型解法:只建支撑核心审计查询的少量复合索引,并配合 Day 13 要讲的<strong>分区(partition)</strong>按时间切表。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>读 EXPLAIN</div>
+    <h2>别猜,让数据库告诉你卡在哪</h2>
+    <p>判断一条 SQL 快不快,不要靠肉眼猜,用 <strong>EXPLAIN</strong>(加 <code class="inl">ANALYZE</code> 会真正执行并给出实际耗时与行数)。它把数据库<strong>打算怎么取数据</strong>的计划摊开给你看。先认识三种最常见的扫描方式:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:24%">计划里出现</th><th>含义</th><th>快慢 / 何时出现</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Seq Scan</span></td><td>全表逐行扫描,不走任何索引</td><td>没有可用索引,或命中行占比太高(低选择性)时优化器主动选它</td></tr>
+          <tr><td><span class="lab">Index Scan</span></td><td>走索引定位到行,<strong>再回表</strong>读其余列</td><td>命中行少时很快;但回表是随机 IO,命中越多越不划算</td></tr>
+          <tr><td><span class="lab">Index Only Scan</span></td><td>所需列全在索引里,<strong>免回表</strong></td><td>最理想——覆盖索引命中,读路径最快</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 看到 Seq Scan 不必恐慌,先问“它扫了多少行、占全表多大比例”;看到 Index Scan 也别得意,真正最优的是 Index Only Scan。</p>
+
+    <p>下面用 QuoteFlow 一条审计追溯查询走一遍——“调出某张保单的全部审计记录”。加索引前后,EXPLAIN 的差别一目了然:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">explain.sql  ·  QuoteFlow 审计追溯:加索引前后(示意)</span></div>
+<pre><code><span class="c-com">-- 查某保单的全部审计记录(audit_log 有 2 亿行)</span>
+<span class="c-key">EXPLAIN ANALYZE</span>
+<span class="c-key">SELECT</span> action, actor, at, rate_table_version
+<span class="c-key">FROM</span> audit_log
+<span class="c-key">WHERE</span> entity_id = <span class="c-str">'p_77a2'</span>;
+
+<span class="c-com">-- ❌ 没有索引:全表扫 2 亿行,几秒甚至更久</span>
+<span class="c-tag">Seq Scan</span> on audit_log  (rows=<span class="c-num">200000000</span>)
+  Filter: (entity_id = <span class="c-str">'p_77a2'</span>)
+  <span class="c-fn">actual time</span>=<span class="c-num">4213.8</span> ms        <span class="c-com">-- 读完整张表才挑出那 12 行</span>
+
+<span class="c-com">-- 建一个复合索引,顺带把 select 的列 INCLUDE 进去</span>
+<span class="c-key">CREATE INDEX</span> idx_audit_entity
+  <span class="c-key">ON</span> audit_log (entity_id, at)
+  <span class="c-key">INCLUDE</span> (action, actor, rate_table_version);
+
+<span class="c-com">-- ✅ 重跑:走索引、且免回表 → 毫秒级</span>
+<span class="c-tag">Index Only Scan</span> using idx_audit_entity on audit_log
+  Index Cond: (entity_id = <span class="c-str">'p_77a2'</span>)
+  <span class="c-fn">actual time</span>=<span class="c-num">0.06</span> ms          <span class="c-com">-- 4213ms → 0.06ms,约 7 万倍</span></code></pre>
+    </div>
+
+    <p>这条查询同时演示了今天三件事:<strong>索引</strong>把 O(2亿) 变成 O(log) 的几次跳转;<strong>复合索引 (entity_id, at)</strong> 让“某保单按时间排序的历史”天然有序;<strong>INCLUDE 覆盖</strong>让它免回表、拿到 Index Only Scan。对受监管的寿险来说,这不只是“快”——它让 <strong>auditability 在亿级数据下依然可用</strong>:监管要随时抽查某保单为何这样定价,查询不能一跑就是几分钟。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">为什么夜间批量这条线<em>不</em>靠索引</h3>
+      <p>同一个系统,反向的例子同样重要。夜间重定价要扫<strong>几乎全部</strong> in-force 保单(命中占比接近 100%)。这种<strong>低选择性</strong>的全量读,优化器会理性地选 <code class="inl">Seq Scan</code>——顺序读整张表比“走索引 + 上亿次回表”快得多。<strong>选择性</strong>(命中行 / 总行数)才是“该不该用索引”的真正判据:命中越稀越该用索引,命中越密越该老老实实顺扫。索引是给“大海捞针”的,不是给“把海水全舀出来”的。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>没索引就 <strong>Seq Scan</strong>(O(n)),行数翻倍时间翻倍。索引是一份<strong>额外维护的有序结构</strong>,把“翻整本书”变成“查目录”。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>B+tree</strong> 又矮又宽、始终平衡:高 fan-out 让百万行只 3~4 层,定位 = O(log n) 的几次 IO;叶子链表让范围/排序查询也快。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>复合索引</strong>认<strong>最左前缀</strong>(列序很关键);<strong>覆盖索引</strong>让所需列全在索引里、<strong>免回表</strong> → Index Only Scan,是压低读延迟的利器。</p></div>
+      <div class="tk"><span class="n">4</span><p>用 <strong>EXPLAIN</strong> 看而不是猜。索引非越多越好(<strong>写放大</strong>);<strong>selectivity</strong> 才是判据:大海捞针才用索引,捞光海水就老实 Seq Scan。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">你在 policies 上建了复合索引 (applicant_id, product, status)。查询 <code class="inl">WHERE status='IN_FORCE'</code>(不带前面两列)能高效用上它吗?为什么?</span></summary>
+        <div class="ans"><b>基本用不上。</b>复合索引按“applicant_id → product → status”的顺序排序,遵守<b>最左前缀原则</b>:必须从最左列开始连续命中。只给 status、跳过了 applicant_id 和 product,就像只报“名”查一本按“姓→名”排的电话簿——索引帮不上忙,优化器大概率退回 Seq Scan。要支持单独按 status 查,得调整列序或单独给 status 建索引(但注意 status 选择性低,索引收益也有限)。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw"><code class="inl">SELECT premium FROM quotes WHERE applicant_id=?</code>,你在 (applicant_id) 上建了索引,EXPLAIN 显示 Index Scan 但仍有回表。怎么把它变成 Index Only Scan?</span></summary>
+        <div class="ans"><b>把 premium 也放进索引,让它“覆盖”这个查询。</b>当前索引只有 applicant_id,所以拿到行位置后还要<b>回表</b>读 premium 那一列。改成 <code class="inl">(applicant_id) INCLUDE (premium)</code>(或复合索引 <code class="inl">(applicant_id, premium)</code>),查询要的列就全在索引里了,数据库免回表直接返回 → <b>Index Only Scan</b>,读路径最快。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">同一张表,查 <code class="inl">WHERE applicant_id='a_1043'</code>(命中 3 行)走了 Index Scan;但查 <code class="inl">WHERE status='IN_FORCE'</code>(命中 95% 的行)优化器却选了 Seq Scan。为什么?</span></summary>
+        <div class="ans"><b>因为 selectivity(选择性)不同。</b>applicant_id 命中极少、<b>高选择性</b>,走索引精准定位几行最划算。而 status='IN_FORCE' 命中几乎整张表、<b>低选择性</b>:走索引意味着对几乎每一行都做一次回表(大量随机 IO),反而比直接顺序读整张表(Seq Scan)更慢。优化器据此理性地放弃索引——这也是夜间全量重定价不靠索引的同一个道理。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 的 <strong>audit_log</strong> 只增不减、会长到几亿行。为支撑两类审计查询——“调出某保单的<strong>全部历史</strong>”和“<strong>按时间范围</strong>抽查所有 ISSUE 动作”——你会建哪些索引?复合索引的<strong>列顺序</strong>怎么排、为什么?同时它又会给这张高写入表带来什么代价?<br>② 把今天的 selectivity 和昨天 Day 8 的事务边界连起来想:夜间批量重定价该<strong>用索引还是 Seq Scan</strong>、又该<strong>每张保单一个小事务还是整批一个大事务</strong>?这两个判断背后,是不是同一种“看命中规模 / 看影响范围”的取舍直觉?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Index</dt><dd>额外维护的有序数据结构,用空间和写开销换取查询时不必扫全表。</dd></dl>
+      <dl><dt>Full Table Scan / Seq Scan</dt><dd>逐行读整张表,O(n);无可用索引或低选择性时发生。</dd></dl>
+      <dl><dt>B-tree / B+tree</dt><dd>又矮又宽、始终平衡的有序树索引;高 fan-out 使定位为 O(log n),B+tree 叶子串成链表利于范围查询。</dd></dl>
+      <dl><dt>Composite Index</dt><dd>多列拼成的索引,按列序排序;查询须满足最左前缀才高效命中。</dd></dl>
+      <dl><dt>Leftmost Prefix</dt><dd>最左前缀原则:复合索引只能从最左列开始连续命中。</dd></dl>
+      <dl><dt>Covering Index / Index Only Scan</dt><dd>查询所需列全在索引里 → 免回表,执行计划出现 Index Only Scan。</dd></dl>
+      <dl><dt>Table Lookup(回表)</dt><dd>索引只给行位置,再回主表读其余列的额外随机 IO。</dd></dl>
+      <dl><dt>Selectivity / Cardinality</dt><dd>选择性 = 命中行 / 总行数;高选择性该用索引,低选择性顺扫更快。基数 = 列不同值的数量。</dd></dl>
+      <dl><dt>Write Amplification</dt><dd>写放大:每次增删改都要维护所有相关索引,索引越多写越慢。</dd></dl>
+      <dl><dt>EXPLAIN / Query Plan</dt><dd>执行计划:数据库展示它打算如何取数据;加 ANALYZE 给出实际耗时与行数。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 10</div>
+      <div class="t">数据建模与范式 / 反范式:索引解决“怎么快地找”,建模解决“一开始怎么摆”。明天把 QuoteFlow 的报价/保单/客户数据落成表——主键外键怎么定、范式(避免冗余)与反范式(为读提速)各在什么时候用、以及它和今天的索引、昨天的事务怎么相互牵制</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 09 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

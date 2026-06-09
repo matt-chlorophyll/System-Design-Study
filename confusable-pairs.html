@@ -166,6 +166,8 @@ const L = {
   d6:'Day-06-load-balancing-scaling.html',
   d7:'Day-07-caching.html',
   d8:'Day-08-relational-db-acid.html',
+  d9:'Day-09-indexing-query-performance.html',
+  ps:'notes/Day-09-page-split.html',
 };
 
 const PAIRS = [
@@ -329,6 +331,48 @@ const PAIRS = [
     diff:'两种都能兑现 Serializable，破幻读的思路相反——锁派「锁住行将落进的那段范围」（写者干等、可能 deadlock）；SSI「事后发现你读过的范围被人塞了东西就判你重来」（重试白干）。MySQL InnoDB 走前者，PostgreSQL 走后者。',
     eg:'InnoDB Serializable 用 next-key lock 挡住区间内的 INSERT；PG 用 SIReadLock 追踪依赖、提交时报 could not serialize access。',
     mn:'2PL 预防（锁范围、阻塞）；SSI 检测（查冲突、重试）。' },
+
+  { trip:true, src:'Day 9', link:L.d9,
+    a:{t:'Equality column', zh:'等值列 · 放复合索引左边', def:'WHERE col = ? 的列；把行收窄成连续一段，能精确 seek。'},
+    b:{t:'Range column', zh:'范围列 · 放右边', def:'WHERE col BETWEEN/>/< ? 的列；只能在收窄后的段内扫，它右边的列就用不上了。'},
+    diff:'复合索引按列序排，列序口诀「等值列在前、范围列在后」（leftmost prefix 的精炼版）——等值放前才能精确 seek 出一段；范围列一旦出现，它后面的列在索引里就失去定位力。',
+    eg:'我答「按时间范围抽查所有 ISSUE 动作」时，把 at 当主键、还判它低选择性走 Seq Scan——漏了 action=\'ISSUE\' 这个等值条件本身就 selective（ISSUE 只是众多动作之一）。正解是 (action, at)：等值在前、范围在后，哪怕时间窗很宽，ISSUE-only 相对几亿行仍是小比例 → 索引照样赢。',
+    mn:'等值列在前（能 seek）、范围列在后（段内扫）。' },
+
+  { src:'讨论', link:L.ps,
+    a:{t:'Clustered Index', zh:'聚簇 · 数据在叶子', def:'表数据就排在索引叶子里、按主键物理有序；PK 查询零回表、范围扫顺序读。每表仅一个（InnoDB 主键）。'},
+    b:{t:'Secondary / Heap Index', zh:'二级 · 叶子给指针', def:'叶子只存 key+指针，回表才拿整行（random IO）；Postgres 的表全是 heap+secondary。'},
+    diff:'分水岭是「整行数据存哪」——clustered 数据=索引叶子（零回表）；secondary 数据在别处、索引给指针（要回表）。InnoDB 里 secondary 存的是主键值 → 查两跳、主键越宽全胖。',
+    eg:'Postgres 没真聚簇（CLUSTER 只一次性重排），用覆盖索引→Index Only Scan 当替代；InnoDB 主键天生 clustered。',
+    mn:'clustered = 数据在叶子（零回表）；secondary = 叶子给指针（要回表）。' },
+
+  { src:'讨论', link:L.ps,
+    a:{t:'Random IO', zh:'随机 IO · 到处跳', def:'读散落的 page，每跳一次 HDD 要 seek(~10ms)；回表就是它。'},
+    b:{t:'Sequential IO', zh:'顺序 IO · 一路流', def:'读物理连续的 page，磁头不动一路流；Seq Scan 就是它。'},
+    diff:'回表随机、Seq Scan 顺序。HDD 上随机慢约 100×；SSD 无机械臂惩罚小，但因 page 粒度 + 预读失效仍输。这是 selectivity 翻转的根因——命中多时海量随机回表反不如整表顺读。',
+    eg:'命中 3 行 → 几次随机跳，Index Scan 划算；命中 95% → 上亿次回表随机 IO，优化器改走 Seq Scan。',
+    mn:'random 到处跳（贵）；sequential 一路流（便宜）。' },
+
+  { src:'讨论', link:L.d9,
+    a:{t:'Key column', zh:'key 列 · 排序+导航', def:'参与排序、进 branch 节点、能 seek/range/最左前缀。'},
+    b:{t:'INCLUDE column', zh:'INCLUDE 列 · 只搭车凑覆盖', def:'挂在 leaf 条目尾巴当 payload：不排序、不进 branch、比较器不读它、不能当查询条件。'},
+    diff:'key 列决定树的顺序与导航（撑大 branch、让你能按它查）；INCLUDE 列只为「免回表」凑齐覆盖、不让树长高。要 WHERE/ORDER BY 用 → key；只在 SELECT 输出用 → INCLUDE。',
+    eg:'(applicant_id) INCLUDE (premium)：树只按 applicant_id 排，premium 躺 leaf 当 payload → SELECT premium WHERE applicant_id=? 走 Index Only Scan。',
+    mn:'key 列排序+导航；INCLUDE 列只搭车凑覆盖。' },
+
+  { src:'讨论', link:L.d9,
+    a:{t:'UUIDv4', zh:'随机 UUID', def:'纯随机；不可枚举，但随机插入 → page split 满天飞、bloat 重。Supabase 默认 gen_random_uuid() 就是它。'},
+    b:{t:'UUIDv7 / ULID', zh:'时间有序 UUID', def:'时间戳在高位、整体单调递增；保留唯一+不可枚举，又几乎无随机插入惩罚。'},
+    diff:'同是 UUID，v4 随机（对 B-tree 最差）、v7 时间有序（落最右、对索引友好）。要 UUID 的好处又不想付写性能账，就用 v7。',
+    eg:'高写入表（audit_log）主键别用 v4，用 v7 或 bigint；对外暴露的 quote_id 用 UUID 防 broker 枚举别人的报价。',
+    mn:'v4 随机（撕碎索引）；v7 时间序（对 B-tree 友好）。' },
+
+  { src:'讨论', link:L.ps,
+    a:{t:'Leaf split (copy-up)', zh:'叶子分裂 · 复制上去', def:'新右叶的最小 key 复制一份当父 separator，key 本身仍留在叶子里。'},
+    b:{t:'Branch split (push-up)', zh:'branch 分裂 · 移上去', def:'正中那个 separator 移到父节点、不留在裂开的两个半边。'},
+    diff:'叶子分裂是「复制」（数据必须全留叶子）；branch 分裂是「移」（branch 只是路标，移走不丢数据）。一路裂到 root 才让树长高一层。',
+    eg:'满叶 [80·95·110] 插 100 → 裂成 [80·95]/[100·110]、复制 100 上去；父节点 [40|80|100|120] 溢出 → 取正中 80 移上去、新建 root。',
+    mn:'叶子复制（留着）；branch 移动（不留）。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */

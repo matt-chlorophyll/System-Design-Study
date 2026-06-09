@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>补充 · B+tree 的 page split</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6; --card:#ffffff; --ink:#0f3d2e; --body:#3a463f; --muted:#6a7872;
+    --accent:#15a06a; --accent-ink:#0c7a50; --accent-soft:#e8f6ef; --accent-soft-2:#eef9f3;
+    --border:#e3ebe6; --border-soft:#eef3f0; --code-bg:#0f3d2e; --code-ink:#e6f1ec;
+    --green:#1a7f5a; --green-soft:#e8f6f0; --amber:#8a5a00; --amber-soft:#fbf1da;
+    --radius:16px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--font);font-size:17px;line-height:1.72;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .topbar .pct{margin-left:auto;font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;} .callout li{margin:5px 0;}
+
+  .amber-call{background:var(--amber-soft);border:1px solid #f1e0b8;border-left:4px solid #e0a93a;border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .amber-call .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:8px;font-size:15px;}
+  .amber-call .ct svg{width:17px;height:17px;color:#c0892f;}
+
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;line-height:1.6;}
+
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;} h1{font-size:30px;} h2{font-size:22px;}
+    .gloss{grid-template-columns:1fr;} .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 补充材料</span>
+    <span class="pct">书房讨论 · Day 09</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>补充 · Day 09 讨论延伸</span>
+    <h1>页满了<br>就裂一个出来</h1>
+    <p class="lede">B+tree 在写入时怎么<strong>自动保持平衡</strong>?核心机制叫 <strong>page split(页分裂)</strong>。配一张<strong>分裂前/分裂后</strong>的图,顺带回答两个问题:leaf 到底存什么、范围查询为什么<em>不在乎</em>页边界落在哪、以及为什么<strong>随机 key 的索引写起来更贵</strong>(接你思考题 1 的 write amplification)。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="8" height="6" rx="1.5"/><rect x="13" y="14" width="8" height="6" rx="1.5"/></svg>page split 图解</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h10M4 17h7"/></svg>leaf vs branch</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>单调 vs 随机写</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="kicker"><span class="num">0</span>先分清两层</div>
+    <h2>leaf 存「条目」,branch 存「边界」</h2>
+    <p>讨论里最该先纠正的一点:你想象 leaf 节点存的是「25–45」「45–65」这样的<strong>区间</strong>——其实不是。区间(<strong>separator key,边界</strong>)住在<strong>上面的 branch 节点</strong>里;<strong>leaf 存的是一个个真实的 key 条目</strong>,按序紧挨着排,每个条目 = <code class="inl">(key 值, 指向数据行的指针)</code>(覆盖索引再加 INCLUDE 的列)。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>两层各干各的</div>
+      <ul>
+        <li><strong>branch 节点</strong>:只存边界,像路标——「&lt; 60 往左,60–100 走中间,≥ 100 往右」。它<em>不</em>存数据,只负责把你导航到对的 leaf。</li>
+        <li><strong>leaf 节点</strong>:存真实条目 <code class="inl">[10·25·55·80]</code>。一个 leaf「范围是 10–80」只是<strong>它碰巧装了哪些 key 的副产物</strong>,不是它存了「10–80」这段。</li>
+        <li>一个 page 是<strong>固定大小的磁盘块</strong>(PostgreSQL 默认 <strong>8 KB</strong>),里头就是一个<strong>有序数组</strong>,从前往后塞条目、塞到装不下为止。key 小的话一页能装<strong>几百个</strong>——这就是「高 fan-out → 树只 3~4 层」的物理来源。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>核心机制</div>
+    <h2>page split:一页满了,裂成两页</h2>
+    <p>树建好后再 INSERT,如果目标 leaf <strong>已经满了</strong>,新 key 进不去——这时触发分裂。下面整张图就是「往满页 <code class="inl">[10·25·55·80]</code> 插入 60」会发生什么。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 472" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ahg" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+          <marker id="ahr" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto"><path d="M0,0 L7.5,3 L0,6 Z" fill="#46cf94"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- ===== 分裂前 ===== -->
+        <text x="24" y="24" font-size="13" font-weight="700" fill="#15a06a">分裂前</text>
+
+        <!-- parent before -->
+        <text x="360" y="22" font-size="11" fill="#6a7872" text-anchor="middle">父 branch 节点(只存 separator 边界)</text>
+        <rect x="300" y="30" width="120" height="40" rx="9" fill="url(#g1)" stroke="#9bd9bd"/>
+        <text x="360" y="55" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">100</text>
+
+        <path d="M322 70 L214 116" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M404 70 L536 116" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="246" y="98" font-size="10.5" fill="#6a7872" text-anchor="middle" font-style="italic">&lt; 100</text>
+        <text x="480" y="98" font-size="10.5" fill="#6a7872" text-anchor="middle" font-style="italic">≥ 100</text>
+
+        <!-- insert box -->
+        <rect x="24" y="120" width="66" height="48" rx="9" fill="#ffffff" stroke="#d9ebe1"/>
+        <text x="57" y="140" font-size="11" fill="#6a7872" text-anchor="middle">插入</text>
+        <text x="57" y="159" font-size="15" font-weight="700" fill="#0c7a50" text-anchor="middle">60</text>
+        <path d="M92 144 L106 144" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- leaf L full -->
+        <rect x="110" y="118" width="206" height="52" rx="10" fill="#fbf1da" stroke="#e0a93a" stroke-width="1.6"/>
+        <text x="213" y="149" font-size="14.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">10 · 25 · 55 · 80</text>
+        <text x="213" y="188" font-size="11" fill="#a06a16" text-anchor="middle">leaf L · 已满,60 塞不进</text>
+
+        <!-- right sibling -->
+        <rect x="474" y="118" width="150" height="52" rx="10" fill="url(#g1)" stroke="#cfe2d7"/>
+        <text x="549" y="149" font-size="14.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">110 · 140</text>
+        <text x="549" y="188" font-size="11" fill="#6a7872" text-anchor="middle">右邻 leaf</text>
+
+        <!-- linked list before -->
+        <path d="M316 144 L472 144" stroke="#46cf94" stroke-width="2" stroke-dasharray="4 3" fill="none" marker-end="url(#ahr)"/>
+        <text x="394" y="137" font-size="10" fill="#3d9c74" text-anchor="middle" font-style="italic">next →</text>
+
+        <!-- divider -->
+        <line x1="24" y1="214" x2="696" y2="214" stroke="#e3ebe6" stroke-width="1" stroke-dasharray="3 4"/>
+
+        <!-- ===== 分裂后 ===== -->
+        <text x="24" y="240" font-size="13" font-weight="700" fill="#15a06a">分裂后</text>
+
+        <!-- parent after -->
+        <text x="366" y="242" font-size="11" fill="#0c7a50" text-anchor="middle">父节点新增一个 separator 60</text>
+        <rect x="292" y="250" width="148" height="40" rx="9" fill="url(#g1)" stroke="#9bd9bd"/>
+        <text x="366" y="275" font-size="14" font-weight="700" text-anchor="middle"><tspan fill="#0c7a50">60</tspan><tspan fill="#0f3d2e"> · 100</tspan></text>
+
+        <path d="M308 290 L150 342" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M360 290 L312 342" stroke="#15a06a" stroke-width="2.4" fill="none" marker-end="url(#ahg)"/>
+        <path d="M420 290 L548 342" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="206" y="320" font-size="10" fill="#6a7872" text-anchor="middle" font-style="italic">&lt; 60</text>
+        <text x="486" y="320" font-size="10" fill="#6a7872" text-anchor="middle" font-style="italic">≥ 100</text>
+
+        <!-- leaf L after -->
+        <rect x="72" y="344" width="156" height="52" rx="10" fill="url(#g1)" stroke="#cfe2d7"/>
+        <text x="150" y="375" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">10 · 25 · 55</text>
+        <text x="150" y="414" font-size="11" fill="#6a7872" text-anchor="middle">leaf L(留一半)</text>
+
+        <!-- leaf L2 new -->
+        <rect x="250" y="344" width="124" height="52" rx="10" fill="#e8f6ef" stroke="#15a06a" stroke-width="2.4"/>
+        <text x="312" y="375" font-size="14" font-weight="700" fill="#0c7a50" text-anchor="middle">60 · 80</text>
+        <text x="312" y="414" font-size="11" fill="#0c7a50" text-anchor="middle">新页 L2(搬来一半)</text>
+
+        <!-- right sibling after -->
+        <rect x="474" y="344" width="150" height="52" rx="10" fill="url(#g1)" stroke="#cfe2d7"/>
+        <text x="549" y="375" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">110 · 140</text>
+
+        <!-- linked list after -->
+        <path d="M228 370 L250 370" stroke="#15a06a" stroke-width="2.6" fill="none" marker-end="url(#ahg)"/>
+        <path d="M374 370 L472 370" stroke="#46cf94" stroke-width="2" stroke-dasharray="4 3" fill="none" marker-end="url(#ahr)"/>
+
+        <!-- bottom annotation -->
+        <text x="360" y="452" font-size="11" fill="#0c7a50" text-anchor="middle">① 搬一半到 L2　② 把 L2 最小 key=60 推上父当 separator　③ 链表重接 L→L2→右邻</text>
+      </svg>
+      <figcaption>
+        图 1 · page split。满页 <strong>L</strong> 插不下 60 → 裂成 <strong>L</strong> 和<strong>新页 L2</strong>,各拿一半;<br>
+        L2 的最小 key(60)被<strong>推上父节点</strong>当新边界;叶子<strong>链表重新接好</strong> L→L2→右邻,范围扫描照样能顺着走。
+      </figcaption>
+    </figure>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v18M3 12h18"/></svg>级联与「树长高」</div>
+      <ul>
+        <li>如果<strong>父 branch 节点也满了</strong>,塞不下新 separator → <strong>父节点也分裂</strong>、再往上推;一路推到 <strong>root 也满 → 创建新 root,整棵树长高一层</strong>。</li>
+        <li>这是 B+tree <strong>唯一</strong>会长高的方式——只在顶上长、且对称传播,所以<strong>所有 leaf 永远在同一深度 = 始终平衡</strong>,查询稳定在 O(log n) 不退化。</li>
+        <li>这些分裂动作<strong>都走 WAL</strong>(Day 8):崩溃恢复时索引和数据一起 redo,索引不会和数据对不上。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>级联分裂</div>
+    <h2>父节点也满了:把中间 key 顶成新 root</h2>
+    <p>上面 callout 说「父节点也满会继续往上裂」——这一步最容易模糊,单独走一遍。先记住一个<strong>关键区分</strong>:往上「推」其实是两种<em>不同</em>动作。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>copy-up vs push-up</div>
+      <ul>
+        <li><strong>叶子分裂 → 复制上去(copy-up)</strong>:新右叶的最小 key 被<strong>复制</strong>一份当父节点 separator,但它<strong>本身仍留在叶子里</strong>——叶子必须存全部真实数据。</li>
+        <li><strong>branch 分裂 → 移上去(push-up)</strong>:branch 裂开时,<strong>正中那个 separator 被「移」到父节点,不再留在两个半边</strong>——branch 只是路标,真实数据在叶子,路标移走不丢数据。</li>
+      </ul>
+    </div>
+
+    <p>具体例子:假设一个 branch 最多装 <strong>3 个 separator</strong>。起点——root 已经满了 <code class="inl">[40|80|120]</code>,带 4 个叶子。现在<strong>插入 100</strong>,落进第 3 个叶子 <code class="inl">[80·95·110]</code>:</p>
+
+    <figure>
+      <svg viewBox="0 0 720 512" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ahx" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ahgx" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+          <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- ===== panel 1 ===== -->
+        <text x="360" y="20" font-size="11.5" fill="#a06a16" text-anchor="middle" font-weight="700">① 叶子 [80·95·110] 裂成 [80·95] / [100·110],separator 100 复制上来 → 父节点装不下</text>
+
+        <!-- overflow branch -->
+        <rect x="233" y="40" width="236" height="44" rx="9" fill="#fbf1da" stroke="#e0a93a" stroke-width="1.8"/>
+        <line x1="292" y1="40" x2="292" y2="84" stroke="#e6c98a" stroke-width="1"/>
+        <line x1="351" y1="40" x2="351" y2="84" stroke="#e6c98a" stroke-width="1"/>
+        <line x1="410" y1="40" x2="410" y2="84" stroke="#e6c98a" stroke-width="1"/>
+        <text x="262" y="68" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">40</text>
+        <text x="321" y="68" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">80</text>
+        <text x="380" y="68" font-size="14" font-weight="700" fill="#0c7a50" text-anchor="middle">100</text>
+        <text x="439" y="68" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">120</text>
+        <text x="476" y="36" font-size="10.5" fill="#a06a16" text-anchor="start">← 4 个 key,溢出</text>
+
+        <!-- pointers branch -> 5 leaves -->
+        <path d="M240 84 L75 138"  stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+        <path d="M290 84 L210 138" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+        <path d="M351 84 L351 138" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+        <path d="M412 84 L489 138" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+        <path d="M462 84 L627 138" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+
+        <!-- 5 leaves -->
+        <rect x="24"  y="140" width="102" height="44" rx="9" fill="url(#g2)" stroke="#cfe2d7"/>
+        <text x="75"  y="167" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">10·25·33</text>
+        <rect x="162" y="140" width="102" height="44" rx="9" fill="url(#g2)" stroke="#cfe2d7"/>
+        <text x="213" y="167" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">40·55·70</text>
+        <rect x="300" y="140" width="102" height="44" rx="9" fill="#e8f6ef" stroke="#15a06a" stroke-width="2"/>
+        <text x="351" y="167" font-size="12.5" font-weight="700" fill="#0c7a50" text-anchor="middle">80·95</text>
+        <rect x="438" y="140" width="102" height="44" rx="9" fill="#e8f6ef" stroke="#15a06a" stroke-width="2"/>
+        <text x="489" y="167" font-size="12.5" font-weight="700" fill="#0c7a50" text-anchor="middle">100·110</text>
+        <rect x="576" y="140" width="102" height="44" rx="9" fill="url(#g2)" stroke="#cfe2d7"/>
+        <text x="627" y="167" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">120·140·160</text>
+        <text x="420" y="202" font-size="10.5" fill="#0c7a50" text-anchor="middle" font-style="italic">↑ 刚裂出来的一对</text>
+
+        <!-- divider -->
+        <line x1="24" y1="232" x2="696" y2="232" stroke="#e3ebe6" stroke-width="1" stroke-dasharray="3 4"/>
+
+        <!-- ===== panel 2 ===== -->
+        <text x="360" y="258" font-size="11.5" fill="#0c7a50" text-anchor="middle" font-weight="700">② 父节点 [40|80|100|120] 溢出 → 取正中 80【移】上去 → 新建 root,树长高一层</text>
+
+        <!-- new root -->
+        <rect x="331" y="270" width="58" height="38" rx="9" fill="#e8f6ef" stroke="#15a06a" stroke-width="2.2"/>
+        <text x="360" y="294" font-size="14" font-weight="700" fill="#0c7a50" text-anchor="middle">80</text>
+        <text x="394" y="290" font-size="10.5" fill="#0c7a50" text-anchor="start">← 新 root(高度 +1)</text>
+
+        <!-- root -> 2 branches -->
+        <path d="M346 308 L150 342" stroke="#15a06a" stroke-width="2.2" fill="none" marker-end="url(#ahgx)"/>
+        <path d="M374 308 L527 342" stroke="#15a06a" stroke-width="2.2" fill="none" marker-end="url(#ahgx)"/>
+
+        <!-- left branch [40] -->
+        <rect x="120" y="344" width="58" height="38" rx="9" fill="url(#g2)" stroke="#9bd9bd"/>
+        <text x="149" y="368" font-size="13.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">40</text>
+        <!-- right branch [100|120] -->
+        <rect x="470" y="344" width="116" height="38" rx="9" fill="url(#g2)" stroke="#9bd9bd"/>
+        <line x1="528" y1="344" x2="528" y2="382" stroke="#cfe2d7" stroke-width="1"/>
+        <text x="499" y="368" font-size="13.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">100</text>
+        <text x="557" y="368" font-size="13.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">120</text>
+
+        <!-- branches -> 5 leaves -->
+        <path d="M134 382 L75 428"  stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+        <path d="M164 382 L210 428" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+        <path d="M492 382 L351 428" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+        <path d="M528 382 L489 428" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+        <path d="M564 382 L627 428" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ahx)"/>
+
+        <!-- 5 leaves panel2 -->
+        <rect x="24"  y="430" width="102" height="44" rx="9" fill="url(#g2)" stroke="#cfe2d7"/>
+        <text x="75"  y="457" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">10·25·33</text>
+        <rect x="162" y="430" width="102" height="44" rx="9" fill="url(#g2)" stroke="#cfe2d7"/>
+        <text x="213" y="457" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">40·55·70</text>
+        <rect x="300" y="430" width="102" height="44" rx="9" fill="url(#g2)" stroke="#cfe2d7"/>
+        <text x="351" y="457" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">80·95</text>
+        <rect x="438" y="430" width="102" height="44" rx="9" fill="url(#g2)" stroke="#cfe2d7"/>
+        <text x="489" y="457" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">100·110</text>
+        <rect x="576" y="430" width="102" height="44" rx="9" fill="url(#g2)" stroke="#cfe2d7"/>
+        <text x="627" y="457" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">120·140·160</text>
+
+        <!-- annotation -->
+        <text x="360" y="500" font-size="11" fill="#3a463f" text-anchor="middle">叶子分裂:100 <tspan fill="#0c7a50" font-weight="700">复制</tspan>上去(仍留叶子里)　·　branch 分裂:正中 80 <tspan fill="#0c7a50" font-weight="700">移</tspan>上去(不留下层,但数据 80 仍在叶子 [80·95])</text>
+      </svg>
+      <figcaption>
+        图 2 · 级联分裂。<strong>① 叶子裂</strong> → 把 100 复制给父节点,父节点变 4 个 key 溢出;<br>
+        <strong>② 父节点裂</strong> → 取正中 80 移上去,因父节点是 root,故<strong>新建 root</strong>、树从 2 层变 3 层。所有叶子仍在同一深度。
+      </figcaption>
+    </figure>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>三点收尾</div>
+      <ul>
+        <li><strong>80 同时出现在两处不矛盾</strong>:作为<em>路标</em>在新 root、作为<em>真实数据</em>在叶子 <code class="inl">[80·95]</code>。branch 里的 key 本就是导航副本,移上去不影响数据。</li>
+        <li><strong>验证一下查 95</strong>:root <code class="inl">95≥80</code> 走右 → 右 branch <code class="inl">95&lt;100</code> 走 <code class="inl">[80·95]</code> ✓,路由依然正确。</li>
+        <li><strong>长高很罕见、代价被摊薄</strong>:只有「一路裂到 root」才长高一层,而每长一层 fan-out 让总容量乘上几百倍,所以百万、上亿行也就 3~4 层。绝大多数 INSERT 连一次 split 都不触发。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>顺带答你</div>
+    <h2>范围查询为什么不在乎页边界</h2>
+    <p>你问:<code class="inl">WHERE premium BETWEEN 30 AND 50</code>,如果命中的 key 横跨好几个 leaf 页,会影响取数吗?<strong>不会。</strong>因为所有 leaf <strong>串成一个有序链表</strong>(图 1 里那条绿线),取数就三步:</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>BETWEEN 怎么走</div>
+      <ul>
+        <li>① 从 root 用 separator 导航,找到<strong>第一个 ≥ 30 的 key 所在的 leaf</strong>;</li>
+        <li>② 在这页里<strong>从那个位置往右顺读</strong>;读到页尾,<strong>跟着 next 指针跳到右邻 leaf</strong> 继续;</li>
+        <li>③ 一旦读到某个 key <strong>&gt; 50</strong>,停。</li>
+      </ul>
+    </div>
+    <p>所以 30–50 落在<strong>一页还是三页</strong>对你完全透明——你只是顺着链表扫一段。代价就是 <code class="inl">命中条目数 ÷ 每页条目数</code> 那么多页的<strong>顺序读</strong>,跟「range 正好卡在页边界」基本无关(顶多多读一页,可忽略)。这正是 B+tree 为<strong>范围 / 排序</strong>查询设计的杀手锏:定位一次 + 顺链扫,不必回根。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>接回 write amplification</div>
+    <h2>为什么随机 key 的索引写起来更贵</h2>
+    <p>一次<strong>触发分裂</strong>的 INSERT,远比不分裂的贵:要申请新页 + 搬一半条目 + 改父节点 + 全部写 WAL。而<strong>写入的 key 模式,决定了分裂多不多</strong>——这正是你思考题 1 里 audit_log「写放大」的机制层真身。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 304" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c0892f"/></marker>
+          <marker id="ah3" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+        </defs>
+
+        <!-- A: monotonic -->
+        <text x="24" y="26" font-size="12.5" font-weight="700" fill="#0f3d2e">A · 单调递增 key(audit_log 的 at / 自增 id)</text>
+        <!-- 4 full pages -->
+        <g>
+          <rect x="40"  y="44" width="96" height="50" rx="7" fill="#ffffff" stroke="#cfe2d7"/><rect x="44"  y="51" width="88" height="36" rx="4" fill="#9ad9bb"/>
+          <rect x="156" y="44" width="96" height="50" rx="7" fill="#ffffff" stroke="#cfe2d7"/><rect x="160" y="51" width="88" height="36" rx="4" fill="#9ad9bb"/>
+          <rect x="272" y="44" width="96" height="50" rx="7" fill="#ffffff" stroke="#cfe2d7"/><rect x="276" y="51" width="88" height="36" rx="4" fill="#9ad9bb"/>
+          <rect x="388" y="44" width="96" height="50" rx="7" fill="#e8f6ef" stroke="#15a06a" stroke-width="2"/><rect x="392" y="51" width="88" height="36" rx="4" fill="#9ad9bb"/>
+        </g>
+        <text x="525" y="62" font-size="11.5" fill="#0c7a50" font-weight="700">新 key</text>
+        <path d="M560 72 L486 72" stroke="#15a06a" stroke-width="2.2" fill="none" marker-end="url(#ah3)"/>
+        <text x="600" y="80" font-size="10.5" fill="#0c7a50">永远落最右</text>
+        <text x="24" y="120" font-size="11.5" fill="#0c7a50">→ <tspan font-weight="700">90/10 裂</tspan>:左页塞满、新值单独进右页 ⇒ 页密、省空间(但最右页是<tspan font-weight="700">并发写热点</tspan>)</text>
+
+        <line x1="24" y1="146" x2="696" y2="146" stroke="#e3ebe6" stroke-width="1" stroke-dasharray="3 4"/>
+
+        <!-- B: random -->
+        <text x="24" y="180" font-size="12.5" font-weight="700" fill="#0f3d2e">B · 随机 key(entity_id / UUID)</text>
+        <!-- 4 half pages -->
+        <g>
+          <rect x="40"  y="198" width="96" height="50" rx="7" fill="#ffffff" stroke="#cfe2d7"/><rect x="44"  y="227" width="88" height="18" rx="4" fill="#f0d49a"/>
+          <rect x="156" y="198" width="96" height="50" rx="7" fill="#ffffff" stroke="#cfe2d7"/><rect x="160" y="227" width="88" height="18" rx="4" fill="#f0d49a"/>
+          <rect x="272" y="198" width="96" height="50" rx="7" fill="#ffffff" stroke="#cfe2d7"/><rect x="276" y="227" width="88" height="18" rx="4" fill="#f0d49a"/>
+          <rect x="388" y="198" width="96" height="50" rx="7" fill="#ffffff" stroke="#cfe2d7"/><rect x="392" y="227" width="88" height="18" rx="4" fill="#f0d49a"/>
+        </g>
+        <path d="M88 172 L88 196"   stroke="#c0892f" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <path d="M320 172 L320 196" stroke="#c0892f" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <path d="M436 172 L436 196" stroke="#c0892f" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <text x="560" y="226" font-size="11.5" fill="#a06a16" font-weight="700">插入点散落各处</text>
+        <text x="24" y="278" font-size="11.5" fill="#a06a16">→ <tspan font-weight="700">处处 50/50 裂</tspan>:页半满、碎片多、bloat 重,长期要 <tspan font-family="JetBrains Mono,monospace">REINDEX</tspan></text>
+      </svg>
+      <figcaption>
+        图 2 · 同样是 INSERT,key 模式不同,代价天差地别。绿色满格 = 页密;琥珀半格 = 页半空、浪费。<br>
+        所以「audit_log 少建索引」不只是「多一棵树要维护」——随机 key 的二级索引<strong>每次写都可能触发昂贵的 split</strong>。
+      </figcaption>
+    </figure>
+
+    <div class="amber-call">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>落到 QuoteFlow 的 audit_log</div>
+      <p style="margin:0;">audit_log 是 append-only、高写入。在 <code class="inl">at</code>(时间,单调递增)上建索引很便宜——永远插最右、几乎不裂。但若在 <code class="inl">entity_id</code>(随机)上建复合索引,写入点散落 → split 频繁、页半满、bloat 重。这就是为什么对这张表要<strong>只建支撑核心审计查询的少量索引</strong>,并配合 Day 13 的<strong>按时间分区(partition)</strong>:把表按 <code class="inl">at</code> 切成一段段,既限制单个索引的体量,又让旧分区可以整体归档。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>收口</div>
+    <h2>clustered index vs heap + secondary</h2>
+    <p>把今天所有线头收口的概念,分水岭只有一句:<strong>「整行真实数据,到底存在哪?」</strong>——存在<strong>另一处的 heap</strong>(索引只给指针,回表是 random IO),还是<strong>就排在索引叶子里</strong>(物理有序,PK 查询零回表)。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 410" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ahz"  markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ahaz" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c0892f"/></marker>
+          <marker id="ahgz" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+          <linearGradient id="g3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- ===== LEFT: heap + secondary ===== -->
+        <text x="185" y="22" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">Heap + Secondary · PostgreSQL</text>
+        <text x="185" y="46" font-size="10.5" fill="#6a7872" text-anchor="middle">secondary index 叶子 = key + 指针(ctid)</text>
+
+        <!-- index strip -->
+        <rect x="34" y="56" width="302" height="40" rx="8" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <line x1="134" y1="56" x2="134" y2="96" stroke="#bfe0cf" stroke-width="1"/>
+        <line x1="234" y1="56" x2="234" y2="96" stroke="#bfe0cf" stroke-width="1"/>
+        <text x="84"  y="81" font-size="12" font-weight="600" fill="#0c7a50" text-anchor="middle">a_1043 ●</text>
+        <text x="184" y="81" font-size="12" font-weight="600" fill="#0c7a50" text-anchor="middle">a_2210 ●</text>
+        <text x="284" y="81" font-size="12" font-weight="600" fill="#0c7a50" text-anchor="middle">a_3001 ●</text>
+
+        <!-- heap -->
+        <text x="185" y="150" font-size="10.5" fill="#6a7872" text-anchor="middle">heap(按写入顺序乱堆,物理散落)</text>
+        <rect x="34" y="158" width="302" height="212" rx="10" fill="#f7faf8" stroke="#e3ebe6"/>
+        <!-- highlighted rows + fillers -->
+        <rect x="150" y="184" width="148" height="24" rx="5" fill="#e8f6ef" stroke="#9bd9bd"/><text x="224" y="200" font-size="10.5" font-weight="600" fill="#0c7a50" text-anchor="middle">页90111: a_3001</text>
+        <rect x="48"  y="184" width="86"  height="24" rx="5" fill="#ffffff" stroke="#e3ebe6"/><text x="91"  y="200" font-size="10" fill="#9aa8a1" text-anchor="middle">其他行…</text>
+        <rect x="110" y="252" width="148" height="24" rx="5" fill="#e8f6ef" stroke="#9bd9bd"/><text x="184" y="268" font-size="10.5" font-weight="600" fill="#0c7a50" text-anchor="middle">页13: a_1043</text>
+        <rect x="196" y="290" width="120" height="24" rx="5" fill="#ffffff" stroke="#e3ebe6"/><text x="256" y="306" font-size="10" fill="#9aa8a1" text-anchor="middle">其他行…</text>
+        <rect x="48"  y="320" width="148" height="24" rx="5" fill="#e8f6ef" stroke="#9bd9bd"/><text x="122" y="336" font-size="10.5" font-weight="600" fill="#0c7a50" text-anchor="middle">页5: a_2210</text>
+
+        <!-- scattered (random) arrows -->
+        <path d="M84 96 C 96 170, 116 215, 128 250"  stroke="#c0892f" stroke-width="1.8" fill="none" marker-end="url(#ahaz)"/>
+        <path d="M184 96 C 150 160, 90 250, 122 318"  stroke="#c0892f" stroke-width="1.8" fill="none" marker-end="url(#ahaz)"/>
+        <path d="M284 96 C 302 130, 305 160, 298 182"  stroke="#c0892f" stroke-width="1.8" fill="none" marker-end="url(#ahaz)"/>
+
+        <text x="185" y="394" font-size="10.5" fill="#a06a16" text-anchor="middle" font-weight="700">回表:索引相邻、heap 上却散落 → 到处跳 = random IO</text>
+
+        <!-- divider -->
+        <line x1="360" y1="44" x2="360" y2="380" stroke="#e3ebe6" stroke-width="1" stroke-dasharray="3 4"/>
+
+        <!-- ===== RIGHT: clustered ===== -->
+        <text x="540" y="22" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">Clustered · InnoDB 主键</text>
+        <text x="540" y="46" font-size="10.5" fill="#6a7872" text-anchor="middle">叶子里直接装整行,按主键物理有序</text>
+
+        <!-- branch -->
+        <rect x="486" y="56" width="108" height="34" rx="8" fill="url(#g3)" stroke="#9bd9bd"/>
+        <text x="540" y="79" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">a_1044</text>
+        <path d="M512 90 L455 124" stroke="#15a06a" stroke-width="2" fill="none" marker-end="url(#ahgz)"/>
+        <path d="M566 90 L626 124" stroke="#15a06a" stroke-width="2" fill="none" marker-end="url(#ahgz)"/>
+
+        <!-- leaf1 (rows inside) -->
+        <rect x="384" y="126" width="148" height="64" rx="9" fill="#e8f6ef" stroke="#15a06a" stroke-width="1.8"/>
+        <text x="458" y="150" font-size="11" font-weight="600" fill="#0c7a50" text-anchor="middle">a_1041 {整行}</text>
+        <line x1="392" y1="158" x2="524" y2="158" stroke="#bfe0cf" stroke-width="1"/>
+        <text x="458" y="179" font-size="11" font-weight="600" fill="#0c7a50" text-anchor="middle">a_1043 {整行}</text>
+        <!-- leaf2 -->
+        <rect x="548" y="126" width="148" height="64" rx="9" fill="#e8f6ef" stroke="#15a06a" stroke-width="1.8"/>
+        <text x="622" y="150" font-size="11" font-weight="600" fill="#0c7a50" text-anchor="middle">a_1044 {整行}</text>
+        <line x1="556" y1="158" x2="688" y2="158" stroke="#bfe0cf" stroke-width="1"/>
+        <text x="622" y="179" font-size="11" font-weight="600" fill="#0c7a50" text-anchor="middle">a_1046 {整行}</text>
+
+        <!-- annotations -->
+        <text x="540" y="222" font-size="10.5" fill="#0c7a50" text-anchor="middle" font-weight="700">✓ 行就在叶子里 → PK 查询零回表</text>
+        <text x="540" y="244" font-size="10.5" fill="#0c7a50" text-anchor="middle" font-weight="700">✓ 物理有序 → 范围扫 = 顺序读</text>
+        <text x="540" y="278" font-size="10.5" fill="#a06a16" text-anchor="middle">⚠ secondary index 存的是【主键值】,不是物理指针</text>
+        <text x="540" y="300" font-size="10.5" fill="#a06a16" text-anchor="middle">→ 查两跳:先查 secondary 拿 PK、再查 clustered 取行</text>
+        <text x="540" y="322" font-size="10.5" fill="#a06a16" text-anchor="middle">→ 主键越宽,每个 secondary index 都跟着胖</text>
+      </svg>
+      <figcaption>
+        图 3 · 两种「表的组织方式」。<strong>左:heap</strong>——索引给指针、行散落别处,回表是 random IO(Postgres);<br>
+        <strong>右:clustered</strong>——行就排在叶子里、按主键有序,PK 查询零回表、范围扫顺序读(InnoDB)。代价:只能聚一种顺序、二级索引绕主键、随机主键直接撕碎表本体。
+      </figcaption>
+    </figure>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>三句话记住</div>
+      <ul>
+        <li><strong>Postgres 没有真正的 clustered index</strong>(只有一次性的 <code class="inl">CLUSTER</code> 命令,不维护)。它的替代品就是<strong>覆盖索引 → Index Only Scan</strong>——可理解成「针对某条查询的穷人版聚簇」。</li>
+        <li><strong>聚簇把 random IO 变回 sequential</strong>:聚簇 key 对齐你的高频查询时(如 audit_log 按 <code class="inl">(entity_id, at)</code>),「某保单全部历史」物理连续 → 顺序读。</li>
+        <li>这也让<strong>上一段 UUIDv4 当主键的警告更尖锐</strong>:在聚簇表里,随机主键撕碎的是<strong>表本体</strong>,不只是某个索引 → 用 UUIDv7 / bigint。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>这页用到的词</h2>
+    <div class="gloss">
+      <dl><dt>Page / Block</dt><dd>索引和表在磁盘上的最小读写单位,固定大小(PostgreSQL 默认 8 KB);一页里是一个有序的条目数组。</dd></dl>
+      <dl><dt>Leaf Node</dt><dd>B+tree 最底层,存真实的 (key, 行指针) 条目;所有 leaf 串成有序链表,利于范围扫描。</dd></dl>
+      <dl><dt>Branch / Internal Node</dt><dd>非叶节点,只存 separator key(边界),负责把查询导航到正确的 leaf,不存数据。</dd></dl>
+      <dl><dt>Separator Key</dt><dd>branch 节点里的边界值,如「&lt;60 走左、≥60 走右」;page split 时由下层最小 key 推上来生成。</dd></dl>
+      <dl><dt>Page Split</dt><dd>页满了再插入 → 裂成两页、各拿一半,并把分界 key 推上父节点;可级联到 root 使树长高一层。</dd></dl>
+      <dl><dt>Fillfactor</dt><dd>建索引时每页只填到一定比例(PG b-tree 默认 90%)、留空给后续插入,以减少 split。</dd></dl>
+      <dl><dt>Write Amplification</dt><dd>写放大:一次写要顺带维护所有相关索引,触发 split 的写尤其贵;随机 key 比单调 key 更严重。</dd></dl>
+      <dl><dt>Index Bloat / REINDEX</dt><dd>频繁随机增删后页半满、碎片化(膨胀);REINDEX 重建索引把它压实。</dd></dl>
+      <dl><dt>Heap Table</dt><dd>行按写入顺序乱堆、无物理排序;PostgreSQL 的表都是 heap,所有索引都靠 ctid 指针回表。</dd></dl>
+      <dl><dt>Clustered Index</dt><dd>表数据就排在索引叶子里、按聚簇 key 物理有序;每表仅一个。PK 查询零回表、范围扫顺序读(InnoDB 主键)。</dd></dl>
+      <dl><dt>Secondary Index</dt><dd>非聚簇的二级索引。heap 里存 ctid 指针;聚簇表里存主键值 → 查询要两跳,且主键越宽它越胖。</dd></dl>
+      <dl><dt>random IO vs sequential IO</dt><dd>随机=读散落的 page、到处跳(HDD 要 seek);顺序=读连续 page。回表是随机、Seq Scan 是顺序——selectivity 翻转的根因。</dd></dl>
+    </div>
+  </section>
+
+  <footer>
+    System Design · 30 天　·　Day 09 补充材料(书房讨论生成,非日常流程文档)<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
