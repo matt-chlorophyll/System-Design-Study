@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>补充 · 1NF / 2NF / 3NF 图解</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6; --card:#ffffff; --ink:#0f3d2e; --body:#3a463f; --muted:#6a7872;
+    --accent:#15a06a; --accent-ink:#0c7a50; --accent-soft:#e8f6ef; --accent-soft-2:#eef9f3;
+    --border:#e3ebe6; --border-soft:#eef3f0; --code-bg:#0f3d2e; --code-ink:#e6f1ec;
+    --green:#1a7f5a; --green-soft:#e8f6f0; --amber:#8a5a00; --amber-soft:#fbf1da;
+    --bad:#b4452f; --bad-soft:#fdeeea; --bad-border:#f2cfc5;
+    --radius:16px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--font);font-size:17px;line-height:1.72;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;}
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .topbar .pct{margin-left:auto;font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+
+  .amber-call{background:var(--amber-soft);border:1px solid #f1e0b8;border-left:4px solid #e0a93a;border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .amber-call .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:8px;font-size:15px;}
+  .amber-call .ct svg{width:17px;height:17px;color:#c0892f;}
+
+  /* 誓词卡 */
+  .oath{background:var(--code-bg);border-radius:var(--radius);padding:30px 28px;margin:24px 0;box-shadow:var(--shadow);}
+  .oath .line{font-family:var(--mono);font-size:17px;color:var(--code-ink);line-height:2.1;}
+  .oath .hl1{color:#7fe0b2;font-weight:600;}
+  .oath .hl2{color:#ffd479;font-weight:600;}
+  .oath .hl3{color:#9ecbff;font-weight:600;}
+  .oath .note{font-size:13px;color:#8fc3aa;margin-top:14px;line-height:1.7;}
+
+  /* 伪数据表 */
+  .dtwrap{margin:18px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);background:var(--card);}
+  .dtwrap .cap{display:flex;align-items:center;gap:9px;padding:11px 16px;font-size:13.5px;font-weight:600;border-bottom:1px solid var(--border-soft);}
+  .dtwrap .cap .nm{font-family:var(--mono);}
+  .dtwrap.bad .cap{background:var(--bad-soft);color:var(--bad);}
+  .dtwrap.good .cap{background:var(--green-soft);color:var(--green);}
+  .dtwrap .cap .badge{margin-left:auto;font-size:12px;font-weight:700;padding:2px 10px;border-radius:99px;}
+  .dtwrap.bad .cap .badge{background:#fff;border:1px solid var(--bad-border);color:var(--bad);}
+  .dtwrap.good .cap .badge{background:#fff;border:1px solid #cfe7da;color:var(--green);}
+  table.dt{width:100%;border-collapse:collapse;font-size:13.5px;}
+  .dt th{font-family:var(--mono);font-size:12px;font-weight:600;text-align:left;color:var(--muted);background:#fafdfb;padding:8px 14px;border-bottom:1px solid var(--border);white-space:nowrap;}
+  .dt th.pk{color:var(--accent-ink);}
+  .dt th.pk::after{content:" 🔑";font-size:10px;}
+  .dt td{font-family:var(--mono);padding:8px 14px;border-bottom:1px solid var(--border-soft);color:var(--body);white-space:nowrap;}
+  .dt tr:last-child td{border-bottom:none;}
+  .dt td.pkc{color:var(--accent-ink);font-weight:500;}
+  .dt td.bad{background:var(--bad-soft);color:var(--bad);font-weight:500;}
+  .dt td.dup{background:var(--amber-soft);color:var(--amber);font-weight:500;}
+  .dtwrap .why{padding:10px 16px;font-size:13px;color:var(--muted);border-top:1px dashed var(--border);background:#fcfefd;line-height:1.65;}
+  .dtwrap .why b{color:var(--ink);}
+
+  /* 依赖链 */
+  .dep{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0 18px;font-family:var(--mono);font-size:13px;}
+  .dep .nd{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 12px;color:var(--ink);font-weight:500;box-shadow:var(--shadow);}
+  .dep .nd.key{background:var(--accent-soft);border-color:#bfe5d2;color:var(--accent-ink);}
+  .dep .nd.badn{background:var(--bad-soft);border-color:var(--bad-border);color:var(--bad);}
+  .dep .ar{color:#93a89c;font-weight:600;}
+  .dep .ar.badx{color:var(--bad);}
+  .dep .lbl{font-family:var(--font);font-size:12px;color:var(--muted);}
+
+  .qcard{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;margin:18px 0;box-shadow:var(--shadow);}
+  .qcard .ic{flex:none;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);font-weight:700;font-size:15px;}
+  .qcard p{margin:2px 0 0;font-size:15px;}
+
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table.sum{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);}
+  .sum th{background:#fafdfb;font-weight:600;color:var(--ink);text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);font-size:13px;}
+  .sum td{padding:11px 14px;border-bottom:1px solid var(--border-soft);vertical-align:top;line-height:1.6;}
+  .sum tr:last-child td{border-bottom:none;}
+  .sum td.mn{font-family:var(--mono);font-size:12.5px;color:var(--accent-ink);font-weight:600;white-space:nowrap;}
+
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);background:var(--card);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;} h1{font-size:30px;} h2{font-size:22px;}
+    .gloss{grid-template-columns:1fr;} .lede{font-size:17px;}
+    .dt td,.dt th{padding:7px 10px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 补充材料</span>
+    <span class="pct">书房讨论 · Day 10</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>补充 · Day 10 讨论延伸</span>
+    <h1>The key, the whole key,<br>and nothing but the key</h1>
+    <p class="lede">1NF / 2NF / 3NF 三级范式,每级配一张 QuoteFlow 伪数据表:先看<strong>违例的样子</strong>和它惹出的祸,再看<strong>修复后的样子</strong>。读完你应该能用<em>一个判别问题</em>判断任何一列「住没住对地方」。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M9 5v14"/></svg>违例 vs 修复对照</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h12M12 6l6 6-6 6"/></svg>functional dependency</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="12" r="5"/><path d="M13 12h8M18 12v4"/></svg>一问判别法</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="kicker"><span class="num">0</span>先把口诀读对</div>
+    <h2>这是一句法庭宣誓词</h2>
+    <p>口诀的原型是英美法庭的证人宣誓:<em>"the truth, the whole truth, and nothing but the truth — so help me God."</em> 数据库圈把它改成了对「非主键列」的宣誓——结尾的双关是 <strong>so help me Codd</strong>(E. F. Codd,关系模型之父):</p>
+
+    <div class="oath">
+      <div class="line">Every non-key column shall depend on</div>
+      <div class="line"><span class="hl1">the key</span>, <span class="hl2">the whole key</span>, and <span class="hl3">nothing but the key</span> —</div>
+      <div class="line">so help me Codd.</div>
+      <div class="note">三段各对应一级:依赖 the key(有主键可依赖,1NF 把表整理成「能谈依赖」的形状)→ 依赖 the whole key(2NF:不许只依赖复合主键的一半)→ 只依赖 the key(3NF:不许绕道依赖另一个非键列)。</div>
+    </div>
+
+    <p>口诀里反复出现的「依赖」是个精确概念:<strong>functional dependency(函数依赖)</strong>,记作 <code class="inl">X → Y</code>,意思是<em>知道了 X,Y 就被唯一确定</em>。比如 <code class="inl">customer_id → date_of_birth</code>:给定一个客户,生日只有一个。三级范式管的就是一件事——<strong>表里每个非主键列,到底「函数依赖」于谁</strong>。依赖主键本身 = 住对了;依赖别的东西 = 这个列住错了表,搬去它真正依赖的那个 key 当主键的表。</p>
+    <p>这就是为什么 Day 10 文档说「客户地址依赖的是 customer_id 而不是 quote_id,所以它属于 Customer 表」——整套范式就是这句话的系统化。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>1NF · 前提</div>
+    <h2>每个格子恰好一个原子值</h2>
+    <p>1NF 在口诀里还没出场——它是让口诀<em>有得谈</em>的前提:格子里塞了一串值,「这列依赖谁」根本无从谈起。QuoteFlow 图省事把一条报价的所有险种塞进一个字段:</p>
+
+    <div class="dtwrap bad">
+      <div class="cap"><span class="nm">quote_wide</span><span>险种塞成逗号串</span><span class="badge">✗ 违反 1NF</span></div>
+      <table class="dt">
+        <thead><tr><th class="pk">quote_id</th><th>customer_name</th><th>coverages</th></tr></thead>
+        <tbody>
+          <tr><td class="pkc">Q-1001</td><td>Wei Zhang</td><td class="bad">TERM_LIFE; TPD; TRAUMA</td></tr>
+          <tr><td class="pkc">Q-1002</td><td>Mia Chen</td><td>TERM_LIFE</td></tr>
+        </tbody>
+      </table>
+      <div class="why"><b>祸:</b>① 查「所有含 TPD 的报价」只能 <code class="inl">LIKE '%TPD%'</code>——Day 9 的索引完全帮不上忙,只能 Seq Scan + 字符串匹配;② 想给「这条报价里的 TPD」单独挂一个保额?没地方放;③ 没法用外键约束险种取值合法。</div>
+    </div>
+
+    <p>修复:把「一格多值」拆成「一行一值」——多出来的那个维度(险种)自己成为一张子表:</p>
+
+    <div class="dtwrap good">
+      <div class="cap"><span class="nm">quote_coverage</span><span>一行一个险种</span><span class="badge">✓ 1NF</span></div>
+      <table class="dt">
+        <thead><tr><th class="pk">quote_id</th><th class="pk">coverage_type</th><th>sum_insured</th></tr></thead>
+        <tbody>
+          <tr><td class="pkc">Q-1001</td><td class="pkc">TERM_LIFE</td><td>500,000</td></tr>
+          <tr><td class="pkc">Q-1001</td><td class="pkc">TPD</td><td>300,000</td></tr>
+          <tr><td class="pkc">Q-1001</td><td class="pkc">TRAUMA</td><td>150,000</td></tr>
+          <tr><td class="pkc">Q-1002</td><td class="pkc">TERM_LIFE</td><td>400,000</td></tr>
+        </tbody>
+      </table>
+      <div class="why"><b>红利:</b>「含 TPD 的报价」变成对 <code class="inl">coverage_type</code> 的等值查询,可走索引;每个险种能挂自己的保额;主键是 <code class="inl">(quote_id, coverage_type)</code> 这个<b>复合主键</b>——注意它,下一级范式专管它。</div>
+    </div>
+
+    <div class="qcard"><span class="ic">?</span><p><strong>一问判别:</strong>「这一格里是不是<em>恰好一个值</em>?」装了列表 / 重复组,就拆子表。你做数据清洗时的 <code class="inl">tidy data</code>(one observation per row)是同一个思想。</p></div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>2NF · the whole key</div>
+    <h2>不许只依赖复合主键的「一半」</h2>
+    <p>2NF 只在<strong>复合主键</strong>的表里有戏:它禁止 <strong>partial dependency(部分依赖)</strong>——某个非键列只依赖复合主键的一部分。给上面那张(已满足 1NF 的)<code class="inl">quote_coverage</code> 多塞一列「报价创建时间」:</p>
+
+    <div class="dtwrap bad">
+      <div class="cap"><span class="nm">quote_coverage</span><span>多塞了 quote_created_at</span><span class="badge">✗ 违反 2NF</span></div>
+      <table class="dt">
+        <thead><tr><th class="pk">quote_id</th><th class="pk">coverage_type</th><th>sum_insured</th><th>quote_created_at</th></tr></thead>
+        <tbody>
+          <tr><td class="pkc">Q-1001</td><td class="pkc">TERM_LIFE</td><td>500,000</td><td class="dup">2026-06-01</td></tr>
+          <tr><td class="pkc">Q-1001</td><td class="pkc">TPD</td><td>300,000</td><td class="dup">2026-06-01</td></tr>
+          <tr><td class="pkc">Q-1001</td><td class="pkc">TRAUMA</td><td>150,000</td><td class="dup">2026-06-01</td></tr>
+          <tr><td class="pkc">Q-1002</td><td class="pkc">TERM_LIFE</td><td>400,000</td><td>2026-06-03</td></tr>
+        </tbody>
+      </table>
+      <div class="why"><b>看黄色那列:</b>Q-1001 的创建时间被抄了 3 遍——因为它只跟 quote_id 有关,跟「哪个险种」毫无关系。险种越多,抄得越多。</div>
+    </div>
+
+    <div class="dep">
+      <span class="nd key">(quote_id, coverage_type)</span><span class="ar">→</span><span class="nd">sum_insured</span><span class="lbl">✓ 依赖整个 key:同一报价里各险种保额不同</span>
+    </div>
+    <div class="dep">
+      <span class="nd key">quote_id</span><span class="lbl">(只有半个 key)</span><span class="ar badx">→</span><span class="nd badn">quote_created_at</span><span class="lbl">✗ partial dependency:另一半 key 遮住也能确定它</span>
+    </div>
+
+    <p>三种异常立刻全到齐:<strong>update</strong>——改 Q-1001 的创建时间要改 3 行,漏 1 行数据自相矛盾;<strong>insert</strong>——报价刚创建、还没选险种时,「创建时间」没有行可落;<strong>delete</strong>——删光 Q-1001 的险种行,创建时间跟着蒸发。修复就是让这列回它真正的家:</p>
+
+    <div class="dtwrap good">
+      <div class="cap"><span class="nm">quote</span> + <span class="nm">quote_coverage</span><span>各回各家</span><span class="badge">✓ 2NF</span></div>
+      <table class="dt">
+        <thead><tr><th class="pk">quote_id</th><th>created_at</th></tr></thead>
+        <tbody>
+          <tr><td class="pkc">Q-1001</td><td>2026-06-01</td></tr>
+          <tr><td class="pkc">Q-1002</td><td>2026-06-03</td></tr>
+        </tbody>
+      </table>
+      <div class="why"><b>created_at 依赖 quote_id 整个主键</b>,在 quote 表里它「依赖 the whole key」;quote_coverage 回到上一节绿表的样子,只留依赖完整复合键的 sum_insured。每份事实一行,改一处处处生效。</div>
+    </div>
+
+    <div class="qcard"><span class="ic">?</span><p><strong>一问判别:</strong>「把复合主键<em>遮住一半</em>,这列还能被确定吗?」能 → partial dependency,把它搬去「露出来那一半」当主键的表。<em>顺带:</em>主键是单列(如 surrogate key <code class="inl">quote_id UUID</code>)的表<strong>自动满足 2NF</strong>——没有「一半」可依赖。实务里大量用单列代理键,所以 2NF 翻车多发于「多对多关系表」(如 quote_coverage)里夹带私货。</p></div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>3NF · nothing but the key</div>
+    <h2>不许绕道依赖另一个非键列</h2>
+    <p>3NF 禁止 <strong>transitive dependency(传递依赖)</strong>:非键列 A 依赖非键列 B、B 再依赖主键——A 对主键的依赖是「绕道」的。这就是 Day 10 文档开头那张大宽表的病:</p>
+
+    <div class="dtwrap bad">
+      <div class="cap"><span class="nm">quote</span><span>客户信息抄进每条报价</span><span class="badge">✗ 违反 3NF</span></div>
+      <table class="dt">
+        <thead><tr><th class="pk">quote_id</th><th>customer_id</th><th>customer_email</th><th>customer_smoker</th><th>monthly_premium</th></tr></thead>
+        <tbody>
+          <tr><td class="pkc">Q-1001</td><td>C-01</td><td class="dup">wei.zhang@mail.com</td><td class="dup">true</td><td>84.50</td></tr>
+          <tr><td class="pkc">Q-1002</td><td>C-01</td><td class="dup">wei.zhang@mail.com</td><td class="dup">true</td><td>42.10</td></tr>
+          <tr><td class="pkc">Q-1003</td><td>C-02</td><td>mia.chen@mail.com</td><td>false</td><td>61.30</td></tr>
+        </tbody>
+      </table>
+      <div class="why"><b>看黄色:</b>Wei 报了两次价,邮箱和吸烟状态被抄了两遍。他改邮箱 → 要同步 2 行(将来是 8 行、80 行);漏一行,你就说不清哪个邮箱是真的——<b>update anomaly</b> 现场。</div>
+    </div>
+
+    <div class="dep">
+      <span class="nd key">quote_id</span><span class="ar">→</span><span class="nd">customer_id</span><span class="ar badx">→</span><span class="nd badn">customer_email</span><span class="lbl">✗ transitive:email 真正依赖的是 customer_id</span>
+    </div>
+
+    <p>注意 <code class="inl">customer_id</code> 本身没问题——「这条报价是谁发起的」确实是报价自己的事实。有问题的是<strong>搭它便车进来的列</strong>:email、smoker 描述的是<em>客户</em>,不是<em>这次报价</em>。修复 = 给「客户」这份事实自己的家,报价只留外键:</p>
+
+    <div class="dtwrap good">
+      <div class="cap"><span class="nm">customer</span> + <span class="nm">quote</span><span>事实归位,外键引用</span><span class="badge">✓ 3NF</span></div>
+      <table class="dt">
+        <thead><tr><th class="pk">customer_id</th><th>email</th><th>smoker</th></tr></thead>
+        <tbody>
+          <tr><td class="pkc">C-01</td><td>wei.zhang@mail.com</td><td>true</td></tr>
+          <tr><td class="pkc">C-02</td><td>mia.chen@mail.com</td><td>false</td></tr>
+        </tbody>
+      </table>
+      <table class="dt" style="border-top:1px dashed var(--border)">
+        <thead><tr><th class="pk">quote_id</th><th>customer_id (FK)</th><th>monthly_premium</th></tr></thead>
+        <tbody>
+          <tr><td class="pkc">Q-1001</td><td>C-01</td><td>84.50</td></tr>
+          <tr><td class="pkc">Q-1002</td><td>C-01</td><td>42.10</td></tr>
+          <tr><td class="pkc">Q-1003</td><td>C-02</td><td>61.30</td></tr>
+        </tbody>
+      </table>
+      <div class="why"><b>每个非键列现在只依赖自己的主键:</b>email、smoker 依赖 customer_id;premium 依赖 quote_id。Wei 改邮箱 = 改一行,所有报价「看到」的自动是新值——这正是范式优化「写的正确性」的含义。</div>
+    </div>
+
+    <div class="qcard"><span class="ic">?</span><p><strong>一问判别:</strong>「这一列<em>描述的到底是谁</em>——是本表主键,还是表里另一个非键列?」是后者 → transitive dependency,搬去以那个列当主键的表。另一个经典例子:地址表里同时存 <code class="inl">postcode</code> 和 <code class="inl">state</code>——2000 永远是 NSW,state 依赖 postcode 而不是地址主键,严格 3NF 要拆一张邮编表(实务常容忍它,见下)。</p></div>
+
+    <div class="amber-call">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>那 applicant_snapshot 不就违反 3NF 了吗?</div>
+      <p style="margin:0">长得像,但不是。上面违例表里的 <code class="inl">customer_smoker</code> 想表达「客户<em>现在</em>抽不抽烟」——这份事实属于 customer_id,抄进 quote 就是传递依赖。而 Day 10 的 <code class="inl">applicant_snapshot</code> 存的是「<em>报价那一刻</em>申请人申报的状态」——这份事实<strong>属于这次报价本身</strong>,真正依赖的就是 quote_id,客户日后戒烟也不该改变它。所以完整版判别问题是:<strong>「这列的事实属于谁、属于哪个时点?」</strong>属于别的实体的「当前态」→ 引用;属于本行的「当时态」→ 快照,且不违反 3NF。同一个字段名,两种事实。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>收个尾</div>
+    <h2>三级一张表 + 一句完整判别</h2>
+    <div class="tablewrap">
+      <table class="sum">
+        <thead><tr><th style="width:9%">级别</th><th style="width:21%">口诀片段</th><th style="width:24%">禁止的依赖</th><th>一问判别</th></tr></thead>
+        <tbody>
+          <tr><td class="mn">1NF</td><td>(前提)</td><td>格子里藏着一张表</td><td>这一格是不是恰好一个原子值?</td></tr>
+          <tr><td class="mn">2NF</td><td>the whole key</td><td>partial dependency<br>(只依赖复合键的一半)</td><td>遮住一半主键,这列还能确定吗?</td></tr>
+          <tr><td class="mn">3NF</td><td>nothing but the key</td><td>transitive dependency<br>(绕道依赖另一个非键列)</td><td>这列描述的是主键,还是另一个非键列?</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>三句话带走</div>
+      <p style="margin:0 0 8px">① 三级范式管同一件事:<strong>每个非键列必须函数依赖于本表主键、且只依赖它</strong>——违反的两种姿势分别叫 partial(2NF)和 transitive(3NF)依赖,病征统一是「同一份事实被抄了多遍」,然后 update / insert / delete anomaly 三兄弟上门。</p>
+      <p style="margin:0 0 8px">② 实务捷径:单列代理键让 2NF 自动成立,所以日常翻车 95% 是 3NF——审表时逐列问「<strong>你描述的到底是谁</strong>」就够了。</p>
+      <p style="margin:0">③ BCNF / 4NF / 5NF 存在,处理更刁钻的依赖形态(键内依赖、多值依赖),工程上极少专门追求——到 3NF,该防的异常已经防完了,剩下的精力留给「什么时候<em>有意识地</em>反范式」(Day 10 正文)。</p>
+    </div>
+
+    <div class="gloss">
+      <dl><dt>functional dependency</dt><dd>函数依赖 X → Y:知道 X 即唯一确定 Y。范式三级全部建立在这个概念上。</dd></dl>
+      <dl><dt>partial dependency</dt><dd>部分依赖:非键列只依赖复合主键的一部分。2NF 禁止;单列主键天然免疫。</dd></dl>
+      <dl><dt>transitive dependency</dt><dd>传递依赖:非键列经由另一个非键列间接依赖主键(key → B → A)。3NF 禁止。</dd></dl>
+      <dl><dt>composite key</dt><dd>复合主键:多列共同构成主键,如 (quote_id, coverage_type)。2NF 只在这种表里有意义。</dd></dl>
+      <dl><dt>surrogate key</dt><dd>代理键:无业务含义的人造单列主键(自增 / UUID)。让 2NF 自动成立,但 3NF 照样要审。</dd></dl>
+      <dl><dt>atomic value</dt><dd>原子值:一个格子一个值,不可再拆。1NF 的全部要求;同 tidy data 的精神。</dd></dl>
+    </div>
+  </section>
+
+  <footer>
+    System Design · 30 天学习计划 · 书房补充材料(配合 Day-10-data-modeling.html 食用)<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

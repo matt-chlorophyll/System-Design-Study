@@ -168,6 +168,8 @@ const L = {
   d8:'Day-08-relational-db-acid.html',
   d9:'Day-09-indexing-query-performance.html',
   ps:'notes/Day-09-page-split.html',
+  d10:'Day-10-data-modeling.html',
+  nf:'notes/Day-10-normal-forms.html',
 };
 
 const PAIRS = [
@@ -373,6 +375,48 @@ const PAIRS = [
     diff:'叶子分裂是「复制」（数据必须全留叶子）；branch 分裂是「移」（branch 只是路标，移走不丢数据）。一路裂到 root 才让树长高一层。',
     eg:'满叶 [80·95·110] 插 100 → 裂成 [80·95]/[100·110]、复制 100 上去；父节点 [40|80|100|120] 溢出 → 取正中 80 移上去、新建 root。',
     mn:'叶子复制（留着）；branch 移动（不留）。' },
+
+  { trip:true, src:'讨论', link:L.d10,
+    a:{t:'Snapshot', zh:'快照 · 复制值', def:'源头可变且无版本管理 → 把当时的值复制进本行（applicant_snapshot 里的年龄/吸烟）。'},
+    b:{t:'Version Reference', zh:'版本引用 · 存指针', def:'源头已 immutable 版本化 → 只存 version_id 指针；引用不可变 = 等价快照。'},
+    diff:'都为「钉死时点」服务，分水岭是源头自己冻结了吗：没冻结只能复制值；冻结了存指针就够——省复制大对象，还能反查 impact（v2026-06 影响了哪些报价）。两步判别：①源头变了本行该不该跟着变？该跟 → FK 引用；②不该跟的：源头有版本 → 引用，没版本 → 快照。',
+    eg:'我答思考题把费率表判成「快照」——正解版本引用：rate_table_version 发布即冻结，Quote 只存 version_id；要快照的是客户申报信息（住 Customer 表、会被 UPDATE）。',
+    mn:'源头会变就复制（快照）；源头冻结就指针（引用）。' },
+
+  { trip:true, src:'讨论', link:L.d10,
+    a:{t:'Mutable state', zh:'可变状态 · 现在是什么', def:'客户资料、in-force 保单状态：UPDATE 合法，老老实实 3NF 范式化。'},
+    b:{t:'Immutable fact', zh:'不可变事实 · 当时发生了什么', def:'报价、审计、版本、重算结果：append-only，UPDATE = 销毁证据；反范式随便用（反正不会改）。'},
+    diff:'建模第一问就该问「这数据是状态还是事实」：状态可以原地改；事实只能追加（更新 = 关旧开新）。把两类分开建模是 Day 10 最值钱的判断力。',
+    eg:'我答夜间重算结果表「该建可变」——重算结果是计算产出的事实、要喂 reserving/再保上报，正解 append-only + UNIQUE(policy_id, run_date)：跨晚只增、晚内重试 no-op。',
+    mn:'状态改得；事实改不得（只追加）。' },
+
+  { trip:true, src:'讨论', link:L.d10,
+    a:{t:'Duplication', zh:'同一份事实存多处', def:'范式真正禁止的：客户邮箱抄进每条报价，改一处漏一处 = update anomaly。'},
+    b:{t:'Similar rows, different facts', zh:'长得像的不同事实', def:'时点 / 事件不同就是不同事实：快照 vs 当前值、attempt 1 vs attempt 2——值一模一样也各有一个家。'},
+    diff:'判断标准不是「数据长得像不像」，是「是不是同一份事实」。同一事实多处 = 病；不同时点/事件的相似行 = 合法，但要用显式维度（run_id / attempt_no / status）标出来，别靠 timestamp 默默区分（把去重逻辑推给每个读方）。',
+    eg:'我担心重试写两行一样的结果是 duplication——其实要么唯一键把第二行挡在门外（根本不存在），要么 attempt-level 两行是两个事件、不是重复。',
+    mn:'范式禁的是「同一事实多处」，不是「长得像出现两次」。' },
+
+  { src:'讨论', link:L.nf,
+    a:{t:'Partial Dependency', zh:'部分依赖 · 2NF 禁', def:'非键列只依赖复合主键的一半；quote_coverage 里塞 quote_created_at（只跟 quote_id 有关）。'},
+    b:{t:'Transitive Dependency', zh:'传递依赖 · 3NF 禁', def:'非键列绕道依赖另一个非键列；quote 表里塞 customer_email（key → customer_id → email）。'},
+    diff:'都让事实被抄多遍、都引来三种 anomaly，违规对象不同：partial 依的是「半个 key」（只在复合主键表出现，surrogate key 免疫）；transitive 依的是「别的非键列」（任何表都可能，日常翻车 95% 在这）。判别各一问：遮住一半 key 还能确定吗 / 这列描述的到底是谁。',
+    eg:'(quote_id, coverage_type) 表里的 quote_created_at = partial；quote 表里的 customer_email = transitive。',
+    mn:'partial 偏依「半个键」；transitive 绕道「别的列」。' },
+
+  { src:'讨论', link:L.d10,
+    a:{t:'SCD Type 1', zh:'覆盖 · 无历史', def:'源系统属性变了就原地 UPDATE 维度行，仓库只剩「现在」。'},
+    b:{t:'SCD Type 2', zh:'关旧开新 · 全历史', def:'valid_from / valid_to + is_current，变更 = 关旧行插新行；= OLTP 侧的 effective dating，dbt snapshot 自动做这个。'},
+    diff:'选型按「要不要 as-at 重现」：rating factor（吸烟/职业/邮编）要按事件当时口径分析 → Type 2；无关紧要属性 → Type 1。可按列混用（dbt strategy=check + check_cols）。注意仓库快照历史只到跑批频率、开始前补不回——权威记录在源系统。',
+    eg:'dim_customer 里 smoker 走 Type 2（改吸烟状态 → 关旧行插新行、各领 surrogate key）；偏好联系方式走 Type 1。',
+    mn:'Type 1 只剩现在；Type 2 每段历史各一行。' },
+
+  { src:'讨论', link:L.d10,
+    a:{t:'Summary table', zh:'汇总表 · 可重算的缓存', def:'预算好的聚合结果，真相在明细表，drop 掉随时重跑——derived data，失效策略 = 刷新策略。'},
+    b:{t:'Snapshot', zh:'快照 · 不可重建的事实', def:'报价当时的输入状态，源头早就变了，丢了永远丢了。'},
+    diff:'同是反范式冗余，问一句「丢了怎么办」立刻分家：汇总表可从源完整重算，允许先粗糙后修正；快照不可重建，必须事务内一次写对。维护的紧张程度完全不同。',
+    eg:'daily_new_business_summary 算错了重跑一晚就好；applicant_snapshot 写错了无法从现状补——审计事故。',
+    mn:'汇总表丢了重算；快照丢了报案。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */

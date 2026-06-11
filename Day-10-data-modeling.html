@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 10 · 数据建模与范式 / 反范式</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:33.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 10 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 2 周 · 数据层</span>
+    <h1>数据建模:<br>同一份事实,只该有一个家</h1>
+    <p class="lede">索引解决“怎么快地找”,建模解决“一开始怎么摆”。今天把 QuoteFlow 的客户、报价、保单落成表——以及什么时候该守范式、什么时候该故意打破它。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h6l2-7 4 14 2-7h4"/></svg>昨日回顾 · Day 9</div>
+    <ul>
+      <li>昨天讲了<strong>索引与查询性能</strong>:B+tree 又矮又宽,百万行只需 3~4 次跳转;复合索引讲<strong>最左前缀</strong>;covering index 免回表;选择性低时顺扫反而更快;每个索引都是<strong>写放大</strong>;别猜,用 <code class="inl">EXPLAIN ANALYZE</code> 看执行计划。</li>
+      <li>但索引是“事后补救”——它加速的是<strong>已经摆好的数据</strong>。如果表结构本身摆错了(冗余、混杂、该拆没拆),再多索引也救不回来。今天往上游走一步:数据一开始该怎么摆。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>会用<strong>实体 / 关系(ER)</strong>的视角把业务拆成表:QuoteFlow 的核心实体长什么样</li>
+      <li>理解<strong>normalization(范式化)</strong>到底在防什么:三种 update anomaly</li>
+      <li>知道什么时候该<strong>denormalization(反范式)</strong>——以及寿险场景里一个特殊理由:<strong>审计快照</strong></li>
+      <li>认识<strong>effective dating(生效日期)</strong>:费率表、核保规则这类“随时间变化的事实”怎么建模</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>从业务到表</div>
+    <h2>先找实体和关系,再谈字段</h2>
+    <p>数据建模的第一步不是开表,而是问两个问题:这个业务里有哪些<strong>实体(entity)</strong>——值得拥有自己身份(主键)的“东西”;它们之间是什么<strong>关系(relationship)</strong>——一对一、一对多、多对多。</p>
+    <p>对你来说这一步其实很熟:精算建模先定义“什么是一张保单、什么是一个 life insured”,数据建模做的是同一件事,只是产出物是<em>表和外键</em>而不是模型假设。把 QuoteFlow 的新业务流程顺一遍,实体自然浮出来:</p>
+    <p>一个 <strong>Customer</strong> 可以发起多次 <strong>Quote</strong>(报价);某次报价可能转成一份 <strong>Application</strong>(投保申请);申请通过核保后签发成 <strong>Policy</strong>(保单);保单下挂一个或多个 <strong>Coverage</strong>(险种/保障);每条报价和每份保单都要钉住一个 <strong>RateTableVersion</strong>(版本化费率表);所有关键动作进 <strong>AuditLog</strong>。全是一对多,外键的方向也随之确定——<em>多的一侧持有外键</em>。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- Customer -->
+        <rect x="22" y="22" width="190" height="70" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="40" y="48" font-size="15" font-weight="600" fill="#0f3d2e">Customer</text>
+        <text x="40" y="70" font-size="12" fill="#6a7872" font-family="JetBrains Mono,monospace">customer_id (PK)</text>
+        <!-- Quote -->
+        <rect x="265" y="22" width="190" height="70" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="283" y="48" font-size="15" font-weight="600" fill="#0f3d2e">Quote</text>
+        <text x="283" y="70" font-size="12" fill="#6a7872" font-family="JetBrains Mono,monospace">quote_id · customer_id</text>
+        <!-- Application -->
+        <rect x="508" y="22" width="190" height="70" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="526" y="48" font-size="15" font-weight="600" fill="#0f3d2e">Application</text>
+        <text x="526" y="70" font-size="12" fill="#6a7872" font-family="JetBrains Mono,monospace">app_id · quote_id</text>
+        <!-- Policy -->
+        <rect x="508" y="135" width="190" height="70" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="526" y="161" font-size="15" font-weight="600" fill="#0f3d2e">Policy</text>
+        <text x="526" y="183" font-size="12" fill="#6a7872" font-family="JetBrains Mono,monospace">policy_id · app_id</text>
+        <!-- Coverage -->
+        <rect x="265" y="135" width="190" height="70" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="283" y="161" font-size="15" font-weight="600" fill="#0f3d2e">Coverage</text>
+        <text x="283" y="183" font-size="12" fill="#6a7872" font-family="JetBrains Mono,monospace">coverage_id · policy_id</text>
+        <!-- RateTableVersion -->
+        <rect x="22" y="135" width="190" height="70" rx="12" fill="#eef9f3" stroke="#15a06a" stroke-dasharray="5 4"/>
+        <text x="40" y="161" font-size="15" font-weight="600" fill="#0c7a50">RateTableVersion</text>
+        <text x="40" y="183" font-size="12" fill="#6a7872" font-family="JetBrains Mono,monospace">version_id · 不可变</text>
+        <!-- AuditLog -->
+        <rect x="22" y="248" width="676" height="58" rx="12" fill="#0f3d2e"/>
+        <text x="42" y="272" font-size="14" font-weight="600" fill="#dff0e7">AuditLog(append-only)</text>
+        <text x="42" y="292" font-size="12" fill="#8fc3aa" font-family="JetBrains Mono,monospace">谁 · 何时 · 对哪个实体 · 做了什么 · 依据哪个版本 —— 只增不改</text>
+        <!-- arrows -->
+        <path d="M212 57 L261 57" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="236" y="46" font-size="11" fill="#3d9c74" text-anchor="middle">1 ─ n</text>
+        <path d="M455 57 L504 57" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="479" y="46" font-size="11" fill="#3d9c74" text-anchor="middle">1 ─ 1</text>
+        <path d="M603 92 L603 131" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="616" y="116" font-size="11" fill="#3d9c74">1 ─ 1</text>
+        <path d="M508 170 L459 170" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="483" y="160" font-size="11" fill="#3d9c74" text-anchor="middle">1 ─ n</text>
+        <path d="M212 170 L261 170" stroke="#15a06a" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#ah)"/>
+        <path d="M117 135 L117 100 L237 100 L237 92 L300 92" stroke="#15a06a" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#ah)"/>
+        <text x="150" y="120" font-size="11" fill="#0c7a50">报价与保单都“钉住”某个版本</text>
+      </svg>
+      <figcaption>图 1 · QuoteFlow 核心实体与关系。绿色虚线 = 对不可变版本的引用;底部 AuditLog 横跨所有实体、只增不改。</figcaption>
+    </figure>
+
+    <p>注意 <strong>RateTableVersion</strong> 的画法:它不是普通的一张参数表,而是<em>不可变的版本快照</em>——发布即冻结,改费率 = 发新版本。这一个建模决定,直接决定了报价能不能复现。第 4 节会展开。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>范式化</div>
+    <h2>Normalization 在防什么:三种异常</h2>
+    <p>范式(normal forms)听起来学院派,但它防的问题非常实际。假设 QuoteFlow 图省事,把报价做成一张大宽表,客户姓名、地址、吸烟状态跟着每条报价存一遍:</p>
+    <p><strong>Update anomaly(更新异常)</strong>:客户改了地址,他名下 8 条报价里的地址要改 8 处——漏改一处,数据就自相矛盾,你再也说不清哪个是对的。<strong>Insert anomaly(插入异常)</strong>:客户还没报过价,就没有任何一行能放他的信息——“客户存在”这个事实没地方落。<strong>Delete anomaly(删除异常)</strong>:删掉他唯一一条报价,客户信息跟着消失了。</p>
+    <p>三种异常的病根是同一个:<strong>一份事实存了多处</strong>。范式化的全部直觉就是一句话——<em>每个事实只存一处(single source of truth),其他地方用外键去引用它</em>。各级范式只是把这句话逐步收紧:</p>
+    <p><strong>1NF</strong>:每个格子只放一个原子值——不要在一个字段里塞 <code class="inl">"TERM_LIFE;TPD;TRAUMA"</code> 这种逗号串(该拆成 Coverage 子表)。<strong>2NF / 3NF</strong> 合起来记一句口诀就够:<em>每个非主键字段只依赖主键——the key, the whole key, and nothing but the key</em>。客户地址依赖的是 customer_id 而不是 quote_id,所以它属于 Customer 表,不属于 Quote 表。</p>
+    <p>到 3NF 为止,你已经覆盖了实务中 95% 的场景。更高的范式(BCNF、4NF…)知道存在即可,工程上极少专门追求。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>反范式</div>
+    <h2>什么时候该故意打破规则</h2>
+    <p>范式化的代价在<strong>读路径</strong>:事实拆得越散,查询时要 JOIN 回来的表越多。Day 9 讲过,每次 JOIN 都是一轮索引查找 + 可能的回表;客户保单概览页要 JOIN 五张表的话,p99 latency 很难看。<strong>Denormalization(反范式)</strong>就是有意识地把冗余加回来,用写时的维护成本换读时的速度。</p>
+    <p>关键词是<em>有意识</em>:先有度量(慢查询、EXPLAIN 证据),再决定冗余什么、由谁负责维护一致性。常见三种形态——<strong>冗余列</strong>(把客户姓名抄进保单概览表)、<strong>汇总表</strong>(预计算好的每日新业务统计,而不是每次现算)、<strong>快照</strong>(把某一刻的事实整体复制一份、之后不再跟随源头变化)。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">快照不是冗余,是审计需求</h3>
+      <p>报价记录该存什么?如果 Quote 只存 <code class="inl">customer_id</code> 外键,三个月后客户改了吸烟状态、费率表也更新了两版,你拿什么向监管解释“当时为什么报这个价”?按范式的标准答案(只引用、不复制)在这里恰恰是<strong>错的</strong>。</p>
+      <p>正确做法:Quote 行里同时存<strong>输入快照</strong>(报价当时的年龄/吸烟状态/保额)+ <strong>版本引用</strong>(rate_table_version、rules_version)。看起来“冗余”,其实两者记录的是<strong>不同的事实</strong>:Customer 表存的是“客户现在的状态”,Quote 存的是“报价那一刻我看到的状态”。时点不同,就不是同一份事实——<em>这不违反范式,这是把时间维度建对了</em>。Reproducibility 靠的就是:不可变输入 + 不可变版本 = 任何时候都能重算出同一个数。</p>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:18%"></th><th>Normalization(范式)</th><th>Denormalization(反范式)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">优化目标</span></td><td>写的正确性:一份事实一个家,改一处处处生效</td><td>读的速度:少 JOIN、少回表,查询路径短</td></tr>
+          <tr><td><span class="lab">代价</span></td><td>读要 JOIN 多张表,复杂查询变慢</td><td>写要同步多处冗余;同步逻辑出 bug = 数据矛盾</td></tr>
+          <tr><td><span class="lab">适合的数据</span></td><td>频繁变化的主数据:客户资料、in-force 保单状态</td><td>读多写少 / 写后不变:报价快照、汇总报表、审计记录</td></tr>
+          <tr><td><span class="lab">QuoteFlow 例子</span></td><td>Customer / Policy / Coverage 拆表 + 外键</td><td>Quote 的输入快照、夜间批算的每日 in-force 汇总表</td></tr>
+          <tr><td><span class="lab">出错的样子</span></td><td>报表要 8 个 JOIN,夜间批算窗口爆掉</td><td>客户改了地址,三处冗余只更新了两处</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 默认从 3NF 出发,有证据再反范式——方向反过来(先宽表后补救)几乎总是更痛。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>时间维度</div>
+    <h2>Effective dating:随时间变化的事实</h2>
+    <p>寿险数据建模真正的“行业难点”不是范式,是<strong>时间</strong>。费率表、核保规则、CPI indexation 因子……这些事实都带生效期:“2026-07-01 起,费率表 v2026-07 生效”。而你的查询经常是<em>时间旅行</em>:夜间重算要用“保单周年日当天有效”的那套假设,审计要用“报价当天有效”的那套费率。</p>
+    <p>标准建模手法是<strong>effective dating</strong>:版本表带 <code class="inl">valid_from / valid_to</code> 两列,当前版本 <code class="inl">valid_to = NULL</code>(或 9999-12-31)。更新永远是“关旧开新”:把旧行的 valid_to 填上,插入新行——<em>从不 UPDATE 业务内容本身</em>。这和数据仓库里的 SCD Type 2(slowly changing dimension)是同一个思想,你在分析侧大概率见过它的另一副面孔。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">schema.sql · QuoteFlow 核心表(节选)</span></div>
+<pre><code><span class="c-com">-- 主数据:范式化,一份事实一个家</span>
+<span class="c-key">CREATE TABLE</span> <span class="c-fn">customer</span> (
+  customer_id   <span class="c-key">UUID PRIMARY KEY</span>,
+  full_name     <span class="c-key">TEXT NOT NULL</span>,
+  date_of_birth <span class="c-key">DATE NOT NULL</span>,
+  smoker        <span class="c-key">BOOLEAN NOT NULL</span>      <span class="c-com">-- “现在”的状态,会变</span>
+);
+
+<span class="c-com">-- 版本化费率表:effective dating,只增不改</span>
+<span class="c-key">CREATE TABLE</span> <span class="c-fn">rate_table_version</span> (
+  version_id   <span class="c-key">TEXT PRIMARY KEY</span>,      <span class="c-com">-- 如 '2026-06'</span>
+  product      <span class="c-key">TEXT NOT NULL</span>,
+  rates        <span class="c-key">JSONB NOT NULL</span>,        <span class="c-com">-- 发布即冻结</span>
+  valid_from   <span class="c-key">DATE NOT NULL</span>,
+  valid_to     <span class="c-key">DATE</span>                   <span class="c-com">-- NULL = 当前生效</span>
+);
+
+<span class="c-com">-- 报价:输入快照 + 版本引用 = 可复现</span>
+<span class="c-key">CREATE TABLE</span> <span class="c-fn">quote</span> (
+  quote_id           <span class="c-key">UUID PRIMARY KEY</span>,
+  customer_id        <span class="c-key">UUID REFERENCES</span> customer,
+  applicant_snapshot <span class="c-key">JSONB NOT NULL</span>,  <span class="c-com">-- 当时的年龄/吸烟/保额</span>
+  rate_table_version <span class="c-key">TEXT REFERENCES</span> rate_table_version,
+  monthly_premium    <span class="c-key">NUMERIC(10,2) NOT NULL</span>,
+  created_at         <span class="c-key">TIMESTAMPTZ NOT NULL</span>
+);
+
+<span class="c-com">-- 时间旅行查询:保单周年日那天,哪版费率有效?</span>
+<span class="c-key">SELECT</span> version_id <span class="c-key">FROM</span> rate_table_version
+<span class="c-key">WHERE</span> product = <span class="c-str">'TERM_LIFE_20Y'</span>
+  <span class="c-key">AND</span> valid_from &lt;= <span class="c-str">'2026-09-14'</span>          <span class="c-com">-- 周年日</span>
+  <span class="c-key">AND</span> (valid_to <span class="c-key">IS NULL OR</span> valid_to &gt; <span class="c-str">'2026-09-14'</span>);</code></pre>
+    </div>
+
+    <p>再加一条:<strong>AuditLog 天然是 append-only 的</strong>——审计记录如果能被 UPDATE,它就不叫审计记录了。“只增不改”的表有个工程红利:没有 update anomaly(事实从不变),反范式随便用(尽管冗余,反正不会改),还和 Day 8 的事务压力解耦。把系统里“不可变的事实”(报价、审计、版本)和“可变的状态”(客户资料、保单状态)分开建模,是这一天最值得带走的判断力。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>建模先找<strong>实体和关系</strong>,再谈字段和索引。表结构摆错了,索引和缓存都只是止痛药。</p></div>
+      <div class="tk"><span class="n">2</span><p>范式化防的是 <strong>update / insert / delete anomaly</strong>,核心一句话:每份事实只有一个家。3NF 够用 95% 的场景。</p></div>
+      <div class="tk"><span class="n">3</span><p>反范式要<strong>有证据、有意识</strong>地做:用写的维护成本换读的速度,优先用在“写后不变”的数据上。</p></div>
+      <div class="tk"><span class="n">4</span><p>报价存<strong>输入快照 + 版本引用</strong>不是冗余,是把时间建对:不可变输入 + 不可变版本 = reproducibility,这是受监管定价的硬需求。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">把客户地址同时存在 Customer 表和每条 Quote 行里,客户搬家后只更新了 Customer 表。这叫什么问题,病根是什么?</span></summary>
+        <div class="ans"><b>Update anomaly(更新异常)。</b>病根是同一份“当前地址”事实存了多处、却没人负责同步。注意和报价快照区分:快照存的是“报价当时的状态”,是<b>另一份事实</b>,客户搬家本来就不该影响它。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">为什么费率表更新要“关旧行、插新行”,而不是直接 UPDATE rates 字段?</span></summary>
+        <div class="ans"><b>因为历史报价和保单还引用着旧版本。</b>直接 UPDATE 会把旧版本的内容偷换掉,所有引用它的报价瞬间不可复现——审计上等于销毁证据。Effective dating(valid_from / valid_to + 只增不改)让任何时点的“当时生效版本”都能被查回来。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">客户保单概览页要 JOIN 五张表、p99 超标了。“立刻反范式”是对的第一反应吗?</span></summary>
+        <div class="ans"><b>不是。</b>先用 Day 9 的工具:EXPLAIN 看执行计划,确认慢在哪——很可能补一个复合索引或 covering index 就解决了,零冗余成本。索引救不动、且读写比悬殊时,再考虑冗余列或汇总表,并明确写路径由谁维护这份冗余。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① Quote 表里,<strong>哪些字段该快照、哪些该引用</strong>?试着给一条判断规则(提示:从“这个字段的事实属于哪个时点”想起),再用它检验:保额、客户邮箱、费率表版本、核保规则结果。<br>② 夜间批量重算要给每份 in-force 保单写一条重算结果。这张结果表你会怎么建——可变还是 append-only?如果同一保单同一晚跑了两次(重试),建模上怎么不留下两条互相矛盾的记录?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Entity / Relationship</dt><dd>实体 = 拥有自己身份(主键)的业务对象;关系 = 实体间的 1-1 / 1-n / n-n 关联,决定外键放哪。</dd></dl>
+      <dl><dt>Normalization</dt><dd>范式化:让每份事实只存一处、其余引用,以消除更新/插入/删除异常。</dd></dl>
+      <dl><dt>3NF</dt><dd>第三范式,口诀:非主键字段只依赖 the key, the whole key, and nothing but the key。实务上到这级够用。</dd></dl>
+      <dl><dt>Update Anomaly</dt><dd>同一事实多处存放、部分更新后数据自相矛盾;另有 insert / delete anomaly 两兄弟。</dd></dl>
+      <dl><dt>Denormalization</dt><dd>反范式:有意识地引入冗余(冗余列/汇总表/快照),用写时维护成本换读时速度。</dd></dl>
+      <dl><dt>Snapshot</dt><dd>把某一时点的事实整体复制、之后不再跟随源头变化;是审计与复现的基础,不算违反范式。</dd></dl>
+      <dl><dt>Effective Dating</dt><dd>用 valid_from / valid_to 给事实加生效期,更新=关旧开新;数据仓库里的 SCD Type 2 同源。</dd></dl>
+      <dl><dt>Append-only</dt><dd>只增不改的表(审计日志、事件记录):没有更新异常,天然适合审计与重放。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 11</div>
+      <div class="t">NoSQL 家族与取舍:KV / 文档 / 宽列 / 图。今天我们默认了“数据放关系库”;明天看看什么时候这个默认该被挑战——以及 QuoteFlow 里哪些数据其实更适合别的家。</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 10 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
