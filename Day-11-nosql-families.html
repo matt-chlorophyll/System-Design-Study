@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 11 · NoSQL 家族与取舍</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:36.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 11 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 2 周 · 数据层</span>
+    <h1>不是所有数据都长成表<br>—— NoSQL 家族与取舍</h1>
+    <p class="lede">前三天我们默认“数据放关系库”。今天认识四个 NoSQL 家族 —— KV / 文档 / 宽列 / 图 —— 各自为哪种访问模式而生,QuoteFlow 里哪些数据该搬家、哪些绝不该搬。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h6l2-7 4 14 2-7h4"/></svg>昨日回顾 · Day 10</div>
+    <ul>
+      <li>昨天讲了<strong>数据建模</strong>:先找实体和关系再开表;normalization 防三种 update anomaly,核心是<strong>一份事实只存一处</strong>;denormalization 是<em>有意识地</em>用冗余换读速度;报价里的<strong>输入快照 + 版本引用</strong>不是冗余,是把时间维度建对了 —— reproducibility 的根基。</li>
+      <li>但注意:昨天的一切都默认了数据放<strong>关系库</strong>。这个默认大多数时候是对的——今天来看什么时候它该被挑战,以及挑战它要付出什么。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>理解 NoSQL 出现的<strong>真实动机</strong>:scale-out、灵活 schema、为特定访问模式专精——以及它<strong>放弃了什么</strong></li>
+      <li>认识四大家族:<strong>Key-Value / Document / Wide-column / Graph</strong>,各自的数据模型和适用场景</li>
+      <li>掌握选型的核心方法:<strong>从访问模式出发</strong>,而不是从数据形状出发</li>
+      <li>用 <strong>polyglot persistence</strong> 的视角给 QuoteFlow 的各类数据“分家”——并理解为什么核心保单记录留在关系库是合规上的正确保守</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>为什么会有 NoSQL</div>
+    <h2>关系库的三个“天花板”</h2>
+    <p>2000 年代末,Google、Amazon 这批公司把关系库逼到了三个极限,NoSQL 就是从这三个缝里长出来的:</p>
+    <p><strong>① Scale-out(横向扩展)。</strong>关系库的传统扩展路线是 scale-up——买更大的机器,但机器有上限、价格指数级上涨(Day 6 讲过这条曲线)。而 JOIN 和跨行事务让关系库<em>很难</em>简单地拆到几十台机器上:一旦数据分散,一条 JOIN 可能要跨网络拼,事务要跨节点协调。NoSQL 的思路是反过来:<strong>先放弃 JOIN 和跨行事务,换来随便加机器的自由</strong>。</p>
+    <p><strong>② 灵活 schema。</strong>关系库写入前要先定义表结构(schema-on-write),改结构要 <code class="inl">ALTER TABLE</code>。当数据形状多变(不同产品的问卷字段完全不同),“一张表装所有形状”会变成几十个 NULL 列。文档库允许每条记录自带形状(schema-on-read)。</p>
+    <p><strong>③ 访问模式专精。</strong>关系库是“通才”:什么查询都能跑,但都不是最快。如果你的访问模式极其固定——比如 99% 的请求是“按 key 取一个值”——一个专门为此设计的存储可以快一个数量级、便宜一个数量级。</p>
+    <p>所以记住今天最重要的一句话:<strong>NoSQL 不是“更先进的数据库”,而是“为特定访问模式牺牲了通用性的数据库”。</strong>NoSQL 的本意也是 “Not Only SQL”,不是 “No SQL”。选型的第一个问题永远不是“我的数据长什么样”,而是<em>“我的查询长什么样”(query-driven design)</em>。代价也要先说清楚:大多数 NoSQL 放弃了 JOIN、放弃了跨行 ACID 事务、放弃或弱化了强一致性——最后这条的确切含义,明天(Day 12)会用 CAP / PACELC 讲透。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>四大家族</div>
+    <h2>每个家族为一种访问模式而生</h2>
+
+    <figure>
+      <svg viewBox="0 0 720 430" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- center question -->
+        <rect x="245" y="183" width="230" height="64" rx="32" fill="#0f3d2e"/>
+        <text x="360" y="210" font-size="14" font-weight="700" fill="#ffffff" text-anchor="middle">你的访问模式是什么?</text>
+        <text x="360" y="230" font-size="11.5" fill="#8fc3aa" text-anchor="middle">query-driven:先看查询,再选存储</text>
+        <!-- KV -->
+        <rect x="22" y="22" width="320" height="118" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="52" cy="52" r="15" fill="#15a06a"/><text x="52" y="57" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">KV</text>
+        <text x="78" y="48" font-size="15" font-weight="600" fill="#0f3d2e">Key-Value</text>
+        <text x="78" y="66" font-size="12" fill="#6a7872">Redis · DynamoDB</text>
+        <text x="40" y="94" font-size="12.5" fill="#3a463f">“给我 key,我还你 value” —— O(1)</text>
+        <text x="40" y="114" font-size="12" fill="#0c7a50">QuoteFlow:报价缓存 · session · 限流计数</text>
+        <!-- Document -->
+        <rect x="378" y="22" width="320" height="118" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="408" cy="52" r="15" fill="#15a06a"/><text x="408" y="57" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">Doc</text>
+        <text x="434" y="48" font-size="15" font-weight="600" fill="#0f3d2e">Document</text>
+        <text x="434" y="66" font-size="12" fill="#6a7872">MongoDB · Postgres JSONB</text>
+        <text x="396" y="94" font-size="12.5" fill="#3a463f">按聚合整存整取,每条记录自带形状</text>
+        <text x="396" y="114" font-size="12" fill="#0c7a50">QuoteFlow:投保问卷 payload · 报价快照</text>
+        <!-- Wide-column -->
+        <rect x="22" y="290" width="320" height="118" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="52" cy="320" r="15" fill="#15a06a"/><text x="52" y="325" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">Col</text>
+        <text x="78" y="316" font-size="15" font-weight="600" fill="#0f3d2e">Wide-column</text>
+        <text x="78" y="334" font-size="12" fill="#6a7872">Cassandra · HBase · Bigtable</text>
+        <text x="40" y="362" font-size="12.5" fill="#3a463f">海量写入 + 按 (分区, 时间范围) 顺序读</text>
+        <text x="40" y="382" font-size="12" fill="#0c7a50">QuoteFlow:audit 事件流 · 报价历史</text>
+        <!-- Graph -->
+        <rect x="378" y="290" width="320" height="118" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="408" cy="320" r="15" fill="#15a06a"/><text x="408" y="325" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">G</text>
+        <text x="434" y="316" font-size="15" font-weight="600" fill="#0f3d2e">Graph</text>
+        <text x="434" y="334" font-size="12" fill="#6a7872">Neo4j · Neptune</text>
+        <text x="396" y="362" font-size="12.5" fill="#3a463f">节点 + 边,沿关系遍历几跳都不慌</text>
+        <text x="396" y="382" font-size="12" fill="#0c7a50">QuoteFlow:欺诈网络 · broker 关系</text>
+        <!-- arrows from center -->
+        <path d="M300 183 L200 144" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M420 183 L520 144" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M300 247 L200 286" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M420 247 L520 286" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="218" y="170" font-size="11" fill="#3d9c74">按键取值</text>
+        <text x="448" y="170" font-size="11" fill="#3d9c74">按聚合取</text>
+        <text x="218" y="272" font-size="11" fill="#3d9c74">海量写+扫</text>
+        <text x="448" y="272" font-size="11" fill="#3d9c74">沿关系走</text>
+      </svg>
+      <figcaption>图 1 · 四大 NoSQL 家族:从中心的“访问模式”出发选家,而不是从数据形状出发</figcaption>
+    </figure>
+
+    <h3>Key-Value:最简单,也最快</h3>
+    <p>数据模型就是一张巨大的哈希表:<code class="inl">key → value</code>,value 对存储来说是不透明的一坨字节。能做的操作基本只有 <code class="inl">GET / PUT / DELETE</code>——但正因为简单,它可以做到亚毫秒延迟、轻松横向分片。Day 7 你已经用过它了:<strong>Redis 缓存就是 KV 店的典型用法</strong>。QuoteFlow 里的落点:报价结果缓存(<code class="inl">quote_id → 报价 JSON</code>)、用户 session、API 限流计数器、feature flag。局限同样明显:<em>只能按 key 找</em>。“查出所有吸烟者的报价”这种问题,KV 店无能为力。</p>
+
+    <h3>Document:按“聚合”整存整取</h3>
+    <p>文档库(MongoDB、CouchDB,以及关系库里的 <code class="inl">JSONB</code> 列)存的是自描述的 JSON 文档。核心直觉:把<strong>一起读、一起写的数据放进同一个文档</strong>(领域驱动设计里叫 aggregate),一次 IO 整存整取,不用 JOIN。每个文档可以有不同的形状——对“不同产品问卷差异巨大”的场景特别友好。QuoteFlow 的落点:投保申请的<strong>问卷 payload</strong>(term life 问 40 题、TPD 问 60 题,字段集合完全不同)、Day 10 讲过的报价<strong>输入快照</strong>。</p>
+    <p>但 schema 灵活<strong>不是免费的</strong>:schema-on-read 只是把校验责任从数据库挪到了应用层。三年后这个集合里躺着五代不同形状的文档,每个读它的程序都要兼容全部历史形状。在受监管场景,这意味着你需要<em>显式的 schema version 字段 + 应用层校验</em>,否则 auditability 会被悄悄腐蚀。一个务实的中间路线:<strong>核心字段照常建列,多变部分放进 Postgres 的 JSONB</strong>——同一张表里同时拿到 ACID 和灵活性,很多时候这就够了,不必引入一个新数据库。</p>
+
+    <h3>Wide-column:为海量写入设计</h3>
+    <p>宽列店(Cassandra、HBase、Bigtable)的模型可以理解为“两级 key”:<strong>partition key</strong> 决定数据落在哪台机器,<strong>clustering key</strong> 决定分区内怎么排序。它建表时就要求你<em>按查询来设计 key</em>——“为查询建模”被写进了语法。底层用 LSM-tree(写优先的结构,和 Day 9 的 B+tree 相反:B+tree 读快写慢,LSM 写快读稍慢),所以写吞吐极高,天然适合 append-only 的事件和时序数据。QuoteFlow 的落点:<strong>audit 事件流</strong>——每条报价、每次核保规则评估、每次费率表发布都产生事件,写入量是保单数的百倍,而读取模式恰好固定:“给我这张保单的全部事件,按时间倒序”。</p>
+
+    <h3>Graph:当“关系本身”是主角</h3>
+    <p>图库(Neo4j、Amazon Neptune)把节点和边都当一等公民,擅长“沿关系走 N 跳”的查询。关系库做这件事要自 JOIN N 次,每多一跳成本翻倍;图库的遍历成本只和走过的边数成正比。QuoteFlow 的落点:<strong>欺诈检测</strong>——“这个新申请人的电话号码,是否和三个月内两次被拒保的申请人共享同一个地址和受益人?”这是典型的 3 跳遍历,SQL 写出来是噩梦,图查询是三行。多数系统不需要专门的图库;但当你的核心问题长成“网络”的形状时,它是无可替代的。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>并排看一眼</div>
+    <h2>四家对照:模型 · 强项 · 代价</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:14%"></th><th>Key-Value</th><th>Document</th><th>Wide-column</th><th>Graph</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">数据模型</span></td><td>key → 不透明 value</td><td>自描述 JSON 文档</td><td>partition key + 排序列</td><td>节点 + 边 + 属性</td></tr>
+          <tr><td><span class="lab">查询方式</span></td><td>只能按 key</td><td>按文档字段,可建二级索引</td><td>按 key 设计好的固定查询</td><td>沿边遍历(Cypher 等)</td></tr>
+          <tr><td><span class="lab">强项</span></td><td>亚毫秒延迟,极易分片</td><td>整存整取,schema 灵活</td><td>超高写吞吐,时序友好</td><td>多跳关系查询</td></tr>
+          <tr><td><span class="lab">放弃了什么</span></td><td>查询能力几乎为零</td><td>JOIN、跨文档事务弱</td><td>临时查询,查法要预先设计</td><td>大规模扫描/聚合不擅长</td></tr>
+          <tr><td><span class="lab">代表</span></td><td>Redis · DynamoDB</td><td>MongoDB · JSONB</td><td>Cassandra · Bigtable</td><td>Neo4j · Neptune</td></tr>
+          <tr><td><span class="lab">QuoteFlow 落点</span></td><td>报价缓存 · session · 限流</td><td>问卷 payload · 输入快照</td><td>audit 事件流</td><td>欺诈关系网络</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 注意第四行:每一家的强项都是用“放弃了什么”换来的。没写进表里的共同代价:大多数 NoSQL 默认放弃强一致性(Day 12 展开)。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>看两个具体形状</div>
+    <h2>文档怎么长,宽列怎么建</h2>
+    <p>抽象说完,看两段具体的“形状”。第一段是投保申请的文档形态——注意 <code class="inl">schema_version</code> 字段和嵌套结构;第二段是 audit 事件的宽列建表——注意 key 的设计<em>就是</em>查询的设计:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">application 文档(Document)+ audit_events 表(Wide-column,CQL 示意)</span></div>
+<pre><code><span class="c-com">// ── ① 投保申请:一个自描述的文档,整存整取 ──</span>
+{
+  <span class="c-str">"app_id"</span>: <span class="c-str">"app_7c21..."</span>,
+  <span class="c-str">"schema_version"</span>: <span class="c-num">3</span>,            <span class="c-com">// ← 显式版本:合规场景的保命字段</span>
+  <span class="c-str">"product"</span>: <span class="c-str">"TERM_LIFE_20Y"</span>,
+  <span class="c-str">"questionnaire"</span>: {                <span class="c-com">// 不同产品形状不同,无需几十个 NULL 列</span>
+    <span class="c-str">"smoker"</span>: <span class="c-key">false</span>,
+    <span class="c-str">"occupation"</span>: { <span class="c-str">"code"</span>: <span class="c-str">"2211"</span>, <span class="c-str">"hazardous"</span>: <span class="c-key">false</span> },
+    <span class="c-str">"medical"</span>: [ { <span class="c-str">"condition"</span>: <span class="c-str">"asthma"</span>, <span class="c-str">"severity"</span>: <span class="c-str">"mild"</span> } ]
+  }
+}
+
+<span class="c-com">-- ── ② audit 事件:key 的设计 = 查询的设计 ──</span>
+<span class="c-key">CREATE TABLE</span> <span class="c-fn">audit_events</span> (
+  policy_id   <span class="c-key">text</span>,        <span class="c-com">-- partition key:同一保单的事件落在同一分区</span>
+  event_time  <span class="c-key">timestamp</span>,   <span class="c-com">-- clustering key:分区内按时间排好</span>
+  event_type  <span class="c-key">text</span>,
+  actor       <span class="c-key">text</span>,
+  payload     <span class="c-key">text</span>,
+  <span class="c-key">PRIMARY KEY</span> ((policy_id), event_time)
+) <span class="c-key">WITH CLUSTERING ORDER BY</span> (event_time <span class="c-key">DESC</span>);
+
+<span class="c-com">-- “这张保单最近 50 条事件” = 找到分区 + 顺序读前 50 行,毫秒级</span>
+<span class="c-key">SELECT</span> * <span class="c-key">FROM</span> audit_events <span class="c-key">WHERE</span> policy_id = <span class="c-str">'pol_91d4'</span> <span class="c-key">LIMIT</span> <span class="c-num">50</span>;</code></pre>
+    </div>
+    <p>对照感受一下:文档库的灵活是<strong>写入侧</strong>的自由(每条记录自带形状);宽列库的快是<strong>读取侧</strong>的预谋(建表时就把查询路径焊死)。反过来问“宽列表怎么查任意字段”“文档库怎么保证五代文档都合规”,就立刻碰到各自放弃的东西。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>贯穿案例</div>
+    <h2>给 QuoteFlow 的数据“分家”</h2>
+    <p>真实系统几乎从不“全家搬去 NoSQL”,而是 <strong>polyglot persistence</strong>:每类数据按访问模式各归其家,同时清醒地接受“家越多,运维和一致性的负担越重”。给 QuoteFlow 分一次家:</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">核心记录留关系库 —— 这是合规上的“保守正确”</h3>
+      <p><strong>Policy / Coverage / 财务流水 / 客户主数据 → PostgreSQL。</strong>理由不是惯性:这些数据需要跨表事务(签发保单 = 同时写保单、保障、账务,Day 8 的 ACID)、需要外键约束守住数据质量、需要成熟的备份/恢复/审计工具链——监管审查时,“我们用了 30 年工业级验证的关系库”本身就是答案的一部分。</p>
+      <p><strong>报价缓存、session、限流 → Redis(KV)</strong>:丢了也能重算,适合放最“随便”的家。<strong>问卷 payload → Postgres JSONB</strong>:形状多变但量不大,JSONB 拿到灵活性又不离开 ACID 的屋檐——<em>够用就不引入新数据库</em>。<strong>audit 事件流 → 宽列(或 Day 16 会讲的日志型系统)</strong>:写入量百倍于保单数、append-only、读取模式固定。<strong>欺诈关系网络 → 图库</strong>:只在这个问题真的成为业务重点时才引入。</p>
+      <p>注意天平的另一端:每多一个存储,就多一套备份策略、监控、故障模式和“两边数据对不上”的可能。<strong>能用一个库解决,就不用两个</strong>——polyglot 是被访问模式逼出来的,不是技术品味。</p>
+    </div>
+
+    <p>最后把 audit log 多看一眼,因为它是 NFR 驱动选型的好例子:它要的是<strong>不可变(append-only)、完整(不丢事件)、可重放(按实体+时间顺序读)</strong>。宽列店天然契合前两条的写入模式,但“不可变”最终靠的是<em>权限设计</em>(应用账号只有 INSERT 权限、没有 UPDATE/DELETE)+ 流程,数据库自己不会替你拒绝删改。这是 Day 1 那句“把 non-functional 焊进设计”的又一次落地。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>选存储先问<strong>“查询长什么样”</strong>,再问数据长什么样。NoSQL 是为特定访问模式牺牲通用性,不是“更先进”。</p></div>
+      <div class="tk"><span class="n">2</span><p>四家各有专长:<strong>KV</strong> 按键取值、<strong>文档</strong>按聚合整存整取、<strong>宽列</strong>海量写+分区扫、<strong>图</strong>沿关系遍历。专长都是用放弃换的。</p></div>
+      <div class="tk"><span class="n">3</span><p>共同账单:大多数 NoSQL 放弃了 JOIN、跨行事务和(默认的)强一致性。schema 灵活也只是把校验责任<strong>挪给了应用层</strong>。</p></div>
+      <div class="tk"><span class="n">4</span><p><strong>Polyglot persistence</strong> 按需分家,但每多一个库就多一份运维与一致性负担。受监管的核心记录留关系库,常是合规上的保守正确。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">报价缓存只有一种访问方式:按 quote_id 取整份报价结果。哪个家族最合适,为什么?</span></summary>
+        <div class="ans"><b>Key-Value(如 Redis)。</b>访问模式是纯按 key 取值,KV 店在这件事上延迟最低、扩展最容易;并且缓存丢了可以重算,不需要持久化保证。用文档库或关系库做这件事,是为用不到的查询能力付费。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">为什么 audit 事件流适合宽列店,而不是直接塞进 PostgreSQL 主库?</span></summary>
+        <div class="ans"><b>访问模式契合 + 保护主库。</b>事件量是保单数的百倍且 append-only,宽列的 LSM 写路径吞吐极高;读取模式固定为“按 (policy_id, 时间) 顺序读”,正好是 partition + clustering key 的形状。塞进主库则会让海量写入和实时报价的事务争抢同一套资源。注意:“不可变”要靠权限(只授 INSERT)+ 流程兜底,不是数据库自动给的。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">文档库“schema 灵活”的代价是什么?在受监管场景要加什么护栏?</span></summary>
+        <div class="ans"><b>校验责任从数据库挪到应用层。</b>schema-on-read 意味着多代形状的文档长期共存,每个读取方都要兼容历史形状,数据质量问题发现得更晚。护栏:文档里放<b>显式 schema_version</b>、写入口做应用层校验、保留各版本 schema 定义供审计——否则 auditability 会被悄悄腐蚀。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 有同事提议“把 in-force 保单全量搬到 MongoDB,夜间批量重定价会快很多”。你怎么评估这个提议?哪些访问模式支持它、哪些 NFR 反对它?<br>② QuoteFlow 的报价<strong>输入快照</strong>(Day 10)既可以做成 Postgres JSONB,也可以放独立文档库。两个方案各自的取舍是什么,你选哪个?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>NoSQL</dt><dd>“Not Only SQL”:为特定访问模式放弃部分通用能力(JOIN/事务/强一致)的一类数据库的统称。</dd></dl>
+      <dl><dt>Key-Value Store</dt><dd>以 key → value 哈希表为模型的存储,只支持按 key 存取,延迟极低、易分片。</dd></dl>
+      <dl><dt>Document Database</dt><dd>以自描述 JSON 文档为单位存取的数据库,每条记录可有不同形状。</dd></dl>
+      <dl><dt>Wide-column Store</dt><dd>用 partition key 分布数据、clustering key 排序的存储,写吞吐高,查询需预先设计。</dd></dl>
+      <dl><dt>Graph Database</dt><dd>把节点和边当一等公民、为多跳关系遍历优化的数据库。</dd></dl>
+      <dl><dt>Aggregate</dt><dd>一起读、一起写的一组数据;文档建模的基本单位(整存整取)。</dd></dl>
+      <dl><dt>Schema-on-Read</dt><dd>写入时不强制结构、读取时再解释形状;灵活,但把校验责任挪到应用层。</dd></dl>
+      <dl><dt>Polyglot Persistence</dt><dd>一个系统按访问模式混用多种存储,各类数据各归其家。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 12</div>
+      <div class="t">复制与一致性:leader-follower、quorum、CAP、PACELC。今天反复说“NoSQL 用一致性换扩展”——明天讲清楚被换走的到底是什么、还能拿回多少。</div>
+    </div>
+  </div>
+
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 11 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
