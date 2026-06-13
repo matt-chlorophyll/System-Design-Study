@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 11 补充图解 · 欺诈检测的 3 跳遍历</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6; --card:#ffffff; --ink:#0f3d2e; --body:#3a463f; --muted:#6a7872;
+    --accent:#15a06a; --accent-ink:#0c7a50; --accent-soft:#e8f6ef;
+    --border:#e3ebe6; --border-soft:#eef3f0;
+    --code-bg:#0f3d2e; --code-ink:#e6f1ec;
+    --amber:#8a5a00; --amber-soft:#fbf1da;
+    --radius:16px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--font);font-size:16.5px;line-height:1.72;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:860px;margin:0 auto;padding:42px 22px 90px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:31px;line-height:1.2;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:18px 0 10px;}
+  .lede{font-size:17px;color:var(--muted);margin:0 0 26px;}
+  h2{font-size:22px;color:var(--ink);font-weight:700;margin:38px 0 12px;letter-spacing:-.01em;}
+  p{margin:0 0 14px;}
+  strong{color:var(--ink);font-weight:600;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+  figure{margin:24px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 18px 12px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:10px;}
+  .step{display:flex;gap:13px;margin:14px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow);}
+  .step .n{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:27px;height:27px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-top:2px;}
+  .step p{margin:0;font-size:15px;}
+  .callout{background:#eef9f3;border:1px solid #cfe7da;border-left:4px solid var(--accent);border-radius:var(--radius-sm);padding:15px 18px;margin:20px 0;font-size:15px;}
+  .callout .ct{font-weight:700;color:var(--ink);margin-bottom:6px;font-size:14.5px;}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:14px 17px;margin:20px 0;font-size:15px;color:#6b4e10;}
+  .think b{color:#7a5400;}
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:18px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:10px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:16px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;}
+  footer{text-align:center;margin-top:46px;padding-top:20px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="eyebrow"><span class="dot"></span>Day 11 补充图解 · Graph Database</span>
+  <h1>“3 跳遍历”到底是哪 3 跳?</h1>
+  <p class="lede">把文档里那句欺诈检测查询画出来:“这个新申请人,是否和三个月内两次被拒保的申请人共享电话、地址和受益人?”</p>
+
+  <figure>
+    <svg viewBox="0 0 940 560" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+      <defs>
+        <marker id="ag" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+        <marker id="am" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#a8bdb1"/></marker>
+      </defs>
+
+      <!-- ===== 边:电话主路径(绿粗) ===== -->
+      <path d="M 140 262 L 344 118" stroke="#15a06a" stroke-width="3" fill="none" marker-end="url(#ag)"/>
+      <text x="208" y="172" font-size="11" font-weight="600" fill="#0c7a50">HAS_PHONE</text>
+      <path d="M 668 260 L 556 120" stroke="#15a06a" stroke-width="3" fill="none" marker-end="url(#ag)"/>
+      <text x="630" y="168" font-size="11" font-weight="600" fill="#0c7a50">HAS_PHONE</text>
+      <text x="600" y="218" font-size="10.5" fill="#0c7a50">反向走:这个号还连着谁?</text>
+      <path d="M 726 256 L 752 162" stroke="#15a06a" stroke-width="3" fill="none" marker-end="url(#ag)"/>
+      <path d="M 726 304 L 752 398" stroke="#15a06a" stroke-width="3" fill="none" marker-end="url(#ag)"/>
+      <text x="772" y="205" font-size="11" font-weight="600" fill="#0c7a50">SUBMITTED</text>
+      <text x="772" y="364" font-size="11" font-weight="600" fill="#0c7a50">SUBMITTED</text>
+      <text x="845" y="288" font-size="11.5" font-weight="600" fill="#8a5a00" text-anchor="middle">3 个月内 2 次 DECLINED</text>
+
+      <!-- ===== 边:地址 / 受益人平行路径(虚线) ===== -->
+      <path d="M 146 286 L 344 279" stroke="#a8bdb1" stroke-width="1.8" stroke-dasharray="6 5" fill="none" marker-end="url(#am)"/>
+      <text x="216" y="270" font-size="10.5" fill="#93a89c">LIVES_AT</text>
+      <path d="M 664 288 L 556 281" stroke="#a8bdb1" stroke-width="1.8" stroke-dasharray="6 5" fill="none" marker-end="url(#am)"/>
+      <text x="585" y="305" font-size="10.5" fill="#93a89c">LIVES_AT</text>
+      <path d="M 136 306 L 344 442" stroke="#a8bdb1" stroke-width="1.8" stroke-dasharray="6 5" fill="none" marker-end="url(#am)"/>
+      <text x="166" y="388" font-size="10.5" fill="#93a89c">NAMES_BENEFICIARY</text>
+      <path d="M 674 306 L 556 444" stroke="#a8bdb1" stroke-width="1.8" stroke-dasharray="6 5" fill="none" marker-end="url(#am)"/>
+      <text x="588" y="388" font-size="10.5" fill="#93a89c">NAMES_BENEFICIARY</text>
+
+      <!-- ===== 跳数徽章 ===== -->
+      <circle cx="242" cy="192" r="12" fill="#0f3d2e"/><text x="242" y="196.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+      <circle cx="612" cy="190" r="12" fill="#0f3d2e"/><text x="612" y="194.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+      <circle cx="744" cy="280" r="12" fill="#0f3d2e"/><text x="744" y="284.5" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+
+      <!-- ===== 节点:N ===== -->
+      <circle cx="110" cy="280" r="36" fill="#15a06a"/>
+      <text x="110" y="288" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">N</text>
+      <text x="110" y="343" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">新申请人 · 今天投保</text>
+      <text x="110" y="360" font-size="11" fill="#6a7872" text-anchor="middle">Applicant 节点</text>
+
+      <!-- ===== 节点:共享属性(都是一等公民节点,不是字段!) ===== -->
+      <rect x="350" y="84" width="200" height="56" rx="28" fill="#e8f6ef" stroke="#15a06a" stroke-width="1.5"/>
+      <text x="450" y="108" font-size="13.5" font-weight="600" fill="#0f5c3e" text-anchor="middle" font-family="JetBrains Mono,monospace">0412 555 808</text>
+      <text x="450" y="127" font-size="11" fill="#6a7872" text-anchor="middle">Phone 节点</text>
+
+      <rect x="350" y="252" width="200" height="56" rx="28" fill="#ffffff" stroke="#b5c8bd" stroke-width="1.4"/>
+      <text x="450" y="276" font-size="13" font-weight="600" fill="#3a463f" text-anchor="middle">7 Wattle St, Ryde</text>
+      <text x="450" y="295" font-size="11" fill="#6a7872" text-anchor="middle">Address 节点</text>
+
+      <rect x="350" y="420" width="200" height="56" rx="28" fill="#ffffff" stroke="#b5c8bd" stroke-width="1.4"/>
+      <text x="450" y="444" font-size="13" font-weight="600" fill="#3a463f" text-anchor="middle">受益人 R. Chen</text>
+      <text x="450" y="463" font-size="11" fill="#6a7872" text-anchor="middle">Person 节点</text>
+
+      <!-- ===== 节点:M ===== -->
+      <circle cx="700" cy="280" r="36" fill="#b45309"/>
+      <text x="700" y="288" font-size="19" font-weight="700" fill="#fff" text-anchor="middle">M</text>
+      <text x="700" y="343" font-size="12.5" font-weight="600" fill="#7a5400" text-anchor="middle">可疑申请人</text>
+      <text x="700" y="360" font-size="11" fill="#6a7872" text-anchor="middle">Applicant 节点</text>
+
+      <!-- ===== 节点:M 的被拒申请 ===== -->
+      <rect x="760" y="120" width="170" height="58" rx="10" fill="#fbf1da" stroke="#e7c66f" stroke-width="1.4"/>
+      <text x="845" y="144" font-size="12.5" font-weight="600" fill="#7a5400" text-anchor="middle" font-family="JetBrains Mono,monospace">app_7f3c</text>
+      <text x="845" y="163" font-size="11" fill="#8a5a00" text-anchor="middle">DECLINED · 2026-04-12</text>
+
+      <rect x="760" y="402" width="170" height="58" rx="10" fill="#fbf1da" stroke="#e7c66f" stroke-width="1.4"/>
+      <text x="845" y="426" font-size="12.5" font-weight="600" fill="#7a5400" text-anchor="middle" font-family="JetBrains Mono,monospace">app_a91e</text>
+      <text x="845" y="445" font-size="11" fill="#8a5a00" text-anchor="middle">DECLINED · 2026-05-28</text>
+
+      <!-- ===== 图例 ===== -->
+      <line x1="40" y1="528" x2="86" y2="528" stroke="#15a06a" stroke-width="3"/>
+      <text x="94" y="532" font-size="12" fill="#3a463f">电话主路径:跳 ①→②→③</text>
+      <line x1="318" y1="528" x2="364" y2="528" stroke="#a8bdb1" stroke-width="1.8" stroke-dasharray="6 5"/>
+      <text x="372" y="532" font-size="12" fill="#3a463f">地址 / 受益人:同模式的平行路径</text>
+      <rect x="650" y="519" width="18" height="18" rx="4" fill="#fbf1da" stroke="#e7c66f"/>
+      <text x="676" y="532" font-size="12" fill="#3a463f">被拒申请(3 个月窗口)</text>
+    </svg>
+    <figcaption>图 · 从新申请人 N 出发的 3 跳遍历:①到电话节点 → ②反向到共享者 M → ③到 M 的被拒申请。虚线是地址 / 受益人两条平行确认路径。</figcaption>
+  </figure>
+
+  <h2>一跳一跳走</h2>
+  <p>先记住一个口径:<strong>1 跳(hop)= 沿一条边从一个节点走到相邻节点</strong>。“3 跳”数的是从起点到答案的<em>深度</em>。</p>
+
+  <div class="step"><span class="n">1</span><p><strong>N → 电话节点。</strong>从今天的新申请人 N 出发,沿 <code class="inl">HAS_PHONE</code> 边走到他登记的号码 <code class="inl">0412 555 808</code>。注意:电话号码在图里是<strong>独立节点</strong>,不是 N 的一个字段——这是整张图能成立的关键(下面细说)。</p></div>
+  <div class="step"><span class="n">2</span><p><strong>电话节点 → 申请人 M。</strong>站在号码节点上反向问:“<em>这条边的另一头还有谁?</em>”——发现申请人 M 也连着同一个号码。图库的边天然可以双向走,“共享同一个电话”就是“两条 <code class="inl">HAS_PHONE</code> 边汇到同一个节点”。</p></div>
+  <div class="step"><span class="n">3</span><p><strong>M → 他的申请记录。</strong>从 M 沿 <code class="inl">SUBMITTED</code> 边走到他的投保申请,过滤 <code class="inl">status = 'DECLINED'</code> 且 <code class="inl">decided_at</code> 在 3 个月内——数出 2 条 → 报警条件满足。</p></div>
+
+  <p>“共享同一个地址和受益人”是<strong>两条平行路径</strong>(图中虚线):N → 地址节点 ← M、N → 受益人节点 ← M。它们和电话路径长得一模一样,只是换了边的类型——平行路径增加的是 pattern 的<em>宽度</em>(同时命中才算欺诈信号),不增加<em>深度</em>,所以这仍叫 3 跳查询。</p>
+
+  <div class="callout">
+    <div class="ct">建模的关键一步:把“识别符”升级成节点</div>
+    在关系库里,电话/地址/受益人通常是申请人的<strong>字段</strong>(或 junction 表),“共享”只能靠 <em>self-join 找值相等的行</em>来发现。图建模把它们升级成<strong>一等公民节点</strong>——“共享”从“值恰好相等”变成“边汇到同一个节点”,肉眼可见、一跳可达。这和 Day 10 判断 entity 的尺子一脉相承:<em>在欺诈检测这个问题里,电话号码“有了身份”</em>,所以配得上自己的节点。
+  </div>
+
+  <h2>同一个问题,两种写法</h2>
+  <p>Cypher(Neo4j 的查询语言)里,<strong>查询长得就和上面那张图一样</strong>——你是把图案(pattern)画给数据库,让它去找匹配:</p>
+
+  <div class="code">
+    <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">fraud_check.cypher — 把图案画给数据库</span></div>
+<pre><code><span class="c-key">MATCH</span> (n:Applicant {id: <span class="c-num">$new_id</span>})-[:HAS_PHONE]-&gt;(:Phone)&lt;-[:HAS_PHONE]-(m:Applicant), <span class="c-com">// 跳①②</span>
+      (n)-[:LIVES_AT]-&gt;(:Address)&lt;-[:LIVES_AT]-(m),                       <span class="c-com">// 平行:共享地址</span>
+      (n)-[:NAMES_BENEFICIARY]-&gt;(:Person)&lt;-[:NAMES_BENEFICIARY]-(m),      <span class="c-com">// 平行:共享受益人</span>
+      (m)-[:SUBMITTED]-&gt;(a:Application {status: <span class="c-str">'DECLINED'</span>})              <span class="c-com">// 跳③</span>
+<span class="c-key">WHERE</span> a.decided_at &gt;= date() - duration(<span class="c-str">'P3M'</span>)
+<span class="c-key">WITH</span>  m, count(<span class="c-key">DISTINCT</span> a) <span class="c-key">AS</span> declines
+<span class="c-key">WHERE</span> declines &gt;= <span class="c-num">2</span>
+<span class="c-key">RETURN</span> m.id, declines</code></pre>
+  </div>
+
+  <p>SQL 里,<strong>每一跳 = 一次 JOIN</strong>,“共享” = junction 表 self-join。下面只写了电话这<em>一条</em>路径:</p>
+
+  <div class="code">
+    <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">fraud_check.sql — 只有电话路径,地址/受益人还要再各叠一组</span></div>
+<pre><code><span class="c-key">SELECT</span>  mp.applicant_id, <span class="c-fn">COUNT</span>(<span class="c-key">DISTINCT</span> a.app_id) <span class="c-key">AS</span> declines
+<span class="c-key">FROM</span>    applicant_phone np                                 <span class="c-com">-- 跳①:N 的电话</span>
+<span class="c-key">JOIN</span>    applicant_phone mp <span class="c-key">ON</span> mp.phone_id = np.phone_id    <span class="c-com">-- 跳②:谁还用这个号(self-join)</span>
+                          <span class="c-key">AND</span> mp.applicant_id &lt;&gt; np.applicant_id
+<span class="c-key">JOIN</span>    applications a     <span class="c-key">ON</span> a.applicant_id = mp.applicant_id  <span class="c-com">-- 跳③:他的申请</span>
+<span class="c-key">WHERE</span>   np.applicant_id = <span class="c-num">:new_id</span>
+  <span class="c-key">AND</span>   a.status = <span class="c-str">'DECLINED'</span>
+  <span class="c-key">AND</span>   a.decided_at &gt;= CURRENT_DATE - <span class="c-key">INTERVAL</span> <span class="c-str">'3 months'</span>
+<span class="c-key">GROUP BY</span> mp.applicant_id
+<span class="c-key">HAVING</span>  <span class="c-fn">COUNT</span>(<span class="c-key">DISTINCT</span> a.app_id) &gt;= <span class="c-num">2</span>;
+
+<span class="c-com">-- 「同一个地址」+「同一个受益人」:再各加一组 junction self-join(或 EXISTS 子查询)。</span>
+<span class="c-com">-- 欺诈团队明天问「受益人 R. Chen 的电话又连到哪个申请人?」(深度 +2 跳)→ SQL 结构性重写;</span>
+<span class="c-com">-- Cypher 只是在 MATCH 里把 pattern 多画一段。</span></code></pre>
+  </div>
+
+  <h2>为什么图库走这条路更快</h2>
+  <p><strong>关系库:每跳一次,付一次 JOIN 的钱。</strong>每个 JOIN 是去另一张表的索引里查一遍(B+tree,<code class="inl">O(log N)</code>,Day 9)——表越大越贵,而且多跳的 fan-out 逐层放大:第 1 跳出来 10 行,每行再各查一次第 2 跳……</p>
+  <p><strong>图库:index-free adjacency(免索引邻接)。</strong>每个节点身上<em>直接存着自己那些边的物理指针</em>。只有起点 N 需要用索引找一次,之后每一跳都是顺指针走,成本只和<strong>这个节点的度数</strong>(连了几条边)成正比,<em>和全库总量无关</em>——10 亿申请人和 100 万申请人,从 N 出发走 3 跳的代价几乎一样。遍历越深,和 SQL 的差距越大。</p>
+
+  <div class="think"><b>别忘了天平另一端(Day 11 对照表第四行):</b>图库为遍历付出的代价,是大规模扫描和聚合不擅长——“全体保单的平均保费”这种问题它很笨。而且多数系统的关系查询深度 ≤ 2 跳,关系库 + 几个 JOIN 完全够用。文档的判语:<b>只在“核心问题长成网络的形状”时才引入图库</b>——欺诈环检测恰好是,因为欺诈者的本质就是“用共享的识别符把假身份连成了网”,而他们自己藏不住这些边。</div>
+
+  <footer>System Design · 30 天学习计划 · Day 11 补充图解 · 贯穿案例:QuoteFlow(虚构)</footer>
+</div>
+</body>
+</html>

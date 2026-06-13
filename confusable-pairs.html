@@ -170,6 +170,8 @@ const L = {
   ps:'notes/Day-09-page-split.html',
   d10:'Day-10-data-modeling.html',
   nf:'notes/Day-10-normal-forms.html',
+  d11:'Day-11-nosql-families.html',
+  fg:'notes/Day-11-fraud-graph.html',
 };
 
 const PAIRS = [
@@ -417,6 +419,34 @@ const PAIRS = [
     diff:'同是反范式冗余，问一句「丢了怎么办」立刻分家：汇总表可从源完整重算，允许先粗糙后修正；快照不可重建，必须事务内一次写对。维护的紧张程度完全不同。',
     eg:'daily_new_business_summary 算错了重跑一晚就好；applicant_snapshot 写错了无法从现状补——审计事故。',
     mn:'汇总表丢了重算；快照丢了报案。' },
+
+  { trip:true, src:'讨论', link:L.d11,
+    a:{t:'System of Record (migration)', zh:'权威记录搬家', def:'把 in-force 保单的「家」整个换成新存储：事务 / 约束 / 备份 / 审计工具链 / 下游分析全要跟着搬。'},
+    b:{t:'Derived Read Model', zh:'派生读模型', def:'权威记录不动，为单一访问模式（夜批重算）物化一份读优化副本：可重算、丢了不是事故。'},
+    diff:'同一个动作（每天把 in-force 物化成定价输入文档），定位不同天壤之别：当权威记录 = 全部访问模式被一个访问模式绑架；当派生副本 = 「汇总表是长成表的缓存」同款逻辑。搬家前先问：我要换权威记录，还是只要一个读优化副本？',
+    eg:'思考题①我把「每天 filter in-force 同步去 MongoDB」当成提议的缺点列出来——翻转视角它就是正解的形状，区别只在谁当 system of record。',
+    mn:'搬家动户口；派生只是复印件。' },
+
+  { trip:true, src:'讨论', link:L.d11,
+    a:{t:'In-database complexity', zh:'单库内部复杂度', def:'JSONB 列、TOAST 大字段、多形状文档混居——一个库里多了点东西。'},
+    b:{t:'System-level complexity', zh:'系统层面复杂度', def:'+1 个独立存储 = +1 套备份、监控、故障模式、权限审查、灾备，以及「两边对不上」的可能。'},
+    diff:'「复杂」要先问在哪一层：JSONB 让单库稍复杂，但让系统更简单（一套工具链管到底）；独立文档库让单库各自干净，但系统复杂度暴涨。评估存储方案时系统层面才是大头。',
+    eg:'思考题②我答「JSONB 会让整个数据库更复杂」所以像是缺点——方向反了：和独立文档库比，JSONB 恰恰是更简单的方案。',
+    mn:'库里乱一点 ≪ 家里多一口。' },
+
+  { trip:true, src:'讨论', link:L.d11,
+    a:{t:'Transactional guarantees', zh:'事务保证（JSONB 拿回来的）', def:'快照与 Quote 行同事务原子写、同生同死；外加 JSONB 之外列的约束/外键 + 整套备份/权限/审计工具链。'},
+    b:{t:'Schema enforcement', zh:'schema 校验（JSONB 没拿回来的）', def:'JSONB 列内部依旧 schema-on-read：Postgres 不校验 JSON 里的字段和类型，除非显式 CHECK。'},
+    diff:'「放进 Postgres」≠「自动有校验」。JSONB 换来的是原子性和工具链，不是 schema 校验——schema_version + 写入口应用层校验，JSONB 和独立文档库两个方案都逃不掉。反对独立文档库的杀手论据是 dual write 没有跨系统原子性（有报价没快照 = 审计事故），不是笼统的「ACID 更安全」。',
+    eg:'思考题②我答「独立文档库舍弃了数据库校验、JSONB 保留了」——其实校验两边都没有；JSONB 真正赢在快照和 Quote 行一个事务里落地。',
+    mn:'JSONB 给你原子写，不给你验形状。' },
+
+  { src:'讨论', link:L.d11,
+    a:{t:'KV Store (hard lookup)', zh:'键值存储 · 硬查找', def:'hash(key) 精确命中唯一 value，O(1)，要么命中要么 miss——Redis / DynamoDB。'},
+    b:{t:'Attention QKV (soft lookup)', zh:'注意力机制 · 软查找', def:'query 对所有 key 算相似度 → softmax 加权平均所有 value，人人按相似度贡献一点。'},
+    diff:'同源不同物：都来自 dictionary（key→value）抽象，attention 论文原文就是检索隐喻（前身 Key-Value Memory Networks）。分水岭是硬/软：硬查找不可导，attention 把查字典改造成处处连续、可被梯度下降训练的形式 = 可微分的字典查找。顺带第三个 KV：LLM 推理的 KV cache 缓存的是 attention 的 K/V 张量，干的是 Day 7 precompute 的活。',
+    eg:'RAG 向量库是中间形态：用 attention 的软相似度打分，最后硬化成离散 top-k（ANN）——按 Day 11 的尺子，它是又一个「为单一访问模式专精的存储」。',
+    mn:'KV store 取一个；attention 全都要，按相似度分。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */

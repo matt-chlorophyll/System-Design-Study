@@ -149,6 +149,8 @@ const L = {
   ps:'notes/Day-09-page-split.html',
   d10:'Day-10-data-modeling.html',
   nf:'notes/Day-10-normal-forms.html',
+  d11:'Day-11-nosql-families.html',
+  fg:'notes/Day-11-fraud-graph.html',
 };
 
 const TERMS = [
@@ -605,6 +607,44 @@ const TERMS = [
    def:'无业务含义的人造单列主键（自增 / UUID）。让 2NF 自动成立（没有「一半 key」可依赖），但 3NF 照样要审。SCD Type 2 里每个版本各领一个。'},
   {t:'Point-in-time Join', zh:'时点关联', cat:'data', src:['讨论'], link:L.d10,
    def:'按事件时间挑「当时生效版本」的 JOIN：ON t >= valid_from AND (valid_to IS NULL OR t < valid_to)。effective dating / SCD Type 2 的标准读法；精算「用周年日当天有效的假设」就是它。'},
+
+  // ── Day 11：NoSQL 家族与取舍（+ 图遍历图解 / QKV 三连 讨论延伸）──
+  {t:'NoSQL', zh:'Not Only SQL', cat:'data', src:['Day 11'], link:L.d11,
+   def:'为特定访问模式放弃部分通用能力（JOIN / 跨行事务 / 默认强一致）的一类数据库统称——不是「更先进」，是「更专精」。出现动机：scale-out、灵活 schema、访问模式专精。选型第一问永远是「查询长什么样」（query-driven design），不是「数据长什么样」。'},
+  {t:'Key-Value Store', zh:'键值存储', cat:'data', src:['Day 11','讨论'], link:L.d11,
+   def:'一张巨大哈希表 key → 不透明 value，只支持 GET/PUT/DELETE：亚毫秒延迟、极易分片，代价是只能按 key 找（hard lookup：精确命中或 miss）。Redis 缓存就是它（Day 7）。QuoteFlow 落点：报价缓存、session、限流计数、feature flag。'},
+  {t:'Document Database', zh:'文档数据库', cat:'data', src:['Day 11'], link:L.d11,
+   def:'以自描述 JSON 文档为单位整存整取（MongoDB、Postgres JSONB），每条记录自带形状——对「不同产品问卷字段完全不同」友好。代价：JOIN 弱、跨文档事务弱、schema-on-read 把校验挪到应用层。务实中间路线：核心字段建列 + 多变部分 JSONB，不离开 ACID 的屋檐。'},
+  {t:'Wide-column Store', zh:'宽列存储', cat:'data', src:['Day 11'], link:L.d11,
+   def:'两级 key 的存储（Cassandra、HBase、Bigtable）：partition key 决定数据落哪台机器、clustering key 决定分区内排序——「为查询建模」写进了语法。底层 LSM-tree 写吞吐极高，天然适合 append-only 事件/时序。代价：临时查询无能为力，查法要建表时焊死。QuoteFlow 落点：audit 事件流。'},
+  {t:'Graph Database', zh:'图数据库', cat:'data', src:['Day 11','讨论'], link:L.fg,
+   def:'节点和边都是一等公民（Neo4j、Neptune），为「沿关系走 N 跳」优化：遍历成本 ∝ 走过的边数、与全库总量无关。关系库做 N 跳要自 JOIN N 次、每跳成本随表涨。代价：大规模扫描/聚合不擅长。只在核心问题长成「网络形状」时引入——欺诈环检测恰好是。'},
+  {t:'Aggregate (文档建模)', zh:'聚合', cat:'data', src:['Day 11'], link:L.d11,
+   def:'一起读、一起写的一组数据（DDD 概念），文档建模的基本单位：塞进同一个文档,一次 IO 整存整取免 JOIN。「按聚合取」是文档库的专属访问模式。'},
+  {t:'Schema-on-Read vs Schema-on-Write', zh:'读时解释 / 写时强制', cat:'data', src:['Day 11','讨论'], link:L.d11,
+   def:'写时强制 = 关系库列定义,不合形状写不进去；读时解释 = 文档/JSONB,写入自由、读取方负责理解所有历史形状。灵活不免费：校验责任挪到应用层，受监管场景必须 schema_version + 写入口校验兜底,否则 auditability 被悄悄腐蚀。注意 Postgres JSONB 列内部同样是 schema-on-read——放进关系库不等于自动有校验。'},
+  {t:'Polyglot Persistence', zh:'多语言持久化', cat:'data', src:['Day 11'], link:L.d11,
+   def:'一个系统按访问模式混用多种存储、各类数据各归其家。天平另一端：每多一个库 = 多一套备份/监控/故障模式/权限审查 + 「两边对不上」的可能。能用一个库就不用两个——polyglot 是被访问模式逼出来的,不是技术品味。受监管核心记录留关系库 = 合规上的保守正确。'},
+  {t:'LSM-tree', zh:'日志结构合并树', cat:'data', src:['Day 11'], link:L.d11,
+   def:'写优先的存储结构（宽列店底层）：先顺序写内存/日志、后台再合并下盘——写吞吐极高、读稍慢。与 B+tree（读快写慢，Day 9）正好互补：B+tree 为读建、LSM 为写建。'},
+  {t:'Partition Key / Clustering Key', zh:'分区键 / 聚类键', cat:'data', src:['Day 11'], link:L.d11,
+   def:'宽列店的两级 key：partition key 哈希决定数据落哪台机器（同分区物理同住）,clustering key 决定分区内物理排序。PRIMARY KEY ((policy_id), event_time) = 「这张保单的事件按时间排好」一查即中。Day 13 分片细讲。'},
+  {t:'Index-free Adjacency', zh:'免索引邻接', cat:'data', src:['讨论'], link:L.fg,
+   def:'图库快的根源：每个节点身上直接存自己那些边的物理指针——起点用索引找一次,之后每跳顺指针走,成本 ∝ 节点度数、与全库总量无关。SQL 每跳 = 一次 JOIN（B+tree 查一遍 O(log N) 随表涨）,深度越深差距越大。'},
+  {t:'Multi-hop Traversal', zh:'多跳遍历', cat:'data', src:['讨论'], link:L.fg,
+   def:'1 跳 = 沿一条边到相邻节点；「3 跳」数的是起点到答案的深度。平行路径（同时共享电话+地址+受益人）加 pattern 宽度不加深度。欺诈检测 3 跳：N→电话→共享者 M→他的被拒申请。识别符（电话/地址）升级成一等公民节点是前提——「共享」从 self-join 值相等变成「边汇到同一节点」。'},
+  {t:'Cypher', zh:'图查询语言', cat:'data', src:['讨论'], link:L.fg,
+   def:'Neo4j 的查询语言：MATCH (n)-[:HAS_PHONE]->(:Phone)<-[:HAS_PHONE]-(m) —— pattern 长得就和图一样,把图案画给数据库去匹配。加一跳 = 多画一段；SQL 加一跳 = 结构性重写。'},
+  {t:'Dual Write', zh:'双写', cat:'data', src:['讨论'], link:L.d11,
+   def:'同一份业务事实要写进两个独立系统（如 Postgres 的 Quote 行 + 文档库的快照）：跨系统没有原子性,一边成功一边失败 = 「有报价没快照」审计事故。能靠单库同事务解决就别拆两家；非拆不可时要 saga / outbox（Day 14）缝合。'},
+  {t:'System of Record vs Read Model', zh:'权威记录 / 派生读模型', cat:'data', src:['讨论'], link:L.d11,
+   def:'同一个动作（每天把 in-force 保单物化成定价输入文档）,当 derived read model 是好设计——可重算、丢了不是事故、为单一访问模式优化；当 system of record 是事故——权威记录要扛事务/约束/审计全套。搬家前先问：我是要换权威记录,还是只要一个读优化副本？'},
+  {t:'QKV (Attention)', zh:'注意力机制的查询/键/值', cat:'data', src:['讨论'], link:L.d11,
+   def:'与 KV store 同源不同物：都源自 dictionary（key→value 查找）抽象,attention 论文原文即检索隐喻（前身 Key-Value Memory Networks）。区别：KV store 是 hard lookup（精确命中唯一 value）；attention 是 soft lookup——query 对所有 key 算相似度、softmax 加权平均所有 value。做成软的原因：hard lookup 不可导——attention = 可微分的字典查找。'},
+  {t:'KV Cache (LLM 推理)', zh:'K/V 张量缓存', cat:'data', src:['讨论'], link:L.d11,
+   def:'LLM 生成时缓存已生成 token 的 K/V 张量,免得每个新 token 重算前文——名字里的 KV 指 attention 的 K/V,干的事是 Day 7 的 precompute/缓存。三个 "KV" 辨析：KV store 是一类数据库、QKV 是 attention 三个角色、KV cache 是推理时的张量缓存。'},
+  {t:'Vector Database / ANN', zh:'向量库 / 近似最近邻', cat:'data', src:['讨论'], link:L.d11,
+   def:'访问模式 = 「给我 query 向量,找最相似 top-k」（ANN 近似最近邻）——把 attention 的软相似度拿回存储层、硬化成离散 top-k。按 Day 11 的尺子,它就是又一个「为单一访问模式专精的存储」,和四大家族并排坐。RAG 检索的底座,Day 29 细讲。'},
 ];
 
 /* ── 渲染 / 搜索 / 筛选 ── */
