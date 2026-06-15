@@ -12,3 +12,4 @@ $RECYCLE.BIN/
 
 # 原始逐字问答存档（本地保真、不入库、不公开）
 question-raw/
+.gstack/

@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 1 周复习 · 把基础连成一张网</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --gold:#c79528;
+    --gold-soft:#fbf0d2;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:0 22px 96px;}
+
+  /* topbar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:820px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:23.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:44px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout.gold{background:var(--gold-soft);border-color:#ecd9a3;border-left-color:var(--gold);}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout.gold .ct{color:#7a5400;}
+  .callout.gold .ct svg{color:var(--gold);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* ===== knowledge graph ===== */
+  .graphwrap{margin:8px 0 0;background:radial-gradient(120% 120% at 50% 0%,#ffffff,#f1faf4);
+    border:1px solid var(--border);border-radius:var(--radius);padding:16px 14px 12px;box-shadow:var(--shadow);overflow:hidden;}
+  #kg{display:block;width:100%;height:auto;touch-action:none;cursor:grab;}
+  #kg.grabbing{cursor:grabbing;}
+  .link{stroke:#cfe3d8;stroke-width:1.4;transition:opacity .18s, stroke .18s;}
+  .link.l-seq{stroke:#d8e4dd;stroke-dasharray:2 5;}
+  .link.l-next{stroke:#d6dcd9;stroke-dasharray:5 5;}
+  .node{cursor:pointer;}
+  .node circle{transition:opacity .18s, filter .18s;stroke:#fff;stroke-width:2;}
+  .node .lbl{font-size:11px;fill:var(--body);text-anchor:middle;font-weight:500;pointer-events:none;transition:opacity .18s;}
+  .node .num{font-size:12px;fill:#fff;text-anchor:middle;font-weight:700;pointer-events:none;dominant-baseline:central;}
+  .n-day circle{fill:var(--accent);}
+  .n-day .lbl{fill:var(--ink);font-weight:600;}
+  .n-concept circle{fill:#2f8f6e;}
+  .n-concept .lbl{fill:#14513a;font-weight:600;}
+  .n-repro circle{fill:var(--gold);}
+  .n-repro .lbl{fill:#7a5400;font-weight:700;}
+  .n-next circle{fill:#b9c4bf;}
+  .n-next .lbl{fill:#7f8c86;}
+  /* hover dimming */
+  #kg.dim .link{opacity:.07;}
+  #kg.dim .node circle{opacity:.16;}
+  #kg.dim .node .lbl{opacity:.18;}
+  #kg.dim .link.hot{opacity:1;stroke:#5cbf95;stroke-width:2;}
+  #kg.dim .node.hot circle{opacity:1;filter:drop-shadow(0 2px 6px rgba(15,61,46,.25));}
+  #kg.dim .node.hot .lbl{opacity:1;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:14px 4px 2px;font-size:12.5px;color:var(--muted);}
+  .legend .it{display:inline-flex;align-items:center;gap:7px;}
+  .legend .sw{width:13px;height:13px;border-radius:50%;flex-shrink:0;}
+  .legend .ln{width:20px;height:0;border-top:2px dashed #b9c4bf;}
+  .ghint{font-size:12.5px;color:var(--muted);margin:10px 4px 0;}
+
+  /* ===== thread sections ===== */
+  .lane{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 14px;}
+  .dchip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;font-family:var(--mono);
+    background:var(--accent-soft);color:var(--accent-ink);border:1px solid #cdeede;padding:3px 9px;border-radius:99px;}
+  .dchip.f{background:#eef1ef;color:#7f8c86;border-color:#dfe5e2;}
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:18px 0;}
+  .step{flex:1 1 150px;min-width:140px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);
+    padding:13px 14px;margin:6px;box-shadow:var(--shadow);position:relative;}
+  .step .d{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-ink);letter-spacing:.04em;}
+  .step .h{font-weight:700;color:var(--ink);font-size:15px;margin:3px 0 4px;}
+  .step .x{font-size:13.5px;color:var(--body);line-height:1.55;}
+
+  /* takeaways grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* day quick-ref grid */
+  .dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:22px 0;}
+  .dcard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 17px;box-shadow:var(--shadow);}
+  .dcard .top{display:flex;align-items:center;gap:9px;margin-bottom:8px;}
+  .dcard .bdg{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:24px;padding:0 7px;border-radius:7px;
+    background:var(--ink);color:#fff;font-size:12px;font-weight:700;font-family:var(--mono);}
+  .dcard .ti{font-weight:700;color:var(--ink);font-size:15px;}
+  .dcard p{margin:0 0 10px;font-size:14px;line-height:1.58;}
+  .dcard .terms{display:flex;flex-wrap:wrap;gap:5px;}
+  .dcard .terms span{font-family:var(--mono);font-size:11px;background:#eef6f1;color:#0f5c3e;border:1px solid #dcebe2;border-radius:6px;padding:2px 7px;}
+
+  /* confusable pairs */
+  .pair{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:16px 0;box-shadow:var(--shadow);overflow:hidden;}
+  .pair .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border-soft);background:#fbfdfc;}
+  .pair .hd .nm{font-weight:700;color:var(--ink);font-size:15.5px;}
+  .pair .trip{font-size:11.5px;font-weight:700;color:#9a3b2f;background:#fbe6e2;border:1px solid #f3c8c0;border-radius:99px;padding:3px 10px;white-space:nowrap;}
+  .pair .cols{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+  .pair .c{padding:14px 18px;font-size:14px;line-height:1.55;}
+  .pair .c:first-child{border-right:1px solid var(--border-soft);}
+  .pair .c .t{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--accent-ink);margin-bottom:4px;}
+  .pair .ft{padding:12px 18px;border-top:1px solid var(--border-soft);background:#fafdfb;font-size:13.5px;color:var(--body);}
+  .pair .ft b{color:var(--ink);}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:30px;}
+    h2{font-size:22px;}
+    .grid,.pair .cols{grid-template-columns:1fr;}
+    .pair .c:first-child{border-right:none;border-bottom:1px solid var(--border-soft);}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">第 1 周复习 · Day 1–7</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 1 周 · 基础与思维方式 · 复习</span>
+    <h1>第一周不是 7 个知识点,<br>是一张网。</h1>
+    <p class="lede">这一周从“什么是好系统、怎么量化它”一路走到“怎么把一次报价又快、又稳、又可审计地送达”。与其逐天复述,不如先看清它们之间的<strong>贯穿线</strong>——同一个概念,反复在不同的天里出现、互相支撑。先从一张关系图谱开始。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>复习约 25 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>覆盖 Day 1 – Day 7</span>
+    </div>
+  </header>
+
+  <section id="graph">
+    <div class="kicker"><span class="num">◆</span>关系图谱</div>
+    <h2>第一周的知识网</h2>
+    <p>绿色是 <strong>7 天</strong>,深绿是把它们串起来的<strong>贯穿概念</strong>,<strong>金色</strong>是整周最粗的那根线——<em>可复现 / 可审计</em>,它一个人就连着 6 天。灰色虚线指向<strong>第二周</strong>会兑现的伏笔。连得越多的节点越是“枢纽”,值得反复回看。</p>
+
+    <div class="graphwrap">
+      <svg id="kg" viewBox="0 0 820 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="第一周知识关系图谱">
+        <g id="links"></g>
+        <g id="nodes"></g>
+      </svg>
+      <div class="legend">
+        <span class="it"><span class="sw" style="background:#15a06a"></span>Day 节点（点击跳转）</span>
+        <span class="it"><span class="sw" style="background:#2f8f6e"></span>贯穿概念</span>
+        <span class="it"><span class="sw" style="background:#c79528"></span>黄金线 · 可复现/可审计</span>
+        <span class="it"><span class="sw" style="background:#b9c4bf"></span>通向第 2 周</span>
+        <span class="it"><span class="ln"></span>伏笔（虚线）</span>
+      </div>
+      <p class="ghint">💡 把鼠标悬在任一节点上 → 高亮它的所有关联;按住可拖动节点;点 Day 节点直接跳到下面对应的速查卡。</p>
+    </div>
+  </section>
+
+  <section id="spine">
+    <div class="kicker"><span class="num">1</span>一周的主线</div>
+    <h2>从“怎么想”到“怎么送达”</h2>
+    <p>把 7 天排成一条线,会看到一个清晰的两段式叙事:<strong>Day 1–3 是“思维方式”</strong>——先学会定义、量化、估算一个系统好不好;<strong>Day 4–7 是“一次请求的旅程”</strong>——顺着一笔报价从用户到数据库的路,逐段学怎么让它达标。</p>
+
+    <div class="flow">
+      <div class="step"><div class="d">DAY 1</div><div class="h">定义</div><div class="x">functional vs non-functional;双路径;最被低估的 NFR = 可复现。</div></div>
+      <div class="step"><div class="d">DAY 2</div><div class="h">量化</div><div class="x">给 NFR 配数字(p99、吞吐…),看清它们彼此掣肘。</div></div>
+      <div class="step"><div class="d">DAY 3</div><div class="h">估算</div><div class="x">用量级估算判断一个设计能不能达标。</div></div>
+    </div>
+    <div class="flow">
+      <div class="step"><div class="d">DAY 4</div><div class="h">路径</div><div class="x">DNS→TCP→TLS→HTTP,请求怎么连上服务器。</div></div>
+      <div class="step"><div class="d">DAY 5</div><div class="h">契约</div><div class="x">HTTP 这一层的 API 怎么设计成难反悔的契约。</div></div>
+      <div class="step"><div class="d">DAY 6</div><div class="h">分发</div><div class="x">请求进来后怎么被分到一排机器上。</div></div>
+      <div class="step"><div class="d">DAY 7</div><div class="h">加速</div><div class="x">路上每一层缓存,把贵的事只做一次。</div></div>
+    </div>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.5 6.5L21 9l-5 4 1.5 7L12 16l-5.5 4L8 13 3 9l6.5-.5z"/></svg>一句话抓住整周</div>
+      <ul><li>前三天教你<strong>判断</strong>一个系统设计好不好(定义 → 量化 → 估算);后四天顺着<strong>一次请求的真实路径</strong>,逐段把“好”做出来(连通 → 契约 → 分发 → 加速)。而<strong>贯穿始终、且对你这行最要命的那根线,是“可复现 / 可审计”</strong>——下面六条贯穿线里的第一条。</li></ul>
+    </div>
+  </section>
+
+  <section id="threads">
+    <div class="kicker"><span class="num">2</span>六条贯穿线</div>
+    <h2>把 7 天缝起来的线</h2>
+    <p>这是这份复习的核心。每条线都是一个概念<strong>跨多天反复出现</strong>的轨迹——看懂线,就看懂了这些知识点为什么是一个整体,而不是 7 段彼此无关的内容。</p>
+
+    <!-- 线 1 -->
+    <h3 style="color:#7a5400">🟡 线 1 · 黄金线:可复现 / 可审计(reproducibility / auditability)</h3>
+    <div class="lane"><span class="dchip">D1</span><span class="dchip">D2</span><span class="dchip">D4</span><span class="dchip">D5</span><span class="dchip">D6</span><span class="dchip">D7</span></div>
+    <p>这是整周连得最多的一根线,也是你这行的一等公民需求。它“被低估”的定义就是:<em>大家默认它会自己满足,赶进度时它最先被牺牲</em>。检验它的场景永远是同一句——<strong>两年后监管来查一笔当时的报价,你能不能用当时的费率版本、规则版本、模型版本,把那个数字一字不差地复现出来?</strong></p>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="width:14%">出现在</th><th>这一天它怎么现身</th></tr></thead>
+      <tbody>
+        <tr><td><span class="lab">Day 1</span></td><td>被点名为“最被低估的 NFR”。双路径若不共享同一套逻辑/版本 → 同一张保单实时报价和夜间重算给出<strong>两个价</strong> → 审计噩梦。解法:抽一个 <em>shared core</em>。</td></tr>
+        <tr><td><span class="lab">Day 2</span></td><td>关键澄清:<strong>consistency ≠ reproducibility</strong>。可复现是“同输入同输出”(计算层),一致性是“多副本能读到最新”(存储层)。两者配合撑起审计:一个保证“算得出同一个数”,一个保证“大家同意当时用哪个版本”。</td></tr>
+        <tr><td><span class="lab">Day 4</span></td><td>broker 通道的 mTLS 顺带给 <strong>non-repudiation(不可抵赖)</strong>:每次调用都能确定是哪个 broker 的证书发起 → 直接写进 audit log。</td></tr>
+        <tr><td><span class="lab">Day 5</span></td><td>API 是“难反悔的契约”;版本化 + <code class="inl">request_id</code> 让每次调用可追溯、错误可定位。</td></tr>
+        <tr><td><span class="lab">Day 6</span></td><td>stateless + 共享版本化源的<strong>更深目的</strong>:不只是“别断流程”,而是<em>每台机器算出完全一样的数</em>——随机分到一台“规则没更新”的机器就出一个不可复现的报价。</td></tr>
+        <tr><td><span class="lab">Day 7</span></td><td>版本化不可变 key 让缓存<strong>不破坏</strong>可复现、反而是帮手:盖的章(<code class="inl">rate_table_version</code>)= 取数的 key,<em>不可能对不上</em>。</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout gold">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>这根线的总纲</div>
+      <ul><li>前面所有“快 / 扩展 / 加缓存”的招,都必须<strong>不以牺牲“两年后能一字不差复现这个报价”为代价</strong>。每学一个新机制,都该顺手问一句:它会不会让审计链断、让同一笔报价变得算不回来?</li></ul>
+    </div>
+
+    <!-- 线 2 -->
+    <h3>🔵 线 2 · 根本张力:双路径与 latency ↔ throughput</h3>
+    <div class="lane"><span class="dchip">D1</span><span class="dchip">D2</span><span class="dchip">D3</span><span class="dchip">D7</span></div>
+    <p>QuoteFlow 从第一天就劈成两条路:<strong>new business 实时报价(要 low latency)</strong> 和 <strong>in-force 夜间批量重算(要 high throughput)</strong>。它们服务两批人、由两种事件触发、朝两个相反的目标优化——这条张力之后反复出现。</p>
+    <ul>
+      <li><strong>Day 1</strong>:确立双路径的存在与动机(不是“同一件事的两种实现”,是两个本质不同的业务流程)。</li>
+      <li><strong>Day 2</strong>:讲清它们<em>为什么对立</em>——①batching 摊薄固定开销利于吞吐却抬高延迟;②排队论 <code class="inl">平均延迟 ∝ 1/(1−ρ)</code>:要低 p99 得留余量、要高吞吐得吃满;③数据访问相反(随机点查 vs 顺序扫)。</li>
+      <li><strong>Day 3</strong>:容量要<em>分别</em>按两条路估;若批量窗口和早高峰<strong>撞车</strong> = concurrent,需求要 peak+peak <strong>相加</strong>(最保守),最好的解法常是“别让它发生”——错峰 / 资源隔离(bulkhead)。</li>
+      <li><strong>Day 7</strong>:缓存<em>同时</em>服务两者——命中既压 latency,又给下游减负(throughput)。</li>
+    </ul>
+    <p>解法母题:<strong>拆成两条路各配各的硬件与数据布局,再共享一个“定价 Core”守住可复现</strong>(线 2 在这里和线 1 交汇)。</p>
+
+    <!-- 线 3 -->
+    <h3>🟢 线 3 · 一次请求的旅程</h3>
+    <div class="lane"><span class="dchip">D4</span><span class="dchip">D5</span><span class="dchip">D6</span><span class="dchip">D7</span></div>
+    <p>Day 4–7 其实是<strong>同一条路、从外到内逐段放大</strong>。把它画成一张图,这四天就连成了一件事:</p>
+
+    <figure>
+      <svg viewBox="0 0 820 270" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="gj" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- user -->
+        <rect x="10" y="104" width="84" height="56" rx="11" fill="url(#gj)" stroke="#d9ebe1"/>
+        <text x="52" y="128" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">用户</text>
+        <text x="52" y="146" font-size="10" fill="#6a7872" text-anchor="middle">浏览器/App</text>
+
+        <!-- DNS/TCP/TLS/HTTP band (Day4) -->
+        <rect x="118" y="86" width="190" height="92" rx="12" fill="#eef9f3" stroke="#bfe6d2"/>
+        <text x="213" y="78" font-size="11" font-weight="700" fill="#0c7a50" text-anchor="middle">连通(握手吃延迟预算)</text>
+        <text x="150" y="112" font-size="11.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">DNS</text>
+        <text x="150" y="128" font-size="9" fill="#6a7872" text-anchor="middle">域名→IP</text>
+        <text x="213" y="112" font-size="11.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">TCP·TLS</text>
+        <text x="213" y="128" font-size="9" fill="#6a7872" text-anchor="middle">2 RTT 握手</text>
+        <text x="276" y="112" font-size="11.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">HTTP</text>
+        <text x="276" y="128" font-size="9" fill="#6a7872" text-anchor="middle">业务</text>
+        <text x="213" y="166" font-size="10.5" font-weight="700" fill="#15a06a" text-anchor="middle">DAY 4 · 5(契约)</text>
+
+        <!-- LB -->
+        <rect x="332" y="104" width="96" height="56" rx="11" fill="#e8f6ef" stroke="#9bd9bd"/>
+        <text x="380" y="124" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">负载均衡</text>
+        <text x="380" y="142" font-size="10" fill="#6a7872" text-anchor="middle">L4 粗分→L7 细路由</text>
+        <text x="380" y="180" font-size="10.5" font-weight="700" fill="#15a06a" text-anchor="middle">DAY 6</text>
+
+        <!-- cache layers -->
+        <rect x="452" y="104" width="104" height="56" rx="11" fill="#fbf6e6" stroke="#ecd9a3"/>
+        <text x="504" y="124" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">多层缓存</text>
+        <text x="504" y="142" font-size="10" fill="#6a7872" text-anchor="middle">CDN/进程内/Redis</text>
+        <text x="504" y="180" font-size="10.5" font-weight="700" fill="#c79528" text-anchor="middle">DAY 7</text>
+
+        <!-- app -->
+        <rect x="580" y="104" width="92" height="56" rx="11" fill="url(#gj)" stroke="#d9ebe1"/>
+        <text x="626" y="124" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">应用服务</text>
+        <text x="626" y="142" font-size="10" fill="#6a7872" text-anchor="middle">stateless</text>
+
+        <!-- db -->
+        <rect x="696" y="104" width="110" height="56" rx="11" fill="#fbfdfc" stroke="#e3ebe6"/>
+        <text x="751" y="124" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">数据库</text>
+        <text x="751" y="142" font-size="10" fill="#6a7872" text-anchor="middle">source of truth</text>
+
+        <!-- arrows -->
+        <path d="M94 132 L116 132" stroke="#93a89c" stroke-width="2" marker-end="url(#ar)"/>
+        <path d="M308 132 L330 132" stroke="#93a89c" stroke-width="2" marker-end="url(#ar)"/>
+        <path d="M428 132 L450 132" stroke="#93a89c" stroke-width="2" marker-end="url(#ar)"/>
+        <path d="M556 132 L578 132" stroke="#93a89c" stroke-width="2" marker-end="url(#ar)"/>
+        <path d="M672 132 L694 132" stroke="#93a89c" stroke-width="2" marker-end="url(#ar)"/>
+
+        <text x="410" y="232" font-size="11" fill="#3d9c74" text-anchor="middle" font-style="italic">缓存命中就在某一层提前掉头返回 —— 越早命中,这趟旅程越短(线 5 的延迟预算被压回)</text>
+      </svg>
+      <figcaption>图 · 一次报价请求的旅程 = Day 4 连通 → Day 5 契约 → Day 6 分发 → Day 7 加速。四天是同一条路的四个路段。</figcaption>
+    </figure>
+
+    <!-- 线 4 -->
+    <h3>🟣 线 4 · 反复奏效的一招:版本化 + 不可变</h3>
+    <div class="lane"><span class="dchip">D1</span><span class="dchip">D2</span><span class="dchip">D5</span><span class="dchip">D7</span></div>
+    <p>同一个设计杠杆,在四天里解决了四个看似无关的问题——这是最值得内化的“可迁移招式”:</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="width:14%">在</th><th>它解决了什么</th></tr></thead>
+      <tbody>
+        <tr><td><span class="lab">Day 1</span></td><td>版本化、不可变的 rate table / 规则 / 模型,本就是 <strong>auditability</strong> 的要求。</td></tr>
+        <tr><td><span class="lab">Day 2</span></td><td>别原地改整张费率表,把 v1/v2 都存着不动,只设一个很小的“<strong>当前生效版本</strong>”指针 → 把<em>强一致的范围缩到最小</em>(对一个小指针做强一致便宜得多)。</td></tr>
+        <tr><td><span class="lab">Day 5</span></td><td>API 演化:能 <strong>additive(只增)</strong> 就别 breaking;非改不可才上版本号。让契约可演化又不毁约。</td></tr>
+        <tr><td><span class="lab">Day 7</span></td><td>版本化不可变 cache key:“更新”= 新建 key + 改指针 → <strong>stale 窗口直接消失</strong>。</td></tr>
+      </tbody>
+    </table></div>
+    <p>一句话记住这招的精髓(Day 7 的原话):<strong>不是“让副本追上源头”,而是“让副本永不变,于是无需追”。</strong>immutability 把“保持一致”这个难题,直接绕过去了。</p>
+
+    <!-- 线 5 -->
+    <h3>🟠 线 5 · 延迟预算:300ms 是怎么被花掉又被省回的</h3>
+    <div class="lane"><span class="dchip">D1</span><span class="dchip">D2</span><span class="dchip">D3</span><span class="dchip">D4</span><span class="dchip">D7</span></div>
+    <p>实时报价 p99 < 300ms 这条线,贯穿了估算和网络两块:</p>
+    <ul>
+      <li><strong>Day 1</strong> 定指标:看 <strong>p99</strong>(尾延迟),不是平均——平均会把糟糕的尾巴藏起来,而那 1% 最慢的恰是会流失的客户。</li>
+      <li><strong>Day 2</strong> 拆账:把 300ms 预算分给各段;<strong>fan-out 并行</strong>把总延迟从 <code class="inl">sum</code> 压成 <code class="inl">max</code>——但 max 正是放大尾巴的机制(<em>下游的 p99 会变成上游的常态</em>)。</li>
+      <li><strong>Day 3</strong> 给数字:记住关键延迟量级(内存 ~100ns / 同机房 Redis ~0.5ms / DB 几~几十 ms / 跨区几十~几百 ms),估算才有据。</li>
+      <li><strong>Day 4</strong> 看谁在吃:跨洲一个 RTT≈150ms,TCP+TLS 两次握手 ~2 RTT≈300ms——业务数据一字节没发,预算就被“铺路”吃光 → 连接复用 / 会话恢复 / 边缘终止省的就是这两次握手。</li>
+      <li><strong>Day 7</strong> 怎么省回:缓存命中把“几十 ms”压到“亚毫秒”,快一两个数量级——这是把预算大块还回来的最有效一招。</li>
+    </ul>
+
+    <!-- 线 6 -->
+    <h3>🔴 线 6 · 无状态 + 共享存储(+ 幂等)</h3>
+    <div class="lane"><span class="dchip">D5</span><span class="dchip">D6</span><span class="dchip">D7</span></div>
+    <p>这是横向扩展能成立的底座,三天接力讲完一个完整机制:</p>
+    <ul>
+      <li><strong>Day 6</strong>:横向扩展的铁律——<strong>状态不能放在应用机器本地</strong>,必须下沉到共享存储;否则重试落到别台就读不到。</li>
+      <li><strong>Day 5 → 6</strong>:幂等记录(idempotency key → 结果)也必须放<em>共享存储</em>,<strong>哪台机器都查得到</strong> → 重试落到任意机器都不会重复执行(LB 只管送到健康机器,它<em>不认识</em>这个 key)。</li>
+      <li><strong>Day 7</strong>:<strong>Redis 就是那个“共享存储”层</strong>——Day 6 埋的伏笔,Day 7 兑现。热数据(费率表、报价进度)放进所有机器共享的 Redis,应用层才能保持 stateless、随意加减机器。</li>
+    </ul>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M12 4v16"/></svg>正交两层,各管各的</div>
+      <ul><li><strong>stateless + LB</strong> 管“送到任意一台健康机器”(可用性 / 可扩展);<strong>共享存储 + 幂等</strong> 管“无论哪台都不重复执行”(不出错)。两件事互不依赖,合起来才让“随便加机器”既不断流、也不出错。</li></ul>
+    </div>
+  </section>
+
+  <section id="traps">
+    <div class="kicker"><span class="num">3</span>易混雷区</div>
+    <h2>你实际栽过 / 最该刻意分清的对子</h2>
+    <p>复习最高效的部分:不是重看你已经懂的,而是盯住<em>差一点就混</em>的地方。下面带 ⚠ 的是讨论里你<strong>实际答偏过</strong>的——优先复盘。</p>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">consistency &nbsp;vs&nbsp; reproducibility / determinism</span><span class="trip">⚠ 你栽过 · Day 2</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">consistency(一致性)</div>数据有<strong>多副本</strong>时,写入后别处能不能立刻读到最新值。属<strong>存储层</strong>性质,和有几个副本有关。</div>
+        <div class="c"><div class="t">reproducibility / determinism</div>同样输入 → 同样输出。属<strong>计算层</strong>性质,跟副本无关——哪怕单机,只要算法掺了随机数/时间戳,同输入也会算出不同结果。</div>
+      </div>
+      <div class="ft"><b>为什么你混了:</b>你当时用“同一用户相同信息得到一样的价格”来论证“费率表要强一致”——但那句描述的其实是<b>可复现</b>。费率表要强一致的真正理由是:版本 v1→v2 切换时,绝不能让用户 A 读到旧 v1 副本、B 读到 v2,<b>同一刻两个版本并存</b>。两者配合撑起 auditability。</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">拆双路径的“代价” &nbsp;vs&nbsp; 不拆的代价</span><span class="trip">⚠ 你栽过 · Day 1</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">你当时答的</div>“两条路径互相是对方的限制” → 这其实是<strong>不拆</strong>(挤在一起)的代价;拆开恰恰是为了<em>解开</em>这个牵制。</div>
+        <div class="c"><div class="t">拆开后真正的代价</div><strong>逻辑漂移(logic drift)</strong>:两套代码算同一件事,某天在实时路径改了规则忘了同步到批量 → 同一保单两个价。本质是<em>可复现性变难了</em>。</div>
+      </div>
+      <div class="ft"><b>修正:</b>拆路径的好处是各自按相反目标优化 + 独立扩展/故障隔离;代价不是“性能 trade-off”,而是<b>一致性/可复现性</b>——解法是抽 shared core,两条路都调它。</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">mutually exclusive &nbsp;vs&nbsp; concurrent &nbsp;vs&nbsp; mutual exclusion</span><span class="trip">⚠ 术语用反 · Day 3</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">撞车要做的事</div>批量窗口和早高峰<strong>同时发生</strong> = <code class="inl">concurrent / overlap</code> → 需求 <strong>peak + peak 相加</strong>(最保守)。</div>
+        <div class="c"><div class="t">两个被混的词</div><code class="inl">mutually exclusive</code> = 互斥事件,<em>不</em>同时发生(那就不该加);<code class="inl">mutual exclusion</code> = 互斥访问/锁,反而<em>强化</em>“相加”(抢同一资源、排队)。</div>
+      </div>
+      <div class="ft"><b>记牢:</b>“撞车 → 相加”这个结论你是对的,但用的词反了。撞车叫 concurrent;mutual exclusion(锁)只会让排队、需求更要叠加。</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">峰值因子:intraday &nbsp;vs&nbsp; day-to-day</span><span class="trip">⚠ 会严重低估 · Day 3</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">峰值因子真正量的</div><strong>日内瞬时高峰</strong>(intraday):把时间切到分钟/小时桶,取一天里的 peak 桶 ÷ 当天均值。</div>
+        <div class="c"><div class="t">你当时量的</div>用<strong>日总量</strong>的分位(p50 当一般、p90+ 当峰值)→ 测的是“旺日 vs 淡日”(day-to-day),是<em>另一个维度</em>。</div>
+      </div>
+      <div class="ft"><b>后果:</b>很少有哪天总量是均值的 5×,但日内某刻 QPS 是日均 5× 很常见 → 用日总量分位会<b>严重低估</b>峰值因子。正解:高分位“旺日”定日总量基线,<b>再</b>乘日内峰值因子。</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">缓存的两个轴:staleness &nbsp;vs&nbsp; loss</span><span class="trip">⚠ 只答了一个轴 · Day 7</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">轴一 · 它旧一点会怎样(staleness)</div>费率表/规则旧 → 不可复现报价 → 用<strong>版本化不可变 key</strong> 解决。这条你答透了。</div>
+        <div class="c"><div class="t">轴二 · 它丢一份会怎样(loss)</div><strong>“绝不该缓”就住在这条轴上</strong>:不是某类数据沾不得缓存,而是别在<em>权威写路径</em>(签发保单/扣款/audit log)上用 <code class="inl">write-back</code>——缓存没刷库就崩 = 那笔凭空消失 = 审计链断。</div>
+      </div>
+      <div class="ft"><b>纠正一处精度:</b>“缓存内容必须和最新数据完全一致”是<b>显式失效</b>的思路(难、易竞态);版本化 key 更干净,恰恰因为它<em>扔掉了“时刻一致”这个要求</em>。</div>
+    </div>
+
+    <h3>顺手再分清三对(没栽过但常混)</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="width:30%">对子</th><th>一句话区别</th></tr></thead>
+      <tbody>
+        <tr><td><span class="lab">fan-out 里 max vs sum</span></td><td>串行 fan-out 总延迟≈各段<strong>之和(sum)</strong>;并行≈只等<strong>最慢那个(max)</strong>。并行把基线从 sum 降到 max(好),但 max 也是放大尾巴的机制。</td></tr>
+        <tr><td><span class="lab">expiration vs eviction</span></td><td>过期 = 到 TTL 该失效(按<strong>时间</strong>);逐出 = 内存满了腾地方(按<strong>容量</strong>,LRU/LFU),和过没过期无关。</td></tr>
+        <tr><td><span class="lab">KV Cache vs Prompt Caching</span></td><td>KV Cache 省的是<strong>算力/延迟</strong>(模型推理内部);Prompt Caching 跨请求复用 prefix、命中段按 ~0.1× 计费,才是真正<strong>省 token 账单</strong>那个。</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="quickref">
+    <div class="kicker"><span class="num">4</span>逐日速查</div>
+    <h2>7 天 · 一卡一句核心</h2>
+    <p>当纯复习用:每张卡 = 那天的一句话主旨 + 必记术语。点上方图谱里的 Day 节点也会跳到这里。</p>
+    <div class="dgrid">
+      <div class="dcard" id="d1card">
+        <div class="top"><span class="bdg">D1</span><span class="ti">需求拆解</span></div>
+        <p>分清 functional(功能存不存在)与 non-functional(功能用得好不好);“没有最优解,只有取舍”;双路径;最被低估的 NFR = 可复现/可审计。</p>
+        <div class="terms"><span>functional/non-functional</span><span>trade-off</span><span>双路径</span><span>shared core</span><span>watermark</span><span>p99</span></div>
+      </div>
+      <div class="dcard" id="d2card">
+        <div class="top"><span class="bdg">D2</span><span class="ti">量化 NFR</span></div>
+        <p>给 NFR 配可量化指标;五维(latency/throughput/availability/scalability/consistency)彼此掣肘要取舍;Little's Law;consistency ≠ reproducibility。</p>
+        <div class="terms"><span>latency/throughput</span><span>availability</span><span>L=λW</span><span>fan-out</span><span>quorum W+R>N</span><span>强/最终一致</span></div>
+      </div>
+      <div class="dcard" id="d3card">
+        <div class="top"><span class="bdg">D3</span><span class="ti">估算·容量</span></div>
+        <p>back-of-envelope 量级估算排除不合理设计;四件套 QPS/存储/带宽/内存;记关键延迟数字;留 headroom;每个数字都是“假设”要靠监控校准。</p>
+        <div class="terms"><span>QPS</span><span>峰值因子</span><span>headroom</span><span>热/温/冷分层</span><span>WORM/object lock</span><span>÷8 坑</span></div>
+      </div>
+      <div class="dcard" id="d4card">
+        <div class="top"><span class="bdg">D4</span><span class="ti">网络基础</span></div>
+        <p>一次请求走四层 DNS→TCP→TLS→HTTP;握手(2 RTT)很费时、可被优化;TCP(ACK/重传/序号)vs UDP;mTLS;HTTP 无状态、分层可单独替换。</p>
+        <div class="terms"><span>RTT/握手</span><span>TCP vs UDP</span><span>TLS/mTLS</span><span>DNS TTL</span><span>stateless</span><span>blue-green</span></div>
+      </div>
+      <div class="dcard" id="d5card">
+        <div class="top"><span class="bdg">D5</span><span class="ti">API 设计</span></div>
+        <p>API = 难反悔的契约,只增不改、要改上版本;REST/gRPC/GraphQL 多风格并存按调用方选;幂等 + idempotency key;cursor vs offset 分页;一致的结构化错误。</p>
+        <div class="terms"><span>idempotency key</span><span>additive/breaking</span><span>cursor/offset</span><span>over/under-fetch</span><span>endpoint</span><span>request_id</span></div>
+      </div>
+      <div class="dcard" id="d6card">
+        <div class="top"><span class="bdg">D6</span><span class="ti">负载均衡·扩展</span></div>
+        <p>scale out 避开 SPOF + 单机上限;reverse proxy/LB/API gateway;分发算法(round robin vs least connections);L4 粗分→L7 细路由;横向扩两前提 = stateless + health check。</p>
+        <div class="terms"><span>SPOF</span><span>scale up/out</span><span>least connections</span><span>L4/L7</span><span>health check</span><span>VIP/Anycast</span></div>
+      </div>
+      <div class="dcard" id="d7card">
+        <div class="top"><span class="bdg">D7</span><span class="ti">缓存</span></div>
+        <p>把贵的事只做一次,买 latency + 给下游减负;命脉 = hit rate;多层缓存;cache-aside;失效三招(TTL/显式/版本化不可变 key);四陷阱(stampede/穿透/雪崩/hot key)。</p>
+        <div class="terms"><span>hit rate</span><span>cache-aside</span><span>write-through/back</span><span>TTL</span><span>版本化 key</span><span>LRU/LFU</span><span>stampede</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="selftest">
+    <div class="kicker"><span class="num">?</span>串联自测</div>
+    <h2>这几题要连着好几天才答得出</h2>
+    <p>不是单日知识点,而是跨天综合——能答出来,说明这张网真的连上了。</p>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">为什么说“版本化 + 不可变”这一招,同时帮到了 Day 2 的强一致、Day 7 的缓存失效、和整周的可复现?</span></summary>
+        <div class="ans"><b>因为它把“保持一致”这个难题绕过去了。</b>内容一旦版本化且不可变,“更新”就变成“新建一个版本 + 改一个小指针”:Day 2——只需对那个<b>小指针</b>做强一致(范围最小、最便宜);Day 7——没有“同一个 key 内容变了”的时刻,<b>stale 窗口直接消失</b>;整周——旧版本永远留着,审计调旧版就能<b>一字不差复现</b>。一招通吃,因为它们本质是同一个问题:副本怎么跟上源头——而答案是“让副本永不变,于是无需追”。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">一次跨洲报价的 300ms p99 预算,从用户点“报价”到拿到结果,大致被哪些环节吃掉?分别属于哪天?</span></summary>
+        <div class="ans"><b>顺着请求的旅程数:</b>① DNS + TCP + TLS <b>握手 ~2 RTT≈300ms</b>(Day 4)——光铺路就能吃光预算,所以要连接复用/会话恢复/边缘终止;② 到达后 LB 分发(Day 6,通常很小);③ 应用取数:命中缓存<b>亚毫秒</b>、未命中回数据库<b>几~几十 ms</b>(Day 7 + Day 3 的延迟数字);④ 若 fan-out 并行调多个下游,总延迟≈max,而 max 会放大尾巴(Day 2)。<b>结论:</b>跨洲场景里,网络握手往往比计算更吃预算——这正是“不改定价代码也能提速”的空间(Day 4)。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">“把状态下沉到共享存储”这句话,在 Day 5、6、7 各自落在什么具体东西上?</span></summary>
+        <div class="ans"><b>同一句话,三处兑现:</b>Day 6——横向扩展要求应用 stateless,会话/状态不能放本地内存;Day 5/6——<b>幂等记录</b>(idempotency key→结果)放共享存储,任意机器都查得到 → 重试落哪台都不重复执行;Day 7——那个“共享存储”的具体形态就是 <b>Redis</b>(费率表、报价进度)。Day 6 埋的伏笔,Day 7 给了名字。配套:LB 管“送到任意健康机器”,共享存储+幂等管“哪台都不出错”,正交两层。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q4</span><span class="tw">为什么“缓存最该缓的是被反复读的费率表,而不是贵的报价结果”?这同时用到了哪几天的直觉?</span></summary>
+        <div class="ans"><b>因为缓存赌的是“同一个 key 会被反复要”,不是“这次算得贵”。</b>费率表被几百万次重复读(hit rate 高 → 该缓);而每条报价结果按完整投保人输入当 key,组合是天文数字、几乎不重复(全 miss + 还会在 LRU 下挤掉热数据 = cache pollution → 别缓)。用到:Day 7 的 hit rate 命脉 + 该缓的是“被反复读的块”不是“贵的结果”;Day 2/3 的“缓存还给下游减负、要看访问模式”;Day 1 的“报价结果含 PII、不可缓”(Day 4 的 <code>no-store</code>)。</div>
+      </details>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">承上启下 · 第 2 周 · 数据层</div>
+      <div class="t">第一周一直把数据库当“源头(source of truth)”在用,却没问它<strong>凭什么</strong>配当源头。第 2 周钻进数据层回答:Day 8 ACID 到底保证了什么 → Day 9 索引让查询快 → Day 10 建模/范式 → Day 11 NoSQL 家族 → Day 12 复制与一致性(线 1/4 的“多副本读到旧值”在这里展开)→ Day 13 分区分片 → Day 14 事务隔离。第一周问“请求怎么来、怎么分发、怎么加速”,第二周问“数据怎么存、怎么保证它是对的”。</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　第 1 周复习(Day 1–7)　·　讨论中手动维护,非日常流程<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  // ---------- graph data ----------
+  var NODES = [
+    {id:'d1', label:'需求拆解', type:'day', num:'D1', go:'d1card'},
+    {id:'d2', label:'量化 NFR', type:'day', num:'D2', go:'d2card'},
+    {id:'d3', label:'估算·容量', type:'day', num:'D3', go:'d3card'},
+    {id:'d4', label:'网络基础', type:'day', num:'D4', go:'d4card'},
+    {id:'d5', label:'API 设计', type:'day', num:'D5', go:'d5card'},
+    {id:'d6', label:'负载均衡', type:'day', num:'D6', go:'d6card'},
+    {id:'d7', label:'缓存', type:'day', num:'D7', go:'d7card'},
+
+    {id:'repro', label:'可复现·可审计', type:'repro'},
+    {id:'dual', label:'latency↔throughput', type:'concept'},
+    {id:'journey', label:'请求的旅程', type:'concept'},
+    {id:'version', label:'版本化·不可变', type:'concept'},
+    {id:'budget', label:'延迟预算·p99', type:'concept'},
+    {id:'stateless', label:'无状态·共享存储', type:'concept'},
+    {id:'hierarchy', label:'存储层级', type:'concept'},
+    {id:'idem', label:'幂等·安全重试', type:'concept'},
+
+    {id:'acid', label:'ACID→D8', type:'next'},
+    {id:'index', label:'索引→D9', type:'next'},
+    {id:'repl', label:'复制一致性→D12', type:'next'},
+    {id:'consensus', label:'共识·选主→D19', type:'next'},
+    {id:'ratelimit', label:'限流·熔断→D20', type:'next'}
+  ];
+
+  var LINKS = [
+    // golden thread
+    ['repro','d1'],['repro','d2'],['repro','d4'],['repro','d5'],['repro','d6'],['repro','d7'],
+    // dual path
+    ['dual','d1'],['dual','d2'],['dual','d3'],['dual','d7'],
+    // request journey
+    ['journey','d4'],['journey','d5'],['journey','d6'],['journey','d7'],
+    // versioning
+    ['version','d1'],['version','d2'],['version','d5'],['version','d7'],
+    // latency budget
+    ['budget','d1'],['budget','d2'],['budget','d3'],['budget','d4'],['budget','d7'],
+    // stateless / shared storage
+    ['stateless','d6'],['stateless','d7'],['stateless','idem'],
+    // storage hierarchy
+    ['hierarchy','d3'],['hierarchy','d7'],
+    // idempotency
+    ['idem','d5'],['idem','d6'],
+    // curriculum backbone (sequential)
+    ['d1','d2','seq'],['d2','d3','seq'],['d3','d4','seq'],['d4','d5','seq'],['d5','d6','seq'],['d6','d7','seq'],
+    // forward to week 2 (dashed)
+    ['acid','d7','next'],['index','d5','next'],['repl','d7','next'],['repl','d2','next'],
+    ['consensus','d6','next'],['ratelimit','d6','next'],['ratelimit','d7','next']
+  ];
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var svg = document.getElementById('kg');
+  var gLinks = document.getElementById('links');
+  var gNodes = document.getElementById('nodes');
+  var W = 820, H = 580, cx = W/2, cy = H/2;
+
+  var byId = {};
+  NODES.forEach(function(n,i){
+    byId[n.id] = n;
+    n.r = n.type==='repro' ? 30 : n.type==='day' ? 25 : n.type==='next' ? 14 : 20;
+    // initial positions: spread on a circle, deterministic (no Math.random)
+    var ang = (i/NODES.length) * Math.PI * 2;
+    var rad = n.type==='next' ? 250 : n.type==='day' ? 170 : 110;
+    n.x = cx + Math.cos(ang)*rad;
+    n.y = cy + Math.sin(ang)*rad;
+    n.vx = 0; n.vy = 0; n.fixed = false;
+  });
+
+  // adjacency for hover highlight
+  var adj = {};
+  NODES.forEach(function(n){ adj[n.id] = {}; });
+  var EDGES = LINKS.map(function(l){
+    var s=l[0], t=l[1], kind=l[2]||'';
+    adj[s][t]=true; adj[t][s]=true;
+    return {s:s, t:t, kind:kind};
+  });
+
+  // ---------- render ----------
+  var linkEls = EDGES.map(function(e){
+    var ln = document.createElementNS(SVGNS,'line');
+    ln.setAttribute('class','link' + (e.kind?(' l-'+e.kind):''));
+    ln.dataset.s = e.s; ln.dataset.t = e.t;
+    gLinks.appendChild(ln);
+    e.el = ln;
+    return e;
+  });
+
+  NODES.forEach(function(n){
+    var g = document.createElementNS(SVGNS,'g');
+    g.setAttribute('class','node n-'+n.type);
+    g.dataset.id = n.id;
+    var c = document.createElementNS(SVGNS,'circle');
+    c.setAttribute('r', n.r);
+    g.appendChild(c);
+    if(n.num){
+      var num = document.createElementNS(SVGNS,'text');
+      num.setAttribute('class','num'); num.textContent = n.num;
+      g.appendChild(num);
+    }
+    var lbl = document.createElementNS(SVGNS,'text');
+    lbl.setAttribute('class','lbl'); lbl.setAttribute('y', n.r + 13);
+    lbl.textContent = n.label;
+    g.appendChild(lbl);
+    gNodes.appendChild(g);
+    n.el = g;
+  });
+
+  function paint(){
+    NODES.forEach(function(n){
+      n.el.setAttribute('transform','translate('+n.x.toFixed(1)+','+n.y.toFixed(1)+')');
+    });
+    linkEls.forEach(function(e){
+      var a=byId[e.s], b=byId[e.t];
+      e.el.setAttribute('x1',a.x.toFixed(1)); e.el.setAttribute('y1',a.y.toFixed(1));
+      e.el.setAttribute('x2',b.x.toFixed(1)); e.el.setAttribute('y2',b.y.toFixed(1));
+    });
+  }
+
+  // ---------- force simulation ----------
+  var REP = 7200, SPRING = 0.035, GRAV = 0.012, DAMP = 0.86;
+  function L(e){ return e.kind==='next' ? 150 : e.kind==='seq' ? 120 : 104; }
+
+  function step(alpha){
+    for(var i=0;i<NODES.length;i++){ NODES[i].fx=0; NODES[i].fy=0; }
+    // repulsion
+    for(var a=0;a<NODES.length;a++){
+      for(var b=a+1;b<NODES.length;b++){
+        var na=NODES[a], nb=NODES[b];
+        var dx=na.x-nb.x, dy=na.y-nb.y;
+        var d2=dx*dx+dy*dy+0.01, d=Math.sqrt(d2);
+        var f=REP/d2, ux=dx/d, uy=dy/d;
+        na.fx+=ux*f; na.fy+=uy*f; nb.fx-=ux*f; nb.fy-=uy*f;
+      }
+    }
+    // springs
+    for(var k=0;k<linkEls.length;k++){
+      var e=linkEls[k], p=byId[e.s], q=byId[e.t];
+      var dx=q.x-p.x, dy=q.y-p.y, d=Math.sqrt(dx*dx+dy*dy)+0.01;
+      var f=(d-L(e))*SPRING, ux=dx/d, uy=dy/d;
+      p.fx+=ux*f; p.fy+=uy*f; q.fx-=ux*f; q.fy-=uy*f;
+    }
+    // gravity + integrate
+    for(var m=0;m<NODES.length;m++){
+      var n=NODES[m];
+      n.fx += (cx-n.x)*GRAV; n.fy += (cy-n.y)*GRAV;
+      if(n.fixed) continue;
+      n.vx=(n.vx+n.fx*alpha)*DAMP; n.vy=(n.vy+n.fy*alpha)*DAMP;
+      n.x+=n.vx; n.y+=n.vy;
+      var pad=n.r+6;
+      if(n.x<pad)n.x=pad; if(n.x>W-pad)n.x=W-pad;
+      if(n.y<pad)n.y=pad; if(n.y>H-pad)n.y=H-pad;
+    }
+  }
+
+  // warm up to a settled layout before first paint
+  for(var w=0; w<520; w++){ step(0.85); }
+  paint();
+
+  // gentle live loop for interactivity
+  function loop(){ step(0.12); paint(); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+
+  // ---------- hover highlight ----------
+  function highlight(id){
+    svg.classList.add('dim');
+    NODES.forEach(function(n){
+      n.el.classList.toggle('hot', n.id===id || adj[id][n.id]);
+    });
+    linkEls.forEach(function(e){
+      e.el.classList.toggle('hot', e.s===id || e.t===id);
+    });
+  }
+  function clearHl(){
+    svg.classList.remove('dim');
+    NODES.forEach(function(n){ n.el.classList.remove('hot'); });
+    linkEls.forEach(function(e){ e.el.classList.remove('hot'); });
+  }
+
+  // ---------- drag + click ----------
+  var dragNode=null, moved=false;
+  function toSvg(evt){
+    var pt=svg.createSVGPoint(); pt.x=evt.clientX; pt.y=evt.clientY;
+    var p=pt.matrixTransform(svg.getScreenCTM().inverse());
+    return p;
+  }
+  NODES.forEach(function(n){
+    n.el.addEventListener('pointerenter', function(){ if(!dragNode) highlight(n.id); });
+    n.el.addEventListener('pointerleave', function(){ if(!dragNode) clearHl(); });
+    n.el.addEventListener('pointerdown', function(evt){
+      evt.preventDefault();
+      dragNode=n; moved=false; n.fixed=true;
+      highlight(n.id);
+      svg.classList.add('grabbing');
+      try{ n.el.setPointerCapture(evt.pointerId); }catch(e){}
+    });
+  });
+  svg.addEventListener('pointermove', function(evt){
+    if(!dragNode) return;
+    var p=toSvg(evt);
+    if(Math.abs(p.x-dragNode.x)>2 || Math.abs(p.y-dragNode.y)>2) moved=true;
+    dragNode.x=p.x; dragNode.y=p.y; dragNode.vx=0; dragNode.vy=0;
+  });
+  function endDrag(){
+    if(!dragNode) return;
+    var n=dragNode; dragNode=null; n.fixed=false;
+    svg.classList.remove('grabbing'); clearHl();
+    // a click (no drag) on a Day node → jump to its quick-ref card
+    if(!moved && n.go){
+      var el=document.getElementById(n.go);
+      if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); }
+    }
+  }
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+})();
+</script>
+</body>
+</html>
