@@ -172,6 +172,7 @@ const L = {
   nf:'notes/Day-10-normal-forms.html',
   d11:'Day-11-nosql-families.html',
   fg:'notes/Day-11-fraud-graph.html',
+  d12:'Day-12-replication-consistency.html',
 };
 
 const PAIRS = [
@@ -447,6 +448,41 @@ const PAIRS = [
     diff:'同源不同物：都来自 dictionary（key→value）抽象，attention 论文原文就是检索隐喻（前身 Key-Value Memory Networks）。分水岭是硬/软：硬查找不可导，attention 把查字典改造成处处连续、可被梯度下降训练的形式 = 可微分的字典查找。顺带第三个 KV：LLM 推理的 KV cache 缓存的是 attention 的 K/V 张量，干的是 Day 7 precompute 的活。',
     eg:'RAG 向量库是中间形态：用 attention 的软相似度打分，最后硬化成离散 top-k（ANN）——按 Day 11 的尺子，它是又一个「为单一访问模式专精的存储」。',
     mn:'KV store 取一个；attention 全都要，按相似度分。' },
+
+  { trip:true, src:'讨论', link:L.d12,
+    a:{t:'Sync replication (write knob)', zh:'同步复制 · 写侧旋钮', def:'leader 等 follower 确认再回「写成功」——管的是 durability（写返回前几台先存好）。'},
+    b:{t:'Linearizable read (read guarantee)', zh:'线性化读 · 读侧保证', def:'任何两个读都看到同一「当前值」——靠读单一真相源（读 leader）或 consensus 协调读实现。'},
+    diff:'「所有用户读到同一版本」是读侧保证（linearizability），不是把写改成 sync 就有：sync 只保证写返回时已确认副本都有，发布的传播窗口里不同 replica 仍可能一个新一个旧，读打到不同 replica 照样不一致。要一致必须在读路径动刀。',
+    eg:'PM 要「绝不许两人同一秒读到不同版本费率」，我第一反应是「调成 synchronous」——方向偏了（写旋钮解不了读问题），且更该先质疑这是不是假 NFR。',
+    mn:'sync 是写侧 durability；要人人读同一份得在读侧上 linearizable。' },
+
+  { trip:true, src:'讨论', link:L.d12,
+    a:{t:'Immune via immutability', zh:'靠不可变免疫 · mutability 轴', def:'版本化、append-only 的数据每条写下永不改 → 读旧副本也是同一个值，lag 不会读到「半新半旧的错值」。'},
+    b:{t:'Still pays durability / recency', zh:'仍要付 · 另两根轴', def:'不可变 ≠ 不用付钱：append-only 数据仍要保证「别丢条目」（durability）、「刚 append 的到没到」（recency / read-your-writes）。'},
+    diff:'「能不能免疫一致性问题」不是数据实体的固有属性，而是分轴问：不可变只免疫了 mutability（stale 错值）那根轴，durability 和 recency 两根轴照付。把 audit log 当「不可能免疫」是把三根轴混成一根。',
+    eg:'思考题②我把 audit log 列进「永远要付一致性钱」——其实它恰是 append-only 不可变的教科书例子（免疫 stale 错值），只是仍要用 QUORUM 保不丢（durability）。',
+    mn:'不可变免的是「读到错值」；丢不丢、到没到是另两根轴。' },
+
+  { src:'讨论', link:L.d12,
+    a:{t:'Staleness', zh:'陈旧 · 旧但有效', def:'读到一个完整、合法、只是被取代了的旧版本——选 A / eventual 主动买来的，不是故障。'},
+    b:{t:'Consistency violation', zh:'一致性被破坏 · 脏 / 错值', def:'读到半写、脏读、或两副本对同一格子给出矛盾的值——真正的错误。'},
+    diff:'两次报价用了 v06 / v07 不一样 = staleness（各自都对、各自钉版本可审计），不是一致性被破坏。判别：读到的值本身合法吗？合法但旧 = staleness（问「能不能接受」）；本身就错 = violation（必须修）。',
+    eg:'报价路径读到上个月费率版本 = staleness（可接受、可 honor）；split brain 后两边各签一份不同保单 = consistency violation（合规事故）。',
+    mn:'旧但对 = staleness；本身就错 = violation。' },
+
+  { src:'讨论', link:L.d12,
+    a:{t:'Quote — read / compute (choose A)', zh:'报价 · 读/计算 · 选 A', def:'廉价、可重算，多算一份不构成问题；分区时用手头版本继续报，钉版本号留痕。'},
+    b:{t:'Issuance — authoritative write (choose C)', zh:'签发 · 权威写 · 选 C', def:'创建有法律意义的记录，重复 / 分叉 = 合规事故；分区时宁可暂停也不分叉。'},
+    diff:'「写不能重、读可以重」的不对称，就是同一系统里报价选 A、签发选 C 的根。同一把尺：这份数据错了 / 丢了代价是什么——报价 ≈ 0（可重算），签发 = 向监管报告的事故。',
+    eg:'用户连点两次：报价多出一张无所谓（A）；投保申请重复出两份保单是事故（C）→ 后者要 idempotency key / 唯一约束兜底。',
+    mn:'读廉价可重 → A；权威写不可重 → C。' },
+
+  { src:'讨论', link:L.d12,
+    a:{t:'Read-your-writes', zh:'读到自己的写 · 异常一', def:'我刚写的 X 要立刻读得到——有一个「确定该存在的目标」，读不到才需重试 / 读 leader。'},
+    b:{t:'Monotonic reads', zh:'单调读 · 异常二 · 不倒流', def:'同一用户的读不能先看到新、再看到旧——固定路由到同一副本即可。'},
+    diff:'两种都是 lag 制造的读异常，形状不同：read-your-writes 是「自己写的看不到」，monotonic 是「时间倒流」。前者有明确目标（要等到它），后者只要求「别回退」（绑同一副本）。',
+    eg:'提交申请后列表是空的 = read-your-writes 违例；刷新看到「核保中」又变回「已提交」= monotonic 违例。',
+    mn:'读自己的写 = 看得到我刚写的；单调读 = 别倒退。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */
