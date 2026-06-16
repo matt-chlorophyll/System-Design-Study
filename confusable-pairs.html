@@ -173,6 +173,8 @@ const L = {
   d11:'Day-11-nosql-families.html',
   fg:'notes/Day-11-fraud-graph.html',
   d12:'Day-12-replication-consistency.html',
+  d13:'Day-13-partitioning-sharding.html',
+  hr:'notes/Day-13-hash-ring.html',
 };
 
 const PAIRS = [
@@ -483,6 +485,41 @@ const PAIRS = [
     diff:'两种都是 lag 制造的读异常，形状不同：read-your-writes 是「自己写的看不到」，monotonic 是「时间倒流」。前者有明确目标（要等到它），后者只要求「别回退」（绑同一副本）。',
     eg:'提交申请后列表是空的 = read-your-writes 违例；刷新看到「核保中」又变回「已提交」= monotonic 违例。',
     mn:'读自己的写 = 看得到我刚写的；单调读 = 别倒退。' },
+
+  { trip:true, src:'讨论', link:L.hr,
+    a:{t:'hash(key) mod N', zh:'朴素取模分配', def:'partition = hash(key) mod N，N 是机器数；直接拿余数定分区。'},
+    b:{t:'Consistent hashing', zh:'一致性哈希环', def:'节点与 key 上同一个 mod-2³² 环，key 归顺时针第一个节点（successor）。'},
+    diff:'搬家量差别的根源：mod N 改的是「整个映射函数」(全局)——N:4→5 几乎每个 key 的余数都变，≈80% 换家；环加节点只改「被接管那段弧」的归属(局部)，≈1/N。所以 rebalancing 的高成本不是「hash 分区」的锅，是「mod N 这种分配法」的锅。',
+    eg:'保单库扩容加一台 shard：mod N 近乎全库重哈希搬家；consistent hashing 只搬新节点接管的那段弧。',
+    mn:'mod N 改函数 → 全搬；环挪一段弧 → 搬 1/N。' },
+
+  { src:'Day 13', link:L.d13,
+    a:{t:'Key-range partitioning', zh:'按键范围切', def:'相邻 key 物理相邻；范围查询高效，但时间型 key 制造「最新分区」热点。'},
+    b:{t:'Hash partitioning', zh:'按哈希切', def:'打散落桶；天然均匀，但顺序没了、范围查询退化成 scatter-gather。'},
+    diff:'顺序 vs 均匀的对赌：要顺序就赌得过热点，要均匀就放弃范围查询。先想清楚最高频查询长什么样再选（Day 11 老话）。',
+    eg:'QuoteFlow audit log 按月 range（审查按时间段 + 旧分区整段归档）；保单库 / 报价历史 hash（均匀第一）。',
+    mn:'range 保序赌热点；hash 保匀失顺序。' },
+
+  { src:'Day 13', link:L.d13,
+    a:{t:'Local secondary index', zh:'本地二级索引 · document-partitioned', def:'每分区只索引自己的数据；写快（同分区一次写完），二级键查询要 scatter-gather。'},
+    b:{t:'Global secondary index', zh:'全局二级索引 · term-partitioned', def:'索引按被索引值切分；读高效（一两个分区），写要跨分区更新 → 慢或异步滞后。'},
+    diff:'读贵 vs 写贵的转移。选哪种看二级查询是否高频 / 延迟敏感；写路径敏感就用异步 global index、容忍索引晚几秒。',
+    eg:'QuoteFlow「按 customer_id 查保单」用异步 global index——索引滞后无妨，不拖慢保单本体的写入。',
+    mn:'local 写快读 scatter；global 读快写跨分区。' },
+
+  { trip:true, src:'Day 13', link:L.d13,
+    a:{t:'policy_id（选它当分区键）', zh:'immutable + 均匀', def:'签发即终身不变 → 记录住死在一个分区、不搬家；保单高频按单号点查 → 单分区直达。'},
+    b:{t:'customer_id（别选它）', zh:'会变 + 倾斜', def:'客户持单数差异巨大 → 倾斜；归属可变（转让 / 客户合并）→ 记录跨分区搬家；夜间重算时倾斜分区成 straggler。'},
+    diff:'选分区键的两条暗规：要 immutable（避免单记录搬家）+ 要均匀（避免热点 & 批处理 straggler）。customer_id 两条都踩。',
+    eg:'思考题①：换 customer_id 后「按单号点查」退化 scatter-gather、团体大客户分区成热点 + 夜间 straggler、保单转让触发记录搬家。',
+    mn:'分区键要 immutable + 均匀；customer_id 既会变又倾斜。' },
+
+  { trip:true, src:'Day 13', link:L.d13,
+    a:{t:'Per-policy 独立', zh:'必要但不充分', def:'各 policy 重算互不影响 → 只解释了「不必重跑别的分区」。'},
+    b:{t:'幂等 + 版本钉死', zh:'才真正安全可审计', def:'重跑那片不能翻倍 / 污染已成功部分（UNIQUE(policy_id, run_date)），且复用同一组 rate_table_version → 可复现。'},
+    diff:'「独立」只说明不必重跑全部；「能安全重跑那一片」要幂等，「结果可审计可复现」还要钉死输入版本。重跑整晚若版本漂了，反而制造「同一晚两个版本」的不一致。',
+    eg:'思考题②：分区 7 失败只重跑它——幂等让重复写变 no-op、钉死 v06 费率让重跑与原批一致、run_id / attempt 留痕让审计看出「第一次失败、第二次成功」。',
+    mn:'独立 → 不必重跑全部；幂等 + 钉版本 → 才敢只重跑那片且可审计。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */

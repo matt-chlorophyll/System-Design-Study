@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 13 · 分区与分片、Consistent Hashing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:43.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 13 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 2 周 · 数据层</span>
+    <h1>一台装不下,就切开<br>—— 分区、分片与 consistent hashing</h1>
+    <p class="lede">复制是“同一份数据多份拷贝”,分区是“把数据切成多份、各放一台”。今天讲怎么切才均匀、切完怎么找、机器增减时怎么不大搬家——以及切开之后,哪些事突然变难了。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><path d="M12 8v4l2.5 2.5"/></svg>昨日回顾 · Day 12</div>
+    <ul>
+      <li>昨天讲了 <strong>replication</strong>:同一份数据多份拷贝,买来 availability、读扩展和 durability,账单是一致性——sync/async 旋钮、replication lag、quorum(W+R&gt;N)、CAP 与 PACELC。QuoteFlow 的结论是“逐条路径选边站”:保单签发选 C,实时报价钉住版本号选 A。</li>
+      <li>但注意:复制时<strong>每台机器仍然存着全量数据</strong>。当数据大到一台装不下、或写吞吐超过单 leader 的极限时,拷贝帮不上忙——你需要的不是“多抄几份”,而是<strong>“切开分担”</strong>。这就是今天的主题。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>分清 <strong>replication vs partitioning</strong>:拷贝 vs 切开,各解决什么问题、为什么几乎总是一起用</li>
+      <li>掌握两大切法 <strong>key-range vs hash partitioning</strong> 的取舍,以及 <strong>hot spot / skew</strong> 是怎么产生的</li>
+      <li>理解 rebalancing 的代价,看懂 <strong>consistent hashing</strong> 为什么能做到“增减节点只搬 1/N 的数据”</li>
+      <li>认识分区的隐性账单:<strong>二级索引、跨分区查询、请求路由</strong></li>
+      <li>给 QuoteFlow 的保单库、报价历史和 audit log 各选一个合理的 <strong>partition key</strong></li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>为什么要切开</div>
+    <h2>复制解决“挂了”,分区解决“装不下”</h2>
+    <p>先把两个经常被混为一谈的词钉死。<strong>Replication(复制)</strong>:每台机器都有<em>完整的一份</em>数据,挂一台还有别台——解决的是<strong>可用性和读扩展</strong>。<strong>Partitioning(分区,在数据库语境常叫 sharding / 分片)</strong>:把数据<em>切成多份,每台只放一部分</em>——解决的是<strong>容量和写扩展</strong>。一个是抄作业,一个是分工。</p>
+    <p>什么时候非切不可?三个信号:<strong>① 数据量</strong>——QuoteFlow 的报价历史和 audit log 是只增不删的(合规要求留存多年),千万级、亿级行之后,单机磁盘和内存里的索引(Day 9)都开始吃力;<strong>② 写吞吐</strong>——Day 12 说过所有写只走一个 leader,单 leader 的写入能力就是全系统的天花板,复制再多 follower 也救不了写;<strong>③ 并行处理</strong>——夜间批量重算百万保单,如果数据切成 16 个分区,就能 16 路并行,各算各的互不干扰。</p>
+    <p>切开之后,理想图景是:<em>N 台机器,各扛 1/N 的数据和 1/N 的负载</em>。而今天全部的难点,都来自现实对这个理想的偏离:<strong>切不均匀(skew)、找不到数据在哪(routing)、机器数变了要重切(rebalancing)、一个查询要跨好几刀(scatter-gather)</strong>。</p>
+    <p>还要先说清一件事:分区和复制<strong>不是二选一,而是相乘</strong>。真实系统里,每个分区自己又是一套 leader-follower——比如 12 个分区 × 每分区 3 副本 = 36 个数据库实例。昨天的全部内容,在每个分区内部原样上演。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>怎么切</div>
+    <h2>Key-range vs hash:顺序与均匀的对赌</h2>
+    <p>切分永远围绕一个 <strong>partition key</strong>(分区键)进行:拿记录的某个字段,决定它落在哪个分区。两大流派:</p>
+
+    <h3>Key-range partitioning(按键范围切)</h3>
+    <p>像图书馆按书名首字母分书架:<code class="inl">policy_id 000001–250000 → P1</code>,<code class="inl">250001–500000 → P2</code>……<strong>好处是保序</strong>:相邻的 key 物理上也相邻,范围查询(“2026 年 5 月的全部报价”)只扫一两个分区。<strong>代价是容易产生热点</strong>:如果 key 本身有时间倾向——比如报价记录按 <code class="inl">created_at</code> 切——那么<em>今天所有的写入都砸在“最新”那个分区上</em>,其余分区在睡觉。N 台机器,写吞吐还是 1 台的水平,白切了。</p>
+
+    <h3>Hash partitioning(按键哈希切)</h3>
+    <p>先对 key 求哈希,再按哈希值分配分区。好的哈希函数会把哪怕高度相似的 key 也打散到天南地北——<strong>均匀是它的天赋</strong>。代价同样直接:<strong>顺序没了</strong>。相邻的 key 散落各处,范围查询退化成“问遍所有分区再合并”。所以 Cassandra 等系统玩了个折中:<strong>compound key</strong>——<code class="inl">(customer_id, created_at)</code>,第一段哈希定分区,第二段在分区内保序:同一客户的报价记录聚在一起、按时间排好,“查某客户最近的报价”既均匀又高效。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:17%"></th><th>Key-range</th><th>Hash</th><th>Directory(查表)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">分配方式</span></td><td>按 key 的连续区间</td><td>按 hash(key) 落桶</td><td>一张“key → 分区”映射表,人为指定</td></tr>
+          <tr><td><span class="lab">范围查询</span></td><td><strong>高效</strong>(顺序保留)</td><td>差(scatter-gather)</td><td>取决于映射设计</td></tr>
+          <tr><td><span class="lab">负载均匀度</span></td><td>易倾斜,需主动拆热分区</td><td><strong>天然均匀</strong>(除非单 key 过热)</td><td>可手动调,但靠人勤快</td></tr>
+          <tr><td><span class="lab">热点风险</span></td><td>时间型 key 必产生“最新分区”热点</td><td>低;但同一 key 的流量无法再切</td><td>映射服务本身可能成瓶颈/单点</td></tr>
+          <tr><td><span class="lab">代表系统</span></td><td>HBase、早期 Bigtable</td><td>Cassandra、DynamoDB</td><td>很多自研分库分表中间件</td></tr>
+          <tr><td><span class="lab">QuoteFlow 落点</span></td><td>audit log(按月切,顺带满足留存策略)</td><td>保单库、报价历史(均匀第一)</td><td>(不引入:多养一个关键服务不值)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 没有全能选手:要顺序就赌得过热点,要均匀就放弃范围查询。先想清楚你最高频的查询长什么样(Day 11 的老话),再选切法。</p>
+
+    <p>最后是 <strong>skew(倾斜)</strong>的另一种形态:哪怕 hash 切得再均匀,如果<em>某一个 key 本身就承载了不成比例的流量</em>——比如 QuoteFlow 某个聚合渠道的 broker 账号,一家就发来 30% 的报价请求——它的所有记录仍然落在同一个分区。哈希对“单 key 过热”无解,只能在应用层把这种 key 再拆细(如 <code class="inl">broker_42#01</code>、<code class="inl">broker_42#02</code>),代价是读它时要自己再合并。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>机器数会变</div>
+    <h2>Rebalancing 与 consistent hashing</h2>
+    <p>分区方案定了,新问题接踵而来:<strong>机器数不是常量</strong>。业务涨了要加节点,机器坏了要摘节点。这时数据要<strong>重新分布(rebalancing)</strong>,而 rebalancing 的黄金标准只有一条:<em>搬的数据越少越好</em>——搬家期间网络、磁盘都在烧钱,搬错了还影响正确性。</p>
+    <p>最朴素的方案 <code class="inl">partition = hash(key) mod N</code> 在这里翻车:N 从 4 变成 5,<strong>几乎所有 key 的 mod 结果都变了</strong>——意味着集群里约 80% 的数据要搬家。加一台机器,全网大迁徙,这显然荒谬。</p>
+    <p><strong>Consistent hashing</strong> 的解法优雅得多:把哈希值空间首尾相接,想象成一个<strong>环</strong>。节点和 key 都哈希到环上;每个 key 归属<em>沿顺时针方向遇到的第一个节点</em>。增加一个节点,它只“接管”环上紧邻的一段弧——<strong>只有这段弧上的 key 需要搬家,约占总量的 1/N</strong>,其余 key 纹丝不动。摘掉一个节点同理:它的弧由顺时针的下一个节点接手。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 372" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- ring -->
+        <circle cx="300" cy="186" r="118" fill="none" stroke="#cfe3d8" stroke-width="3"/>
+        <!-- clockwise hint -->
+        <path d="M300 52 A134 134 0 0 1 416 119" fill="none" stroke="#93a89c" stroke-width="1.6" stroke-dasharray="3 4" marker-end="url(#ah)"/>
+        <text x="392" y="66" font-size="11.5" fill="#6a7872" font-style="italic">顺时针归属</text>
+        <!-- nodes -->
+        <g>
+          <circle cx="300" cy="68" r="17" fill="#15a06a"/><text x="300" y="73" font-size="12.5" font-weight="700" fill="#fff" text-anchor="middle">N1</text>
+          <circle cx="402" cy="245" r="17" fill="#15a06a"/><text x="402" y="250" font-size="12.5" font-weight="700" fill="#fff" text-anchor="middle">N2</text>
+          <circle cx="198" cy="245" r="17" fill="#15a06a"/><text x="198" y="250" font-size="12.5" font-weight="700" fill="#fff" text-anchor="middle">N3</text>
+          <!-- new node, dashed -->
+          <circle cx="402" cy="127" r="17" fill="#ffffff" stroke="#15a06a" stroke-width="2.5" stroke-dasharray="4 3"/>
+          <text x="402" y="132" font-size="12.5" font-weight="700" fill="#0c7a50" text-anchor="middle">N4</text>
+          <text x="448" y="118" font-size="12.5" fill="#0c7a50" font-weight="600">← 新加入的节点</text>
+        </g>
+        <!-- keys -->
+        <g>
+          <circle cx="361" cy="84" r="6" fill="#ff9e64"/>
+          <text x="372" y="74" font-size="12" fill="#8a5a00" font-weight="600">k1</text>
+          <circle cx="318" cy="302" r="6" fill="#8b7ddb"/>
+          <text x="330" y="312" font-size="12" fill="#5a4fa0" font-weight="600">k2</text>
+          <circle cx="186" cy="138" r="6" fill="#4aa3df"/>
+          <text x="162" y="132" font-size="12" fill="#1d6ba3" font-weight="600">k3</text>
+        </g>
+        <!-- ownership arrows -->
+        <path d="M361 92 Q392 100 396 112" fill="none" stroke="#15a06a" stroke-width="2" marker-end="url(#ah2)"/>
+        <path d="M309 300 Q258 301 216 253" fill="none" stroke="#93a89c" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+        <path d="M190 130 Q220 92 280 72" fill="none" stroke="#93a89c" stroke-width="1.8" stroke-dasharray="4 3" marker-end="url(#ah)"/>
+        <!-- annotation panel -->
+        <rect x="488" y="170" width="216" height="166" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="504" y="198" font-size="13.5" font-weight="700" fill="#0f3d2e">N4 加入后:</text>
+        <text x="504" y="224" font-size="12.5" fill="#3a463f">· k1 从 N2 改归 N4</text>
+        <text x="504" y="246" font-size="12.5" fill="#3a463f">  (只有 N1→N4 这段弧</text>
+        <text x="504" y="266" font-size="12.5" fill="#3a463f">  上的 key 搬家,≈1/N)</text>
+        <text x="504" y="292" font-size="12.5" fill="#3a463f">· k2、k3 纹丝不动</text>
+        <text x="504" y="318" font-size="12.5" fill="#6a7872" font-style="italic">mod N 方案:≈全部搬家</text>
+        <!-- bottom note -->
+        <text x="300" y="352" font-size="12" fill="#3d9c74" text-anchor="middle" font-style="italic">每个 key 归“顺时针遇到的第一个节点”;实务上每个物理节点放数百个 virtual node 以保均匀</text>
+      </svg>
+      <figcaption>图 1 · Consistent hashing 环:新增 N4 只接管一段弧,k1 搬家、其余 key 不动——这就是“增减节点只搬 1/N 数据”的几何直觉</figcaption>
+    </figure>
+
+    <p>还有最后一块拼图。只把每个节点哈希到环上<em>一个点</em>,会有两个毛病:节点少时弧段长短悬殊(不均匀);节点下线时,它的全部负载砸给顺时针的<em>下一个</em>邻居(雪上加霜)。解法是 <strong>virtual nodes(虚拟节点)</strong>:每个物理节点在环上放<em>几十到几百个</em>分身。弧被切得细碎均匀,某台物理机下线时,它的负载被<em>所有</em>幸存节点分摊,而不是压垮一个邻居。Cassandra、DynamoDB 的环都这么做。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">consistent_hashing.py · 带 virtual nodes 的环(伪代码)</span></div>
+<pre><code><span class="c-com"># 环 = 一个有序 map:position → 物理节点</span>
+<span class="c-key">class</span> <span class="c-fn">HashRing</span>:
+    <span class="c-key">def</span> <span class="c-fn">add_node</span>(self, node, vnodes=<span class="c-num">200</span>):
+        <span class="c-key">for</span> i <span class="c-key">in</span> range(vnodes):              <span class="c-com"># 每台物理机 200 个分身</span>
+            pos = <span class="c-fn">hash</span>(<span class="c-str">f"{node}#{i}"</span>)        <span class="c-com"># 分身散布全环 → 均匀</span>
+            self.ring[pos] = node
+
+    <span class="c-key">def</span> <span class="c-fn">get_node</span>(self, key):
+        pos = <span class="c-fn">hash</span>(key)
+        <span class="c-key">return</span> self.ring.<span class="c-fn">ceiling</span>(pos)         <span class="c-com"># 顺时针第一个节点(到尾则绕回头)</span>
+
+<span class="c-com"># 加节点:只有新分身“接管的弧段”上的 key 需要迁移 ≈ 1/N</span>
+<span class="c-com"># 对比 mod N:hash(key) mod 4 → mod 5,约 80% 的 key 换家 ✗</span>
+
+ring.<span class="c-fn">add_node</span>(<span class="c-str">"db-shard-04"</span>)
+ring.<span class="c-fn">get_node</span>(<span class="c-str">"policy:P-2026-08831"</span>)      <span class="c-com"># → "db-shard-02",路由完成</span></code></pre>
+    </div>
+    <p>顺带校准一个工程直觉:很多托管数据库(如 DynamoDB)把这一切藏在幕后,你只管选好 partition key;而自建分库分表时,rebalancing 是<strong>最容易出事故的运维操作</strong>之一——所以常见策略是<em>一开始就切多</em>(比如 1 台机器先扛 64 个逻辑分区),扩容时整分区搬走,不重切数据。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>隐性账单</div>
+    <h2>二级索引与跨分区查询</h2>
+    <p>按 partition key 查,一跳直达,很美好。但现实查询不会只按一个键来。QuoteFlow 保单库按 <code class="inl">policy_id</code> 哈希分区,那么<em>“查客户 C-1024 的全部保单”</em>怎么办?这就是分区世界里的<strong>二级索引(secondary index)</strong>问题,两种流派:</p>
+    <p><strong>① Local index(本地索引,document-partitioned)</strong>:每个分区只给<em>自己那部分数据</em>建索引。写入快——索引和数据在同一分区,一次写完。但按二级键查询时,任何分区都可能藏着匹配行,只能<strong>scatter-gather</strong>:把查询广播到<em>所有</em>分区、各自查完再合并。分区越多,尾延迟越糟(p99 由最慢的那个分区决定——Day 2 的 tail latency 又见面了)。</p>
+    <p><strong>② Global index(全局索引,term-partitioned)</strong>:索引本身也按<em>被索引的值</em>切分,比如 <code class="inl">customer_id</code> 的索引集中放在确定的分区。读高效——查一个客户只打一两个分区。代价转嫁给写:写一张保单,要同时更新<em>另一个分区上</em>的索引,跨分区写要么慢(分布式事务,明天的主题),要么异步(索引短暂滞后——又是 Day 12 的 lag)。</p>
+    <p>工程结论很朴素:<strong>选 partition key 的真正标准,是让你最高频、延迟最敏感的查询“单分区可达”</strong>,把 scatter-gather 留给低频的分析类查询。选错分区键的痛苦,往往要到数据搬不动时才显现——这也是为什么它值得在设计期多想一天。</p>
+
+    <h3>请求怎么找到分区:routing</h3>
+    <p>最后一个实务问题:客户端发来 <code class="inl">GET policy P-8831</code>,谁知道它在哪个分区?三种做法:<strong>① 随便问一台</strong>,节点不持有就转发(Cassandra 的 gossip 风格);<strong>② 中间加一层路由层</strong>,由它持有“分区 → 节点”映射(很多分库分表中间件);<strong>③ 客户端自己聪明</strong>,直接持有映射表。无论哪种,“当前谁负责哪个分区”这份元数据必须<em>强一致</em>地维护——通常交给 ZooKeeper / etcd 这类协调服务,这正是 Day 19(共识与协调)的伏笔。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>贯穿案例</div>
+    <h2>QuoteFlow:给每张表选分区键</h2>
+    <p>把今天的工具箱用在 QuoteFlow 的三类数据上。注意每个选择背后,都是“最高频查询长什么样 + 监管要求什么”这两个问题在做主:</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">保单库:hash on <code class="inl">policy_id</code> —— 均匀第一,分区键终身不变</h3>
+      <p>保单的高频访问是<strong>按单号点查</strong>(客服、理赔、客户自助),hash 分区一跳直达且天然均匀。特意<strong>不用</strong> <code class="inl">customer_id</code> 当分区键:客户持有保单数差异巨大(个人 1 张 vs 团体渠道数千张),会倾斜;且分区键一旦选定,这条记录就“住死”在那个分区——<strong>选一个 immutable 的键</strong>(policy_id 永不变)能避免记录搬家。“按客户查保单”交给一个异步维护的 global index:索引晚几秒无妨,保单本体的写入路径不被拖慢。</p>
+      <h3>报价历史:hash on compound key <code class="inl">(quote_id)</code>,夜间重算按分区并行</h3>
+      <p>报价记录量最大(大部分报价不会成交,但<strong>合规要求照样留痕</strong>)。hash 分区摊平写入;夜间批量重定价天然变成 <em>per-partition 并行</em>:16 个分区 16 个 worker,各自扫自己的分区,吞吐随分区数横向扩展——Day 2 的 high throughput 需求在这里兑现。每个 worker 的输出连同 <code class="inl">rate_table_version</code> 留痕,重算结果可复现。</p>
+      <h3>Audit log:key-range on 时间(按月分区)—— 一个“好热点”</h3>
+      <p>审计日志几乎只有两种访问:<strong>追加写“现在”</strong>,和<strong>按时间段审查“过去”</strong>(监管问询:“给我 3 月 1 日到 31 日所有费率变更记录”)。按月 range 分区让审查查询只扫一两个分区;留存策略也顺手——超过法定年限的旧分区<em>整段归档/下线</em>,不用逐行删除。写热点确实集中在“本月”分区,但 audit 写入是顺序追加、量可控,热点在容量预算之内——<strong>规则是死的:热点不是绝对禁忌,算得过来账就行</strong>。</p>
+    </div>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>受监管定价的提醒</div>
+      <ul><li>分区切开的是数据,<strong>切不开的是合规义务</strong>:监管报表、reserving、再保上报都是天然的<strong>跨分区聚合</strong>。设计时要预留一条“全量扫描/导出”的离线路径(Day 17 的批处理管道),而不是指望在线库的 scatter-gather 临时凑数。另外,“哪条记录此刻在哪个分区、何时迁移过”本身也值得留痕——审计师重建历史查询时,rebalancing 不能成为数据“凭空消失”的借口。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>复制是拷贝,分区是切开</strong>:前者买可用性和读扩展,后者买容量和写扩展。真实系统二者相乘:每个分区内部自带一套 leader-follower。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>Partition key 决定一切</strong>:range 保顺序但赌热点,hash 保均匀但失顺序。标准只有一条——让最高频的查询单分区可达,并选 immutable 的键。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>Consistent hashing + virtual nodes</strong>:把节点和 key 都放到哈希环上,增减节点只迁移 ≈1/N 的数据;mod N 则几乎全量搬家。</p></div>
+      <div class="tk"><span class="n">4</span><p>分区的隐性账单是<strong>跨分区操作</strong>:二级索引要么 scatter-gather(读贵)要么 global index(写贵);跨分区的“原子写”更难——那是明天分布式事务的主题。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">报价历史表按 <code class="inl">created_at</code> 做 key-range 分区,会发生什么?</span></summary>
+        <div class="ans"><b>写热点。</b>所有新报价都写入“最新”那个分区,其余分区闲置——N 台机器只有 1 台在干活,写吞吐没有任何扩展。修法:hash 分区摊平写入;若需要时间范围查询,用 compound key 或把时间维度留给离线分析管道。(对比:audit log 按月 range 分区是<b>有意识地接受</b>这个热点,因为追加写量可控、且按时间段审查和整月归档的收益更大。)</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">为什么 <code class="inl">hash(key) mod N</code> 不适合做分区分配?Consistent hashing 好在哪?</span></summary>
+        <div class="ans"><b>因为 N 会变。</b>N 从 4 变 5 时,几乎所有 key 的 mod 结果都变了,≈80% 的数据要迁移。Consistent hashing 把节点和 key 都映射到首尾相接的环上,key 归顺时针第一个节点——新增节点只接管一段弧,<b>只迁移约 1/N 的数据</b>;配合 virtual nodes,负载在增减节点时还能均匀分摊到所有幸存节点。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">保单库按 <code class="inl">policy_id</code> 分区后,“查客户 C-1024 的全部保单”有哪两种支持方式?各贵在哪?</span></summary>
+        <div class="ans"><b>Local index:</b>每个分区索引自己的数据,写入快,但查询要 scatter-gather 广播所有分区,读贵、p99 被最慢分区拖累。<b>Global index:</b>按 customer_id 集中存索引,读只打一两个分区,但每次写保单要跨分区更新索引——要么慢(分布式事务)要么异步滞后(lag)。QuoteFlow 选了异步 global index:保单写入路径不拖慢,索引晚几秒可接受。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 的保单库,如果当初选了 <code class="inl">customer_id</code> 而不是 <code class="inl">policy_id</code> 当分区键,哪些查询会变好、哪些会变糟、哪些运营场景会埋雷?(提示:团体保单渠道、客户改信息、夜间重算。)<br>② 夜间批量重算按分区并行后,某一个分区的 worker 失败了。重跑<strong>整晚</strong>还是只重跑<strong>那个分区</strong>?这个选择对“重算结果可审计、可复现”提出了什么要求?(这题是给 Day 17/18 埋的伏笔。)</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Partitioning / Sharding</dt><dd>把数据集切成多份,每个节点只持有一部分,以扩展容量与写吞吐。</dd></dl>
+      <dl><dt>Partition Key</dt><dd>决定一条记录落在哪个分区的字段;应选 immutable、且让高频查询单分区可达。</dd></dl>
+      <dl><dt>Hot Spot / Skew</dt><dd>负载或数据在分区间分布不均,少数分区扛走大部分流量,扩展失效。</dd></dl>
+      <dl><dt>Key-range Partitioning</dt><dd>按键的连续区间切分;保顺序、利范围查询,但时间型键易产生热点。</dd></dl>
+      <dl><dt>Hash Partitioning</dt><dd>按 hash(key) 分配分区;天然均匀,但丢失顺序,范围查询退化。</dd></dl>
+      <dl><dt>Consistent Hashing</dt><dd>把节点与 key 映射到哈希环,key 归顺时针首个节点;增减节点仅迁移约 1/N 数据。</dd></dl>
+      <dl><dt>Virtual Node (vnode)</dt><dd>每个物理节点在环上的多个分身;使弧段细碎均匀,故障负载由全员分摊。</dd></dl>
+      <dl><dt>Scatter-Gather</dt><dd>把一个查询广播到所有分区、再合并结果;二级索引查询的常见代价,p99 受最慢分区支配。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 14</div>
+      <div class="t">事务与隔离级别:ACID 的 I 到底有几档?跨分区写怎么保证原子性——two-phase commit 与 saga 模式,第 2 周收官</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 13 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
