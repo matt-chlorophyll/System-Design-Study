@@ -175,6 +175,7 @@ const L = {
   d12:'Day-12-replication-consistency.html',
   d13:'Day-13-partitioning-sharding.html',
   hr:'notes/Day-13-hash-ring.html',
+  d14:'Day-14-transactions-isolation.html',
 };
 
 const PAIRS = [
@@ -520,6 +521,48 @@ const PAIRS = [
     diff:'「独立」只说明不必重跑全部；「能安全重跑那一片」要幂等，「结果可审计可复现」还要钉死输入版本。重跑整晚若版本漂了，反而制造「同一晚两个版本」的不一致。',
     eg:'思考题②：分区 7 失败只重跑它——幂等让重复写变 no-op、钉死 v06 费率让重跑与原批一致、run_id / attempt 留痕让审计看出「第一次失败、第二次成功」。',
     mn:'独立 → 不必重跑全部；幂等 + 钉版本 → 才敢只重跑那片且可审计。' },
+
+  { src:'Day 14', link:L.d14,
+    a:{t:'Compensating transaction', zh:'补偿事务', def:'COMMIT 之后才补救：对既成事实再发一笔语义相反的正向新交易去抵消。'},
+    b:{t:'Rollback', zh:'真正回滚', def:'COMMIT 之前、事务内部，引擎用 undo log 把未提交改动抹除，外界从没见过。'},
+    diff:'时点 + 留痕：rollback 在提交前、不留痕、像没发生过；补偿在提交后、是「新增反向记录」→ 天生 append-only。它撤不掉物理副作用（已发邮件 / 已扣款），所以「补偿不是撤销，且要幂等」。',
+    eg:'投保 saga T4 收费失败 → 不能 rollback 已签发的保单（早提交了），只能跑 C3 撤销签发。对寿险 audit log 反是优点：「签发→撤销、谁做的、为什么」整条链留痕，正是合规要的。',
+    mn:'rollback 抹除、不留痕；补偿抵消、留 append-only 痕。' },
+
+  { src:'Day 14', link:L.d14,
+    a:{t:'2PC (Two-Phase Commit)', zh:'两阶段提交 · 跨库原子提交协议', def:'prepare 投票 → commit/abort 统一裁决；给强一致、中间态不可见，代价是持锁阻塞、协调者挂了陷 limbo。'},
+    b:{t:'2PL (Two-Phase Locking)', zh:'两阶段锁 · 单库串行化的锁实现', def:'growing 阶段只拿锁、shrinking 阶段只放锁；是 Serializable 隔离的悲观实现，跟跨库提交无关。'},
+    diff:'名字都「两阶段」但毫不相干：2PC 是分布式事务的 COMMIT 协议（跨多库要不要一起提交），2PL 是单库内并发控制的上锁纪律（怎么拿锁保证可串行）。一个管「跨库原子」，一个管「单库隔离」。',
+    eg:'QuoteFlow 跨 policies/billing 库硬要原子 → 2PC（不推荐，宁可收单库或 saga）；单库内 Serializable 防 write skew → 可能用 2PL+谓词锁。',
+    mn:'2PC = 跨库提交协议；2PL = 单库上锁纪律。两阶段，两回事。' },
+
+  { src:'Day 14', link:L.d14,
+    a:{t:'2PC', zh:'两阶段提交 · 强一致', def:'跨库瞬时原子；中间态对外不可见，但全程持锁、可用性差、协调者单点。'},
+    b:{t:'Saga', zh:'萨迦 · 最终一致', def:'拆成一串本地事务 + 补偿；高可用、不跨步持锁，但中间态可见、给的是 ACD（无 I）。'},
+    diff:'本质是「你能不能容忍中间状态短暂可见」：能忍 → saga（拿 isolation 换 availability）；绝不能（同一笔钱借贷必须瞬时配平）→ 想办法收进单库本地事务，而不是硬上 2PC。',
+    eg:'ledger 借贷 = 收单库本地事务；跨服务投保链（申请→核保→签发→收费）= saga（orchestration，每步与补偿都进 audit log）。',
+    mn:'2PC 不可见但脆；saga 可见但韧。选择 = 容不容忍中间态。' },
+
+  { src:'Day 14', link:L.d14,
+    a:{t:'中间状态可见（saga 弃 I）', zh:'跨服务复合操作没有隔离', def:'saga 每步立刻本地提交 → T1~T4 之间外界真能查到半成品（已签发未收费的「幽灵保单」）。'},
+    b:{t:'Isolation（单库给 I）', zh:'单库事务的隔离性', def:'并发事务彼此看不到对方未提交的中间过程，看起来像单独跑。'},
+    diff:'同一根「I」轴的两端：单库事务用隔离级别买到 I；saga 为了高可用 + 不持锁主动放弃跨步 I → 半成品漏给外界。「中间状态可见」就是「整个复合操作不是隔离的」的另一种说法。',
+    eg:'补偿窗口尤其毒：C3 撤销签发还没跑，再保上报已读到 in-force 幽灵保单（dirty read）→ 报了一张不存在的保单。',
+    mn:'单库 isolation 藏住中间过程；saga 弃 I → 中间态漏出去。' },
+
+  { src:'Day 14', link:L.d14,
+    a:{t:'Semantic lock', zh:'语义锁 · 应用层', def:'给中间态打业务标记（status=pending_payment），别的事务被编码成对 pending 行特殊对待（跳过/拒/等）。'},
+    b:{t:'DB lock', zh:'数据库锁 · 引擎层', def:'行锁 / 谓词锁，由数据库引擎在一个事务内强制持有、事务结束自动释放。'},
+    diff:'谁来锁、锁多久：DB lock 是引擎在单事务内的物理锁，跨服务的 saga 根本没有这种锁；semantic lock 是开发者在应用层用一个状态字段手工模拟的「逻辑锁」，用来补回 saga 缺失的 isolation。',
+    eg:'saga 跨 underwriting/policies/billing 没有统一 DB 锁 → 用 status=pending_* 当语义锁，让再保上报、并发投保都别动这条 pending 记录。',
+    mn:'DB lock 引擎给、单事务内；semantic lock 应用造、跨服务补 I。' },
+
+  { src:'Day 14', link:L.d14,
+    a:{t:'Optimistic locking', zh:'乐观锁', def:'赌冲突罕见 → 不上锁、放手读，写时校版本；被抢先则影响 0 行 → 重试。'},
+    b:{t:'Pessimistic locking', zh:'悲观锁', def:'赌冲突常发生 → 先 SELECT … FOR UPDATE 上锁，别人排队等。'},
+    diff:'对冲突频率的下注不同：乐观 = 先跑后查、冲突才付「重试」的代价（冲突少时高并发）；悲观 = 先锁后跑、人人先付「等待」的代价（冲突多时反而划算）。乐观锁 ≈ Day 8 SSI 的思路。',
+    eg:'paid_ytd 自增并发不高 → 乐观锁版本号；若同一热点行被高频抢写、重试雪崩 → 改悲观 FOR UPDATE 排队。',
+    mn:'乐观=先跑冲突才重试；悲观=先锁人人先等。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */

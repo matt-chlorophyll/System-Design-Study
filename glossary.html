@@ -154,6 +154,7 @@ const L = {
   d12:'Day-12-replication-consistency.html',
   d13:'Day-13-partitioning-sharding.html',
   hr:'notes/Day-13-hash-ring.html',
+  d14:'Day-14-transactions-isolation.html',
 };
 
 const TERMS = [
@@ -330,8 +331,32 @@ const TERMS = [
    def:'两事务各攥着对方想要的锁、等待边首尾成环 → 谁都不先松手。数据库查 wait-for graph 发现环就挑 victim 回滚（PG 等 deadlock_timeout≈1s 才查）。头号解法：所有人按同一顺序拿锁（如 policy_id 升序），环连不成。'},
   {t:'Write Skew', zh:'写偏斜', cat:'data', src:['讨论'], link:L.d8,
    def:'两事务各读各写、各自看快照都合法，合起来却破坏一个跨多行的约束（如「敞口总和不超上限」）。Snapshot Isolation 挡不住、单一 UNIQUE 也表达不了 → 必须 Serializable。'},
-  {t:'Compensating Transaction', zh:'补偿事务', cat:'data', src:['讨论'], link:L.d8,
-   def:'COMMIT 后无法「uncommit」，要撤销已提交的效果只能再发一个反向事务（如退款冲销）。这正是 SQL commit「一锤定音」与 git commit「可 reset 改写」的根本区别；也是 saga（Day 14）的基石。'},
+  {t:'Compensating Transaction', zh:'补偿事务', cat:'data', src:['讨论','Day 14'], link:L.d14,
+   def:'COMMIT 后无法「uncommit」，要撤销已提交的效果只能再发一个反向事务（如退款冲销）。和真正回滚的本质区别：rollback 在 commit 前、事务内用 undo log 抹除、外界没见过、不留痕；补偿在 commit 后、对既成事实发一笔语义相反的正向新交易抵消 → 天生 append-only，与 audit log 契合（对寿险是优点）。局限：只在语义层回退，物理副作用（已发邮件 / 已扣款）收不回 → 故「补偿不是撤销，且要幂等」。'},
+
+  // ── Day 14：事务隔离踩坑 + 分布式事务（lost update / 乐观锁 / 2PC / saga / 语义锁）──
+  {t:'Read-Modify-Write', zh:'读-改-写', cat:'data', src:['Day 14'], link:L.d14,
+   def:'「先读出来 → 在应用内存里改 → 再写回去」的模式。并发下默认有 lost update 风险：两事务都读到旧值、各自算、后写覆盖先写。识别它 = 警报响起，要么原子操作、要么乐观锁、要么提隔离级别。'},
+  {t:'Lost Update', zh:'丢失更新', cat:'data', src:['Day 14'], link:L.d14,
+   def:'两个「读-改-写」并发，后写覆盖先写，一次更新凭空蒸发（两笔 +38.20 只剩一笔）。命门：两事务都在对方写回前读到了同一个旧值。SQL 标准那张隔离级别表没列它。'},
+  {t:'Atomic Increment', zh:'原子自增', cat:'data', src:['Day 14'], link:L.d14,
+   def:'治 lost update 写法一：`SET paid_ytd = paid_ytd + 38.20`，让数据库在自己的行锁内一气呵成读-改-写、不留窗口，最该优先。但只在「新值是旧值的纯函数」时管用；要在读写间做复杂逻辑就退回乐观锁 / 悲观锁。是一种 commutative update。'},
+  {t:'Optimistic Locking (OCC)', zh:'乐观锁 / 乐观并发控制', cat:'data', src:['Day 14'], link:L.d14,
+   def:'赌冲突罕见 → 平时不上锁、放手读，只在写时校验有没有被人动过；撞上了这一次写失败 → 重试。常用版本号实现：读时拿 version，写时 `… WHERE version=7`，被抢先则匹配 0 行（影响行数=0）→ 重读重算重试。与 Day 8 的 SSI「乐观 + 提交时查冲突」同源。'},
+  {t:'Pessimistic Locking', zh:'悲观锁', cat:'data', src:['Day 14'], link:L.d14,
+   def:'乐观锁的对立面：赌冲突常发生 → 先上锁再动（`SELECT … FOR UPDATE` 抓行锁，别人排队等）。安全但阻塞、并发度低、可能死锁。冲突真的频繁时反而比「乐观锁不停重试」划算。'},
+  {t:'2PC (Two-Phase Commit)', zh:'两阶段提交', cat:'data', src:['Day 14'], link:L.d14,
+   def:'跨多库的原子提交协议：① prepare（各参与者锁定、投 yes/no）② commit/abort（协调者统一裁决）。给强一致、中间状态对外不可见，但 prepare 到 commit 全程持锁、被最慢参与者拖累、协调者在裁决前挂掉则参与者攥锁陷入 limbo（阻塞）→ 可用性差。注意别和 2PL（两阶段锁）混。'},
+  {t:'Saga', zh:'萨迦 / 长事务编排', cat:'data', src:['Day 14'], link:L.d14,
+   def:'不是缩写，是英文「分章节展开的长篇史诗」（出自 1987 Garcia-Molina & Salem 论文）。把一个长业务（LLT）拆成一串各自本地提交的子事务 T1…Tn，某步失败就反向执行补偿 C(n-1)…C1。给的是 ACD——没有 I：换来高可用 + 不跨步持锁，放弃「中间状态绝不可见」、只给最终一致。'},
+  {t:'Long-Lived Transaction (LLT)', zh:'长事务', cat:'data', src:['Day 14'], link:L.d14,
+   def:'横跨多服务 / 长耗时的业务（投保链、夜间批量重估）。若用一个大事务包住 → 长时间持锁、并发崩。saga 的原始动机正是把 LLT 切成「本地事务 + 补偿」以释放锁。'},
+  {t:'Orchestration vs Choreography', zh:'编排 vs 协同（saga 两种驱动）', cat:'data', src:['Day 14'], link:L.d14,
+   def:'saga 怎么串：orchestration = 一个中心 orchestrator 像总指挥显式调各步、决定下一步或触发补偿（集中、好观测好审计，QuoteFlow 友好）；choreography = 无总指挥、各服务靠事件互相触发（耦合低，但流程散落、出问题难追，Day 16 事件驱动）。'},
+  {t:'Semantic Lock', zh:'语义锁', cat:'data', src:['Day 14'], link:L.d14,
+   def:'补回 saga 缺失 isolation 的头号手段：给中间态打显式标记（`status=pending_payment`），别的事务被编码成对 pending 行特殊对待（跳过 / 拒绝 / 等待）。是应用层的锁、不是 DB 锁；让下游别把「幽灵保单」当真。'},
+  {t:'Commutative Update', zh:'可交换更新', cat:'data', src:['Day 14'], link:L.d14,
+   def:'补 saga isolation 的另一手：把操作设计成与顺序无关（计数器 +1 / −1，而非 SET 成绝对值）→ 补偿（释放 +1）与并发正向（占用 −1）任意顺序交错，净值都对。原子自增正是它的单语句版。'},
 
   // ── 分布式 · 异步处理 ──
   {t:'Idempotent', zh:'幂等', cat:'async', src:['讨论'], link:L.dp,

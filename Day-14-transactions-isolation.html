@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 14 · 事务、隔离级别与分布式事务(saga)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:46.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 14 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 2 周 · 数据层</span>
+    <h1>要么全做,要么当没做<br>—— 事务、隔离级别与 saga</h1>
+    <p class="lede">ACID 里最难、最常被误用的是 I(Isolation)。今天先把单库的隔离级别和它防的那几种 anomaly 钉死,再走出单库:当一次业务跨越多个服务/分区,事务怎么办——2PC 为什么难用,saga 又拿什么换什么。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><path d="M12 8v4l2.5 2.5"/></svg>昨日回顾 · Day 13</div>
+    <ul>
+      <li>昨天讲 <strong>partitioning / sharding</strong>:把数据切开分担容量和写吞吐。key-range 保序但易热点,hash 均匀但丢顺序;consistent hashing 让增减节点只搬约 1/N 的数据;切开的隐性账单是二级索引、跨分区查询和请求路由。</li>
+      <li>那条「隐性账单」里最贵的一项,今天来收:一旦数据跨了分区(或跨了服务),<strong>「一次要么全成功、要么全失败」的保证就不再免费</strong>。单机数据库靠事务轻松给你的东西,分布式系统要费很大劲、还得做取舍才能近似。这就是今天的主线。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>重新理解 <strong>transaction</strong> 与 ACID 里那个最微妙的 <strong>I(Isolation)</strong>:它到底在挡什么</li>
+      <li>把四个 <strong>isolation level</strong> 和它们各自放过的 anomaly(dirty read / non-repeatable read / phantom / lost update / write skew)对上号</li>
+      <li>知道隔离是怎么实现的:<strong>locking vs MVCC vs SSI</strong>,以及为什么 Serializable 不是默认值</li>
+      <li>理解跨服务/跨分区时的两条路:<strong>2PC</strong>(强一致但脆)与 <strong>saga</strong>(最终一致 + 补偿)</li>
+      <li>给 QuoteFlow 的保单签发、批量重算和投保流程各选一条合理的事务策略</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>先把事务想清楚</div>
+    <h2>事务是「一组操作」的全有或全无</h2>
+    <p>Day 8 我们见过 <strong>ACID</strong>:Atomicity(原子性)、Consistency(一致性)、Isolation(隔离性)、Durability(持久性)。一句话复习:事务是一组读写,数据库承诺把它们当作<em>一个不可分割的整体</em>来处理。要么整组生效(commit),要么整组当没发生过(rollback)——绝不会停在半路。</p>
+    <p>为什么这件事是刚需?看 QuoteFlow 签发一张保单:要<strong>① 在 policies 表写入新保单、② 在 ledger 表生成首期保费的应收、③ 把报价 quote 标记为「已转化」</strong>。如果第 ② 步写完机器崩了,你就有了一张「存在但没有任何账目」的保单——在受监管的寿险里,这是会被审计直接点名的数据不一致。事务保证的就是:这三步要么全成,要么全不成,绝不留下半张保单。</p>
+    <p>ACID 里 A 和 D 相对直观(全有全无、落盘不丢),C 在很大程度上是前三者加上你写的约束共同产生的结果。<strong>真正让无数系统翻车的是 I —— Isolation</strong>。因为现实里,事务从不孤独运行:成百上千个事务同时在读写同一批数据。隔离性回答的问题是:<em>「并发的事务之间,该装作互相看不见到什么程度?」</em></p>
+    <p>这里藏着今天的核心张力:<strong>隔离越强,正确性越好,但并发度和性能越差</strong>。完美隔离(像所有事务排成一队挨个跑)最安全,但慢得没法用。所以数据库给了你一个旋钮——isolation level——让你按业务选「松一点换快」还是「严一点换稳」。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>松了会出什么事</div>
+    <h2>四个隔离级别,与它们放过的 anomaly</h2>
+    <p>理解隔离级别的最好方式,不是背它们的名字,而是看<strong>每一级各自「放过」了哪种并发 bug</strong>。SQL 标准定义了四级,从松到严,对应放过的异常逐级减少:</p>
+
+    <h3>先认识几种 anomaly(并发异常)</h3>
+    <p><strong>Dirty read(脏读)</strong>:读到了别的事务<em>还没提交</em>的数据——对方一回滚,你读到的就是幻觉。<strong>Non-repeatable read(不可重复读)</strong>:同一事务里读<em>同一行</em>两次,值变了(因为中间别人改完提交了)。<strong>Phantom read(幻读)</strong>:同一事务里跑<em>同样的范围查询</em>两次,行数变了(别人新插/删了符合条件的行)。<strong>Lost update(更新丢失)</strong>:两个事务都「读-改-写」同一行,后写的覆盖了先写的,一次更新凭空消失。<strong>Write skew(写偏斜)</strong>:两个事务各读一批数据、各自基于「快照」做了看似合法的写,合起来却破坏了一个跨行约束——最隐蔽的一种。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:25%">隔离级别</th><th>脏读</th><th>不可重复读</th><th>幻读</th><th>典型实现代价</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Read Uncommitted</span></td><td>可能</td><td>可能</td><td>可能</td><td>几乎不加锁,最快也最危险</td></tr>
+          <tr><td><span class="lab">Read Committed</span></td><td><strong>挡住</strong></td><td>可能</td><td>可能</td><td>只读已提交;多数库的默认</td></tr>
+          <tr><td><span class="lab">Repeatable Read</span></td><td><strong>挡住</strong></td><td><strong>挡住</strong></td><td>可能*</td><td>快照/行锁;MySQL 默认</td></tr>
+          <tr><td><span class="lab">Serializable</span></td><td><strong>挡住</strong></td><td><strong>挡住</strong></td><td><strong>挡住</strong></td><td>等价于串行执行,最稳最慢</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 越往下放过的异常越少、代价越高。* 注:标准里 Repeatable Read 仍允许幻读,但 PostgreSQL/MySQL-InnoDB 的快照实现实际上挡住了大部分幻读——「标准」和「某数据库叫什么名字的那一档」常常对不齐,务必查你用的库的具体文档。</p>
+
+    <p>两个要命的细节:第一,<strong>各家数据库对同名级别的实现不一样</strong>。Oracle 没有真正的 Read Uncommitted,它的「Serializable」其实是快照隔离;PostgreSQL 的 Repeatable Read 是快照隔离。<em>同一个级别名,在不同库里挡的东西不同</em>。第二,<strong>lost update 和 write skew 这两个最坑的异常,SQL 标准的那张表根本没列</strong>——它们要到快照隔离/Serializable 才真正被处理。所以「我用了 Repeatable Read 就高枕无忧」是危险的错觉。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>隔离是怎么做出来的</div>
+    <h2>Locking、MVCC、SSI</h2>
+    <p>数据库实现隔离主要靠三类机制,理解它们能解释「为什么 Serializable 慢」「为什么读不该阻塞写」:</p>
+    <p><strong>Two-phase locking(2PL,两阶段锁)</strong>:读加共享锁、写加排他锁,事务结束才统一释放。正确性强,但读写互相阻塞、并发度低,还可能死锁。<strong>MVCC(多版本并发控制)</strong>:每次写生成一个新版本,每个事务读它开始那一刻的「快照」。<em>读不加锁、不阻塞写,写也不阻塞读</em>——这是 PostgreSQL、MySQL-InnoDB、Oracle 高并发的基石。代价是要存多版本、定期清理旧版本(vacuum)。<strong>SSI(可串行化快照隔离)</strong>:在 MVCC 快照之上,额外监测事务间的读写冲突,发现可能破坏可串行性的组合就让其中一个事务失败重试——用「乐观 + 重试」拿到 Serializable,而不必全程上重锁。</p>
+
+    <p>下面用一段 SQL 把 <strong>lost update</strong> 演示清楚,并给出两种正确写法。场景:QuoteFlow 给某 in-force 保单的当年累计已付保费 <code class="inl">paid_ytd</code> 加一期 38.20。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">lost_update.sql  ·  并发更新同一行</span></div>
+<pre><code><span class="c-com">-- ❌ 危险:读到内存里加完再写回。两个并发事务都读到 100,</span>
+<span class="c-com">--    各自写回 138.20,结果只加了一期 —— 另一期凭空蒸发。</span>
+<span class="c-key">BEGIN</span>;
+  <span class="c-key">SELECT</span> paid_ytd <span class="c-key">FROM</span> policies <span class="c-key">WHERE</span> id = <span class="c-str">'pol_8f3a'</span>;  <span class="c-com">-- 读到 100.00</span>
+  <span class="c-com">-- 应用层算 100.00 + 38.20 = 138.20</span>
+  <span class="c-key">UPDATE</span> policies <span class="c-key">SET</span> paid_ytd = <span class="c-num">138.20</span> <span class="c-key">WHERE</span> id = <span class="c-str">'pol_8f3a'</span>;
+<span class="c-key">COMMIT</span>;
+
+<span class="c-com">-- ✅ 写法一:原子自增,让数据库在行锁内完成读-改-写</span>
+<span class="c-key">UPDATE</span> policies <span class="c-key">SET</span> paid_ytd = paid_ytd + <span class="c-num">38.20</span> <span class="c-key">WHERE</span> id = <span class="c-str">'pol_8f3a'</span>;
+
+<span class="c-com">-- ✅ 写法二:乐观锁 / 版本号。写时校验版本,被人抢先就重试</span>
+<span class="c-key">UPDATE</span> policies <span class="c-key">SET</span> paid_ytd = <span class="c-num">138.20</span>, version = version + <span class="c-num">1</span>
+  <span class="c-key">WHERE</span> id = <span class="c-str">'pol_8f3a'</span> <span class="c-key">AND</span> version = <span class="c-num">7</span>;  <span class="c-com">-- 影响行数=0 → 重读重试</span>
+</code></pre>
+    </div>
+    <p>记住这条经验法则:<strong>凡是「读出来、在应用里改、再写回去」的模式,在并发下默认就有 lost update 风险。</strong>要么用原子操作、要么用乐观锁版本号、要么把隔离级别提到能挡它的那一档。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>走出单库</div>
+    <h2>当一次业务跨越多个服务:2PC 的困境</h2>
+    <p>上面所有美好,都建立在<strong>「数据在同一个数据库里」</strong>这个前提上。一旦 QuoteFlow 拆成多个服务(保单服务、计费服务、再保上报服务),或者数据分到了不同分片,一次业务就要同时改好几个独立的数据库——单库事务管不了它们了。</p>
+    <p>第一个本能方案是 <strong>2PC(two-phase commit,两阶段提交)</strong>:引入一个协调者(coordinator)。<strong>阶段一 prepare</strong>:协调者问所有参与者「你能提交吗?」,各自锁好资源、写好预备日志,回答 yes/no。<strong>阶段二 commit</strong>:只要有一个说 no,全体回滚;全说 yes,协调者下令全体提交。它确实能给跨库的原子性——但代价很硬:</p>
+    <p><strong>① 同步阻塞</strong>:prepare 到 commit 之间,所有参与者都得<em>锁着资源干等</em>,延迟被最慢的那个拖死。<strong>② 协调者是单点</strong>:如果协调者在「大家都说 yes」之后、下达 commit 之前崩了,参与者就卡在「已锁定、不敢提交也不敢回滚」的状态(in-doubt),可能挂很久。<strong>③ 可用性差</strong>:任一参与者不可用,整个事务就做不下去。在高吞吐、要高可用的系统里,2PC 通常被认为太脆、太慢——所以现代分布式系统多半绕开它。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>更实用的解法</div>
+    <h2>Saga:把大事务拆成「本地事务 + 补偿」</h2>
+    <p><strong>Saga</strong> 换了个思路:不再追求「跨库的瞬时原子性」,而是把一个长业务拆成<em>一串各自独立的本地事务</em>,每一步都在自己的库里正常提交。一旦某步失败,就<strong>反向执行前面已完成步骤的「补偿事务(compensating transaction)」</strong>,把世界回退到一个语义上一致的状态。它换来的是高可用和低耦合,放弃的是「中间状态绝不可见」——saga 给的是<strong>最终一致性(eventual consistency)</strong>,不是隔离性。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ahr" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c66"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- forward steps -->
+        <g>
+          <rect x="18" y="40" width="150" height="56" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+          <text x="93" y="64" font-size="13.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">T1 创建申请</text>
+          <text x="93" y="83" font-size="11" fill="#6a7872" text-anchor="middle">applications 库</text>
+
+          <rect x="200" y="40" width="150" height="56" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+          <text x="275" y="64" font-size="13.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">T2 核保占额</text>
+          <text x="275" y="83" font-size="11" fill="#6a7872" text-anchor="middle">underwriting 库</text>
+
+          <rect x="382" y="40" width="150" height="56" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+          <text x="457" y="64" font-size="13.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">T3 签发保单</text>
+          <text x="457" y="83" font-size="11" fill="#6a7872" text-anchor="middle">policies 库</text>
+
+          <rect x="564" y="40" width="138" height="56" rx="11" fill="#fdeaea" stroke="#e7b9b9"/>
+          <text x="633" y="64" font-size="13.5" font-weight="600" fill="#7a2e2e" text-anchor="middle">T4 首期收费</text>
+          <text x="633" y="83" font-size="11" fill="#a36b6b" text-anchor="middle">billing 库 ✗ 失败</text>
+        </g>
+        <path d="M168 68 L198 68" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <path d="M350 68 L380 68" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <path d="M532 68 L562 68" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="360" y="28" font-size="12" fill="#0c7a50" font-weight="600" text-anchor="middle">正向:每步本地提交 →</text>
+
+        <!-- compensation -->
+        <g>
+          <rect x="18" y="180" width="150" height="56" rx="11" fill="#fff4f4" stroke="#ecc7c7"/>
+          <text x="93" y="204" font-size="13.5" font-weight="600" fill="#7a2e2e" text-anchor="middle">C1 作废申请</text>
+          <text x="93" y="223" font-size="11" fill="#a36b6b" text-anchor="middle">补偿 T1</text>
+
+          <rect x="200" y="180" width="150" height="56" rx="11" fill="#fff4f4" stroke="#ecc7c7"/>
+          <text x="275" y="204" font-size="13.5" font-weight="600" fill="#7a2e2e" text-anchor="middle">C2 释放占额</text>
+          <text x="275" y="223" font-size="11" fill="#a36b6b" text-anchor="middle">补偿 T2</text>
+
+          <rect x="382" y="180" width="150" height="56" rx="11" fill="#fff4f4" stroke="#ecc7c7"/>
+          <text x="457" y="204" font-size="13.5" font-weight="600" fill="#7a2e2e" text-anchor="middle">C3 撤销签发</text>
+          <text x="457" y="223" font-size="11" fill="#a36b6b" text-anchor="middle">补偿 T3</text>
+        </g>
+        <path d="M457 178 L457 98" stroke="#c66" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#ahr)"/>
+        <path d="M382 208 L350 208" stroke="#c66" stroke-width="2" marker-end="url(#ahr)"/>
+        <path d="M200 208 L168 208" stroke="#c66" stroke-width="2" marker-end="url(#ahr)"/>
+        <text x="360" y="262" font-size="12" fill="#c0392b" font-weight="600" text-anchor="middle">← 反向:T4 失败,逐个补偿已完成的步骤</text>
+      </svg>
+      <figcaption>图 1 · QuoteFlow 投保 saga:正向四步各自本地提交;T4 失败时,沿原路反向执行 C3→C2→C1 补偿,回到语义一致的状态</figcaption>
+    </figure>
+
+    <p>Saga 有两种编排方式。<strong>Orchestration(编排,中心化)</strong>:一个 saga orchestrator 像总指挥,显式地一步步调用各服务、决定下一步或触发补偿。逻辑集中、好观测、好审计——对 QuoteFlow 这种<em>需要清晰追溯每张保单走到哪一步</em>的合规场景很友好。<strong>Choreography(协同,去中心化)</strong>:没有总指挥,各服务通过事件互相触发(下周 Day 16 的事件驱动)。耦合更低,但流程散落在各处,出问题时「这单到底卡在哪」很难追。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%"></th><th>2PC</th><th>Saga</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">一致性</span></td><td>强一致(原子提交)</td><td>最终一致 + 补偿</td></tr>
+          <tr><td><span class="lab">中间状态</span></td><td>对外不可见</td><td><strong>可见</strong>(需业务容忍)</td></tr>
+          <tr><td><span class="lab">阻塞 / 锁</span></td><td>prepare 期间长时间锁定</td><td>每步立即提交,不跨步持锁</td></tr>
+          <tr><td><span class="lab">可用性</span></td><td>差(协调者/参与者单点)</td><td><strong>高</strong>(步骤解耦)</td></tr>
+          <tr><td><span class="lab">失败处理</span></td><td>统一回滚</td><td>写补偿逻辑(开发负担↑)</td></tr>
+          <tr><td><span class="lab">适用</span></td><td>少量参与者、强一致刚需</td><td>跨服务长流程、要高可用</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 选择本质是:你能不能容忍「中间状态短暂可见」。能容忍 → saga;绝不能(如同一笔钱的借贷必须瞬时配平)→ 想办法收进同一个库用本地事务,而不是硬上 2PC。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>补偿不是「撤销」,且要幂等</div>
+      <ul><li>补偿事务往往不能真正「回到过去」:T3 已签发的保单,C3 通常是<em>另写一条「撤销/作废」记录</em>而非物理删除——这反而正合寿险的 auditability:<strong>每一步正向和补偿都在 audit log 留痕,整条 saga 完整可回溯</strong>。另外,失败重试会让同一步被执行多次,所以每个步骤和补偿都必须<strong>幂等(idempotent)</strong>——这正是 Day 18 的主题。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>贯穿案例</div>
+    <h2>给 QuoteFlow 的三类操作各配一条策略</h2>
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">① 保单签发(单库内)→ 本地事务 + 合适隔离级别</h3>
+      <p>policies / ledger / quote 三张表若在同一个库,直接用<strong>一个本地事务</strong>包住,Read Committed 或 Repeatable Read 足矣;涉及金额自增的地方用原子更新或乐观锁防 lost update。这是最简单、最该优先采用的路子——<em>能不分布式就不分布式</em>。</p>
+      <h3>② 夜间批量重算(高吞吐)→ 不要大事务,分批 + 幂等</h3>
+      <p>百万保单重定价绝不能塞进一个巨型事务(会长期持锁、撑爆 undo/版本)。做法是<strong>切成小批、每批一个短事务</strong>,配合版本号与幂等键,失败的批次可单独重跑——吞吐优先,牺牲「全局瞬时一致」,反正这是离线批处理(Day 17 细讲)。</p>
+      <h3>③ 跨服务投保流程(申请→核保→签发→收费)→ Saga(编排式)</h3>
+      <p>这条链跨了多个服务/库,且单步耗时长,正是 saga 的主场。用<strong>orchestration</strong> 让流程集中可观测、每步与补偿都进 audit log。收费失败就补偿撤销签发、释放核保占额、作废申请——对客户而言这单「没成」,但系统状态干净、且全程可追溯,满足合规。</p>
+    </div>
+    <p>一句话收口:<strong>事务策略不是全局选一个,而是逐条业务按「一致性要多强 / 能不能容忍中间状态 / 是实时还是批量」来配。</strong>这正是 Day 1 那句「没有最优解,只有约束下的取舍」在数据层的又一次现身。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>ACID 里 <strong>I 最微妙</strong>:隔离级别是「正确性 ↔ 并发性能」的旋钮。理解每一级<strong>放过哪种 anomaly</strong>,比背名字有用得多。</p></div>
+      <div class="tk"><span class="n">2</span><p>同名隔离级别<strong>各库实现不同</strong>;标准那张表还没列 <strong>lost update / write skew</strong>。「读-改-写」模式默认有风险,用原子更新或乐观锁。</p></div>
+      <div class="tk"><span class="n">3</span><p>跨库就没有免费的原子性。<strong>2PC</strong> 强一致但同步阻塞、协调者单点、可用性差,现代系统多半绕开。</p></div>
+      <div class="tk"><span class="n">4</span><p><strong>Saga</strong> = 一串本地事务 + 失败时反向补偿,换来高可用与最终一致;补偿要幂等、要留痕,天然契合寿险的 auditability。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">同一事务里两次读 <code class="inl">SELECT * FROM rates WHERE band='A'</code>,第二次多出了几行。这是哪种 anomaly?需要哪一级隔离才挡得住?</span></summary>
+        <div class="ans"><b>Phantom read(幻读)</b>:范围查询结果集的行数在事务内变了。SQL 标准里要到 <b>Serializable</b> 才保证挡住(注:InnoDB/PostgreSQL 的快照实现实际上在 Repeatable Read 就大体挡住了——以你用的库的文档为准)。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">为什么大多数 OLTP 系统不直接默认开 Serializable?</span></summary>
+        <div class="ans"><b>太慢。</b>Serializable 等价于让冲突事务串行执行(靠重锁或 SSI 的频繁重试),并发度和吞吐大幅下降。多数库默认 Read Committed,把更强的隔离留给确实需要的关键路径——又是一次 trade-off。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">投保 saga 走到「签发保单」成功、但「首期收费」失败。系统该怎么办?最终一致性体现在哪?</span></summary>
+        <div class="ans">触发<b>补偿事务</b>:撤销签发(写一条作废记录)、释放核保占额、作废申请,逐步回到「未承保」的一致状态。<b>最终一致</b>体现在:这中间存在一小段「保单已签发但还没收到费」的可见中间态,系统不保证它绝不出现,只保证<b>最终</b>会被补偿收敛到一致——代价换来了跨服务的高可用。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 里哪些操作<strong>绝对不能</strong>容忍中间状态可见、必须收进单库本地事务?哪些反而可以放心交给 saga?<br>② 「补偿事务」和「真正回滚」有什么本质区别?对寿险的 audit log 来说,前者其实是优点还是麻烦?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Transaction</dt><dd>一组被当作不可分割整体的读写,要么全提交、要么全回滚。</dd></dl>
+      <dl><dt>Isolation Level</dt><dd>并发事务之间互相「看见」彼此的程度,松紧可调。</dd></dl>
+      <dl><dt>Dirty Read</dt><dd>读到了其他事务尚未提交的数据。</dd></dl>
+      <dl><dt>Non-repeatable Read</dt><dd>同一事务内重读同一行,值被他人改变。</dd></dl>
+      <dl><dt>Phantom Read</dt><dd>同一事务内重跑范围查询,结果行数变化。</dd></dl>
+      <dl><dt>Lost Update</dt><dd>两个「读-改-写」并发,后写覆盖先写,一次更新丢失。</dd></dl>
+      <dl><dt>Write Skew</dt><dd>各自基于快照写入,合起来破坏跨行约束的隐蔽异常。</dd></dl>
+      <dl><dt>MVCC</dt><dd>多版本并发控制:读快照、不阻塞写,高并发的基石。</dd></dl>
+      <dl><dt>2PC</dt><dd>两阶段提交:协调者驱动的跨库原子提交,强一致但脆。</dd></dl>
+      <dl><dt>Saga</dt><dd>一串本地事务 + 失败时反向补偿,换最终一致与高可用。</dd></dl>
+      <dl><dt>Compensating Transaction</dt><dd>语义上撤销某已完成步骤的事务(常是反向记账而非删除)。</dd></dl>
+      <dl><dt>Orchestration / Choreography</dt><dd>saga 的两种编排:中心总指挥 vs 事件驱动的去中心协同。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 15 · 第 3 周开篇</div>
+      <div class="t">消息队列与异步处理:为什么要把服务「解耦」——生产者/消费者、削峰、解耦,以及它如何成为 saga 与事件驱动的底座</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天　·　Day 14 / 30　·　每天 08:00 自动生成<br>
+    案例:QuoteFlow(虚构寿险报价平台)
+  </footer>
+
+</div>
+</body>
+</html>
