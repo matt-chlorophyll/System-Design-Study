@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 15 · 消息队列与异步处理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:50.00%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 15 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 3 周 · 分布式与异步</span>
+    <h1>别让调用方干等<br>—— 消息队列与异步处理</h1>
+    <p class="lede">同步调用像打电话:对方不接,你就一直挂着。异步消息像发邮件:写完即走,对方有空再处理。今天讲清楚队列到底解耦了什么、换来什么、又埋了哪些坑——以及为什么寿险这种系统离不开它。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><path d="M12 8v4l2.5 2.5"/></svg>昨日回顾 · Day 14</div>
+    <ul>
+      <li>昨天讲 <strong>事务、隔离级别与 saga</strong>:单库靠 ACID 给你「全有或全无」;一旦业务跨服务/跨分区,2PC 强一致但同步阻塞、协调者单点;<strong>saga</strong> 改用「一串本地事务 + 失败补偿」,换来高可用,放弃的是「中间状态不可见」,给的是最终一致性。</li>
+      <li>那条 saga 链里有个没说破的前提:每一步「做完通知下一步」,靠什么传递?如果用同步 HTTP 直连,下游一挂、整条链就断。今天的主角——<strong>message queue</strong>——正是把这种「步骤间的传递」做成<em>可缓冲、可重试、可解耦</em>的基础设施。异步,是分布式系统的另一根主梁。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>说清 <strong>同步 vs 异步</strong> 调用的本质区别,以及「为什么要解耦」</li>
+      <li>掌握消息队列带来的四件好事:<strong>解耦、削峰、弹性(buffer)、容错重试</strong></li>
+      <li>分清两种基本投递模型:<strong>点对点队列(work queue)</strong> 与 <strong>发布订阅(pub/sub)</strong></li>
+      <li>认识队列的真实代价:最终一致、乱序、重复投递、<strong>背压与积压</strong>、调试更难</li>
+      <li>给 QuoteFlow 的核保、签发、夜间重算挑出该走异步的环节,并避开常见陷阱</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>问题从哪来</div>
+    <h2>同步调用把命运绑在了一起</h2>
+    <p>先看一个 QuoteFlow 里很自然、却很危险的写法。客户提交投保申请,<code class="inl">submit_application</code> 这个接口在<strong>一次 HTTP 请求里</strong>把所有事都做了:写申请、跑核保、发欢迎邮件、给再保系统推送、刷新分析看板。代码读起来很顺,但它有一个致命结构——<strong>这五件事被「同步」串成了一条命运共同体</strong>。</p>
+    <p>同步(synchronous)的意思是:调用方发出请求后<em>必须原地等着</em>,直到对方处理完、回了结果,才能继续。于是:</p>
+    <p><strong>① 延迟叠加。</strong>客户要等的不是「写申请」那几毫秒,而是这五步耗时之和——核保慢、邮件网关卡一下,客户就在转圈。<strong>② 故障传染。</strong>邮件服务挂了,整个投保接口跟着报错,连「申请已收到」都没能存下来。一个边角功能的抖动,拖垮了核心流程。<strong>③ 强耦合。</strong>每加一个下游(比如新接个反洗钱筛查),就要改这个接口、重新部署、重新测——发送方必须知道每一个接收方的存在。</p>
+    <p>核心洞察:<strong>很多下游工作,客户其实并不需要等。</strong>「申请已收到」这件事一旦落库,核保、邮件、再保推送完全可以<em>稍后再做</em>。把「接收」和「处理」在时间上拆开——这就是异步,而承载它的基础设施,就是消息队列。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>队列做了什么</div>
+    <h2>在发送方和接收方之间,插一个缓冲</h2>
+    <p>消息队列(message queue)是一个独立的中间件。发送方(<strong>producer</strong>)把一条消息丢进队列就立刻返回,不等任何人处理;接收方(<strong>consumer</strong>)按自己的节奏从队列里取消息来处理。两边<em>不再直接通话,而是通过队列这个「信箱」间接交流</em>。这一层间接,带来四件实打实的好处:</p>
+
+    <figure>
+      <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- producer -->
+        <rect x="20" y="112" width="150" height="64" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="95" y="140" font-size="14" font-weight="600" fill="#0f3d2e" text-anchor="middle">投保 API</text>
+        <text x="95" y="160" font-size="11.5" fill="#6a7872" text-anchor="middle">producer · 丢完就走</text>
+        <!-- queue -->
+        <rect x="262" y="104" width="196" height="80" rx="12" fill="#e8f6ef" stroke="#15a06a" stroke-width="1.5"/>
+        <text x="360" y="98" font-size="12.5" font-weight="700" fill="#0c7a50" text-anchor="middle">MESSAGE QUEUE</text>
+        <rect x="278" y="128" width="26" height="32" rx="4" fill="#fff" stroke="#46cf94"/>
+        <rect x="312" y="128" width="26" height="32" rx="4" fill="#fff" stroke="#46cf94"/>
+        <rect x="346" y="128" width="26" height="32" rx="4" fill="#fff" stroke="#46cf94"/>
+        <rect x="380" y="128" width="26" height="32" rx="4" fill="#fff" stroke="#46cf94"/>
+        <rect x="414" y="128" width="26" height="32" rx="4" fill="#cdeede" stroke="#46cf94"/>
+        <text x="360" y="176" font-size="11" fill="#0c7a50" text-anchor="middle">缓冲 · 持久化 · FIFO-ish</text>
+        <!-- consumers -->
+        <rect x="552" y="42" width="150" height="50" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="627" y="63" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">核保 worker</text>
+        <text x="627" y="80" font-size="11" fill="#6a7872" text-anchor="middle">consumer</text>
+        <rect x="552" y="125" width="150" height="50" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="627" y="146" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">邮件 worker</text>
+        <text x="627" y="163" font-size="11" fill="#6a7872" text-anchor="middle">consumer</text>
+        <rect x="552" y="208" width="150" height="50" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="627" y="229" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">再保推送 worker</text>
+        <text x="627" y="246" font-size="11" fill="#6a7872" text-anchor="middle">consumer</text>
+        <!-- arrows -->
+        <path d="M170 144 L258 144" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M458 138 C500 138 500 67 548 67" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M458 144 C505 144 505 150 548 150" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M458 150 C500 150 500 233 548 233" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="214" y="134" font-size="11" fill="#3d9c74" text-anchor="middle" font-style="italic">enqueue</text>
+        <text x="505" y="200" font-size="11" fill="#3d9c74" text-anchor="middle" font-style="italic">各取所需</text>
+      </svg>
+      <figcaption>图 1 · 队列把「接收」与「处理」在时间上解耦:producer 丢完即走,多个 consumer 按各自速度消费</figcaption>
+    </figure>
+
+    <p><strong>① 解耦(decoupling)</strong>:producer 只管「写一条消息」,根本不知道、也不关心有几个 consumer、它们是谁、在不在线。加一个新下游?让它来订阅队列就行,producer 一行代码都不用改。</p>
+    <p><strong>② 削峰填谷(load leveling)</strong>:早高峰投保请求暴涨,队列把瞬时洪峰<em>暂存</em>起来,consumer 仍按自己稳定的处理能力慢慢消化。系统按「平均负载」而非「峰值负载」来配置,省钱又稳。</p>
+    <p><strong>③ 弹性缓冲(buffering)</strong>:核保 worker 临时挂了 5 分钟?消息安全地堆在队列里,worker 恢复后继续消费,<em>一条不丢</em>。下游的短暂不可用,不再等于数据丢失。</p>
+    <p><strong>④ 容错与重试</strong>:某条消息处理失败,可以重新投递、稍后重试;反复失败的「毒消息」被移进<strong>死信队列(DLQ)</strong>单独排查,不阻塞后面的正常消息。(重试与 DLQ 是 Day 18 的主题,今天先建立印象。)</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>两种投递模型</div>
+    <h2>一条消息「一个人吃」还是「人手一份」</h2>
+    <p>用队列前要先想清一件事:这条消息是<strong>一份待办任务(只能有一个人处理)</strong>,还是<strong>一个已发生的事实(谁关心谁都该收到)</strong>?这对应两种根本不同的模型。</p>
+
+    <h3>点对点 / 工作队列(point-to-point / work queue)</h3>
+    <p>一条消息<em>只被一个 consumer 成功处理一次</em>。多个 worker 同时盯着同一个队列抢活,谁抢到谁干——这天然就是<strong>负载均衡 + 横向扩展</strong>:积压多了,多起几个 worker 就行。适合「任务分发」:一条「重算这张保单」的指令,只该被算一次。</p>
+
+    <h3>发布订阅(publish-subscribe / pub-sub)</h3>
+    <p>一条消息被<em>每一个订阅者各收到一份</em>。producer 发布一个「事实」,所有订阅了这个 topic 的下游各自拿到独立副本、各做各的。适合「事件广播」:一条「保单已签发」事件,计费要建账、邮件要发保单、分析要入仓、再保要上报——四个下游互不知情,各收一份。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%"></th><th>点对点队列</th><th>发布订阅</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">一条消息被谁消费</span></td><td>恰好一个 consumer</td><td>每个订阅者各一份</td></tr>
+          <tr><td><span class="lab">语义</span></td><td>一份<strong>待办任务</strong></td><td>一个<strong>已发生的事实</strong></td></tr>
+          <tr><td><span class="lab">多 consumer 的作用</span></td><td>分担负载、横向扩展</td><td>各自独立的下游反应</td></tr>
+          <tr><td><span class="lab">QuoteFlow 例子</span></td><td>「重算 pol_8f3a」交给某个 worker</td><td>「保单已签发」广播给计费/邮件/分析/再保</td></tr>
+          <tr><td><span class="lab">典型产品</span></td><td>RabbitMQ、SQS、Redis list</td><td>Kafka、SNS、RabbitMQ topic exchange</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 选错模型是常见 bug 来源:把「任务」当「事件」广播,会被重复执行;把「事件」塞进独占队列,下游就抢不全。明天(Day 16)会专门展开 pub/sub 与 Kafka 这类日志型系统。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>天下没有免费的异步</div>
+    <h2>队列换来的代价:三个必须正视的真相</h2>
+    <p>异步不是银弹。把同步改成异步,你其实是<strong>用一组新问题换掉了旧问题</strong>。不认清这些代价,队列会从「解药」变成「新的故障源」。</p>
+
+    <p><strong>真相一:最终一致 + 乱序。</strong>消息「丢进去就返回」,意味着客户拿到「申请已收到」时,核保<em>还没跑</em>。系统进入<strong>eventual consistency</strong>:状态会对,但不是此刻就对。UI 得诚实地显示「核保中…」,而不能假装已完成。更麻烦的是<strong>顺序</strong>:多 consumer 并行消费时,消息处理完成的顺序<em>不保证</em>等于发送顺序。如果「保单生效」和「保单取消」两条消息乱序处理,结果可能完全错。需要保序时,得靠分区键把同一保单的消息路由到同一个 consumer(Day 13 的分片思想在这里复用)。</p>
+
+    <p><strong>真相二:重复投递,至少一次。</strong>绝大多数主流队列给的是 <strong>at-least-once(至少一次)</strong> 保证——网络抖动、consumer 还没确认(ack)就崩了,同一条消息会被<em>再投一次</em>。所以 consumer 必须<strong>幂等(idempotent)</strong>:同一条消息处理两次,效果要和处理一次完全一样。对 QuoteFlow 这种受监管系统尤其要命:一条「计提首期保费」的消息被重复消费,就可能给客户<em>重复扣费</em>——这是合规事故。所谓「exactly-once」大多是「at-least-once + 幂等」拼出来的错觉(Day 18 会拆穿)。</p>
+
+    <p><strong>真相三:积压与背压。</strong>队列能缓冲洪峰,但缓冲不是无限的。如果 consumer 长期比 producer 慢,队列会越积越长——延迟飙升、内存/磁盘吃紧,最后崩溃。这叫<strong>积压(backlog)</strong>。健康的系统要监控「队列深度」和「消息年龄」,并有<strong>背压(backpressure)</strong>机制:让上游慢下来或拒绝新请求,而不是把下游压垮(Day 20 专门讲限流、熔断、背压)。还有个软成本:<strong>调试更难</strong>——一个请求的因果链断成了「发消息」和「处理消息」两段,跨进程追踪一次业务,需要靠 correlation id 把它们重新缝起来(Day 24 可观测性)。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>什么时候<em>不该</em>用队列</div>
+      <ul>
+        <li>调用方<strong>必须立刻拿到结果</strong>才能继续(如实时报价:客户在前端等那个保费数字,这条路径就该是同步、低延迟的)。</li>
+        <li>两步之间需要<strong>强一致、即时可见</strong>,且业务无法接受「稍后才对」。</li>
+        <li>规则很简单:<strong>客户要等的、要立刻看到的 → 同步;客户不必等的、可以稍后发生的 → 异步丢队列。</strong></li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>贯穿案例</div>
+    <h2>给 QuoteFlow 的投保流程「异步化」</h2>
+    <p>把第 1 节那个「同步五件事」的投保接口重构掉。原则:<strong>核心写入同步落库 → 立刻回客户 → 其余下游全部异步</strong>。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">同步只做一件事</h3>
+      <p>接口收到申请,<strong>只在事务里写入 applications 表</strong>(状态 = <code class="inl">RECEIVED</code>),然后发布一条 <code class="inl">application.submitted</code> 事件,<em>立刻</em>返回「已收到」。客户的等待从「五步之和」降到「一次写库」。</p>
+      <h3>下游各自异步消费</h3>
+      <p>核保 worker 收到事件 → 跑规则 + 风险评分 → 写回结果并发出 <code class="inl">underwriting.completed</code>;签发流程再据此推进。邮件、再保推送、分析入仓各自订阅、各做各的、互不阻塞。这正是 Day 14 那条 <strong>saga 链</strong>的载体——每一步靠消息触发下一步。</p>
+    </div>
+
+    <p>下面是核保 consumer 的伪代码,重点演示<strong>幂等</strong>和<strong>审计留痕</strong>——在寿险里这两点不是加分项,是底线。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">underwriting_consumer.py  ·  幂等 + 留痕的 consumer</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">handle</span>(msg):
+    app_id = msg[<span class="c-str">"application_id"</span>]
+    msg_id = msg[<span class="c-str">"message_id"</span>]      <span class="c-com"># 生产者给每条消息的稳定唯一 id</span>
+
+    <span class="c-com"># ① 幂等闸门:at-least-once 下同一条可能来两次</span>
+    <span class="c-key">if</span> processed_log.<span class="c-fn">exists</span>(msg_id):
+        <span class="c-fn">ack</span>(msg)                     <span class="c-com"># 见过了 → 直接确认,绝不重复核保</span>
+        <span class="c-key">return</span>
+
+    <span class="c-key">try</span>:
+        result = underwrite(app_id)   <span class="c-com"># 跑规则 + 风险评分</span>
+
+        <span class="c-key">with</span> db.<span class="c-fn">transaction</span>():     <span class="c-com"># 业务写 + 去重记录,同一事务里原子提交</span>
+            apps.<span class="c-fn">set_status</span>(app_id, result.status)
+            audit.<span class="c-fn">append</span>(app_id, result, rules=result.rules_applied)  <span class="c-com"># 可追溯</span>
+            processed_log.<span class="c-fn">add</span>(msg_id)
+
+        publish(<span class="c-str">"underwriting.completed"</span>, app_id)  <span class="c-com"># 触发 saga 下一步</span>
+        <span class="c-fn">ack</span>(msg)                     <span class="c-com"># 确认后,队列才删除这条消息</span>
+
+    <span class="c-key">except</span> TransientError:        <span class="c-com"># 临时故障 → 不 ack,稍后自动重投</span>
+        <span class="c-fn">nack</span>(msg, requeue=<span class="c-key">True</span>)
+    <span class="c-key">except</span> PoisonError:           <span class="c-com"># 反复失败的毒消息 → 进死信队列,别堵住后面</span>
+        <span class="c-fn">send_to_dlq</span>(msg)
+        <span class="c-fn">ack</span>(msg)
+</code></pre>
+    </div>
+    <p>三处设计值得记住:<strong>先查 <code class="inl">processed_log</code> 再处理</strong>(幂等闸门)、<strong>业务写与去重记录放进同一个事务</strong>(避免「处理了但没记上去重」的半成品)、<strong>处理成功才 ack</strong>(ack 之前崩了就重投,保证不丢)。而 <code class="inl">audit.append</code> 提醒我们:异步链路里,每一步的「为什么这么判」依然要留痕——队列没有豁免合规。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>同步把调用双方<strong>绑成命运共同体</strong>(延迟叠加、故障传染、强耦合);队列在中间插一层缓冲,<strong>把「接收」和「处理」在时间上拆开</strong>。</p></div>
+      <div class="tk"><span class="n">2</span><p>队列的四大红利:<strong>解耦、削峰、弹性缓冲、容错重试</strong>。判断法则:客户要等/要立刻看到 → 同步;客户不必等 → 异步。</p></div>
+      <div class="tk"><span class="n">3</span><p>先分清模型:一份<strong>任务</strong>用点对点队列(只被消费一次、可横向扩展);一个<strong>事实</strong>用 pub/sub(每个订阅者各一份)。选错就是 bug。</p></div>
+      <div class="tk"><span class="n">4</span><p>异步的代价要正视:<strong>最终一致 + 乱序、at-least-once 重复投递、积压与背压</strong>。consumer 必须<strong>幂等</strong>——对受监管的扣费/核保尤其是底线。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">QuoteFlow 的「实时报价」接口,适合改成异步丢队列吗?为什么?</span></summary>
+        <div class="ans"><b>不适合。</b>客户在前端<b>等着那个保费数字</b>才能继续,这是必须立刻返回结果的同步路径。异步只适合客户「不必等」的下游(发邮件、再保推送、入仓)。判断标准是「调用方需不需要原地等结果」。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">「保单已签发」要通知计费、邮件、分析、再保四个系统,该用点对点队列还是 pub/sub?</span></summary>
+        <div class="ans"><b>pub/sub(发布订阅)。</b>这是一个「已发生的事实」,四个下游都该<b>各收到一份独立副本</b>、各做各的。若用独占的点对点队列,一条消息只会被其中一个抢走,其余三个收不到。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">大多数队列只保证 at-least-once,这对 consumer 提出了什么硬性要求?在寿险里不满足会怎样?</span></summary>
+        <div class="ans"><b>consumer 必须幂等</b>:同一条消息处理两次,效果要等于处理一次。否则一条「计提首期保费」被重投,就会<b>重复扣费</b>——在受监管的寿险里属于合规事故。常见做法:用稳定的 message_id 做去重闸门,并把业务写与去重记录放进同一事务。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 夜间要批量重算<strong>百万级</strong> in-force 保单。如果把「重算每张保单」做成消息丢进点对点队列、起一批 worker 来消费——这个设计有什么好处?又会遇到哪些昨天/今天提到的坑(顺序、幂等、积压)?<br>② 「保单生效」和「保单取消」两条消息如果<strong>乱序</strong>被处理,会出什么事?你会怎么保证同一张保单的消息有序?(提示:回想 Day 13 的分区键)</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Message Queue</dt><dd>位于发送方与接收方之间的中间件,缓存消息、让两端异步、解耦地通信。</dd></dl>
+      <dl><dt>Synchronous / Asynchronous</dt><dd>同步:调用方原地等结果;异步:发出后即返回,处理稍后发生。</dd></dl>
+      <dl><dt>Producer / Consumer</dt><dd>生产者把消息写入队列;消费者从队列取出并处理。</dd></dl>
+      <dl><dt>Point-to-Point (Work Queue)</dt><dd>一条消息恰好被一个 consumer 处理一次,适合任务分发与横向扩展。</dd></dl>
+      <dl><dt>Publish-Subscribe</dt><dd>一条消息被每个订阅者各收到一份,适合广播「已发生的事件」。</dd></dl>
+      <dl><dt>Load Leveling (削峰填谷)</dt><dd>用队列暂存瞬时洪峰,让下游按稳定速率消费。</dd></dl>
+      <dl><dt>At-least-once</dt><dd>消息保证至少投递一次,可能重复;要求 consumer 幂等。</dd></dl>
+      <dl><dt>Idempotency (幂等)</dt><dd>同一操作执行多次与执行一次效果相同。</dd></dl>
+      <dl><dt>Backlog / Backpressure</dt><dd>积压:消费跟不上导致队列变长;背压:让上游减速以免压垮下游。</dd></dl>
+      <dl><dt>Dead Letter Queue (DLQ)</dt><dd>专门收纳反复处理失败的「毒消息」,便于单独排查、不阻塞主流程。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 16</div>
+      <div class="t">事件驱动架构、pub/sub 与 Kafka:把「队列」升级成「可重放的事件日志」,以及它如何重塑系统的沟通方式</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 15 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 17 · 批处理 vs 流处理与数据管道</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:56.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 17 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 3 周 · 分布式与异步</span>
+    <h1>攒一桶 vs 接一滴<br>—— 批处理、流处理与数据管道</h1>
+    <p class="lede">同一份数据，可以「等它攒满一整天再一次算完」，也可以「来一条算一条、永不停机」。这两种节奏背后，是延迟与吞吐的根本取舍。今天我们把 QuoteFlow 的夜间批量重定价拆开看，再问：哪些活该批、哪些活该流。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><path d="M12 8v4l2.5 2.5"/></svg>昨日回顾 · Day 16</div>
+    <ul>
+      <li>昨天把「消息」升级成 <strong>可重放的事件日志</strong>:Kafka 这类日志型系统消息<em>读完不删</em>,消费者各记各的 <strong>offset</strong>,靠 <strong>retention</strong> 决定留多久,从而解锁 <strong>replay(重放)</strong>——这对受监管系统是杀手级特性。核心零件是 <strong>topic / partition / offset / consumer group</strong>,关键保证是「<strong>同一 partition 内严格有序</strong>」。</li>
+      <li>事件日志天生是一份 <strong>audit trail</strong>:系统状态 = 把事件从头放一遍的结果(event sourcing)。今天我们就接着问:拿到这样一条事件流,到底该<strong>怎么处理</strong>它——是「攒一批一起算」,还是「来一条算一条」?这正是 batch 与 stream 的分水岭。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>用 <strong>bounded vs unbounded data(有界 / 无界数据)</strong>一刀分清 batch 与 stream 的本质</li>
+      <li>把 QuoteFlow 的<strong>夜间批量重定价</strong>当成一个完整 batch pipeline 拆开:抽取 → 计算 → 落库 → 上报</li>
+      <li>讲清数据管道两种装配顺序:<strong>ETL vs ELT</strong>,以及为什么云仓时代 ELT 越来越香</li>
+      <li>认识 stream processing 的关键难点:<strong>event time vs processing time、window、watermark、late data</strong></li>
+      <li>知道何时该上 <strong>micro-batch</strong>,以及 <strong>Lambda / Kappa</strong> 架构在解决什么矛盾</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>分水岭</div>
+    <h2>有界 vs 无界:一切的起点</h2>
+    <p>批处理和流处理最干净的区分,不是「快和慢」,而是<strong>数据有没有尽头</strong>。<strong>Batch(批处理)</strong>处理的是一份 <em>bounded(有界)</em>的数据集:它有明确的开始和结束——比如「6 月 16 日全部 in-force 保单」。你知道总量,可以等它<em>到齐</em>,一次性扫一遍算完,然后<strong>任务结束、进程退出</strong>。</p>
+    <p><strong>Stream(流处理)</strong>处理的是 <em>unbounded(无界)</em>的数据:事件一条接一条永远来,<strong>没有「到齐」这回事</strong>。所以流处理程序是一个<em>常驻、永不退出</em>的进程,来一条(或一小撮)就地处理、立刻产出结果,然后等下一条。它不能说「等全部数据来了再算」——因为永远等不到全部。</p>
+    <p>这个区别一旦看清,其他特性都是它的推论。Batch 因为能看到<em>全量</em>,适合做需要全局视野的重活(全表重算、复杂聚合、训练模型),代价是<strong>高延迟</strong>:结果要等整批跑完才有,通常以小时计。Stream 因为<em>来一条算一条</em>,能做到<strong>秒级甚至毫秒级延迟</strong>,代价是每条只能看到「眼前这点」上下文,做全局聚合要费很大劲(后面第 4 节会看到为什么)。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l2.5 6h6l-5 4 2 6-5.5-4-5.5 4 2-6-5-4h6z"/></svg>一个反直觉的统一视角</div>
+      <ul><li>其实 <strong>batch 只是 stream 的一个特例</strong>:把无限的流「切一段、规定它有头有尾」,就得到一个 batch。反过来,流处理就是「永不结束的 batch」。现代引擎(如 Flink、Spark Structured Streaming)正是用<strong>同一套</strong>编程模型同时表达两者——这也是为什么今天要把它们放一起讲。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>贯穿案例</div>
+    <h2>QuoteFlow 的夜间批量重定价,是一条 batch pipeline</h2>
+    <p>QuoteFlow 白天做的是<strong>实时报价</strong>(Day 2 那条 p99 &lt; 300ms 的路径)——但 in-force 保单的<strong>重定价 / 重估</strong>是另一回事。每晚维护窗口里,系统要把<em>上百万张</em>在保保单按新假设重算一遍:周年调整、CPI indexation、费率表换版、精算假设变更。这件事天然是 batch——它处理一份有界数据(「昨天收盘时的全部 in-force 保单」),要全局一致地算完,而且<strong>延迟不敏感、吞吐才是王道</strong>(只要在天亮前的窗口内跑完即可)。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow 夜间重定价 pipeline</span>
+      <p>把它拆成一条标准的数据管道,四个阶段首尾相接:</p>
+      <p><strong>① Extract(抽取)</strong>——从 in-force 保单库、版本化 rate table、核保规则、CPI 指数表里,圈定「这一批要算的快照」。这里<em>钉住版本</em>是合规命脉:整批必须基于<strong>同一组假设版本</strong>,绝不能算到一半费率表换了。</p>
+      <p><strong>② Transform / Compute(计算)</strong>——对每张保单套用定价模型,算出新保费、新准备金、周年变化。百万级 → 这步是并行分片的重头戏(把保单按 key 切成上千个 partition 并行算,正是 Day 13 分片思想的复用)。</p>
+      <p><strong>③ Load(落库)</strong>——把结果写回保单库 / billing,并<strong>原子地</strong>切换为新版本(要么整批生效,要么整批回滚——绝不能让一半客户拿新价、一半拿旧价)。</p>
+      <p><strong>④ Reconcile &amp; Report(对账 + 上报)</strong>——汇总给 reserving、再保上报、分析;留下完整 <strong>audit log</strong>:这批用了哪个假设版本、跑了哪些保单、每张的输入输出,<em>全部可复现</em>。</p>
+    </div>
+
+    <figure>
+      <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- sources -->
+        <text x="20" y="26" font-size="12" font-weight="700" fill="#0c7a50">数据源(钉住版本的快照)</text>
+        <rect x="20" y="36" width="150" height="30" rx="7" fill="#e8f6ef" stroke="#cfe9da"/><text x="95" y="56" font-size="11.5" fill="#0f3d2e" text-anchor="middle">in-force 保单库</text>
+        <rect x="20" y="72" width="150" height="30" rx="7" fill="#e8f6ef" stroke="#cfe9da"/><text x="95" y="92" font-size="11.5" fill="#0f3d2e" text-anchor="middle">rate table v2026-06</text>
+        <rect x="20" y="108" width="150" height="30" rx="7" fill="#e8f6ef" stroke="#cfe9da"/><text x="95" y="128" font-size="11.5" fill="#0f3d2e" text-anchor="middle">核保规则 / CPI</text>
+
+        <!-- stage 1 extract -->
+        <rect x="214" y="60" width="104" height="56" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="240" cy="78" r="11" fill="#15a06a"/><text x="240" y="82" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+        <text x="266" y="82" font-size="12.5" font-weight="600" fill="#0f3d2e">Extract</text>
+        <text x="234" y="104" font-size="10.5" fill="#6a7872">圈定批次快照</text>
+
+        <!-- stage 2 compute (parallel) -->
+        <rect x="356" y="34" width="120" height="24" rx="6" fill="#cdeede" stroke="#46cf94"/><text x="416" y="50" font-size="10.5" fill="#0c7a50" text-anchor="middle">worker · 分片 A</text>
+        <rect x="356" y="76" width="120" height="24" rx="6" fill="#cdeede" stroke="#46cf94"/><text x="416" y="92" font-size="10.5" fill="#0c7a50" text-anchor="middle">worker · 分片 B</text>
+        <rect x="356" y="118" width="120" height="24" rx="6" fill="#cdeede" stroke="#46cf94"/><text x="416" y="134" font-size="10.5" fill="#0c7a50" text-anchor="middle">worker · 分片 C</text>
+        <text x="416" y="160" font-size="10.5" fill="#6a7872" text-anchor="middle" font-style="italic">② 并行 Compute(高吞吐)</text>
+
+        <!-- stage 3 load -->
+        <rect x="512" y="60" width="104" height="56" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="538" cy="78" r="11" fill="#15a06a"/><text x="538" y="82" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+        <text x="564" y="82" font-size="12.5" font-weight="600" fill="#0f3d2e">Load</text>
+        <text x="528" y="104" font-size="10.5" fill="#6a7872">原子切版本</text>
+
+        <!-- stage 4 report -->
+        <rect x="512" y="150" width="188" height="44" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="538" cy="172" r="11" fill="#15a06a"/><text x="538" y="176" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+        <text x="556" y="168" font-size="12" font-weight="600" fill="#0f3d2e">Reconcile + Report</text>
+        <text x="556" y="184" font-size="10.5" fill="#6a7872">reserving · 再保 · audit log</text>
+
+        <!-- arrows -->
+        <path d="M170 88 L210 88" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M318 88 L352 46" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M318 88 L352 88" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M318 88 L352 130" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M476 46 L508 80" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M476 88 L508 88" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M476 130 L508 96" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M564 116 L564 148" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- audit note -->
+        <rect x="20" y="208" width="680" height="44" rx="10" fill="#fbf1da" stroke="#f1e0b8"/>
+        <text x="36" y="228" font-size="11.5" font-weight="700" fill="#7a5400">合规要点</text>
+        <text x="36" y="244" font-size="11.5" fill="#6b4e10">整批钉死同一组假设版本 · 失败可从 checkpoint 重跑且结果一致(幂等) · 每张保单输入输出留痕 → 任意一笔可回溯复现</text>
+      </svg>
+      <figcaption>图 1 · QuoteFlow 夜间重定价:一条经典的有界 batch pipeline。延迟不敏感、吞吐优先、强一致与可审计是它的一等需求。</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>管道的装配顺序</div>
+    <h2>ETL vs ELT:先变形还是先入库</h2>
+    <p>不管批还是流,数据从源头搬到目的地这条「管道」都有一个经典的字母游戏。<strong>ETL = Extract → Transform → Load</strong>:抽取出来,<em>先在管道里把数据清洗/变形好</em>,再把<strong>成品</strong>装进目标库。<strong>ELT = Extract → Load → Transform</strong>:先把<em>原始数据</em>原样灌进目标库(通常是强大的云数仓 / 数据湖),<strong>再在库里用 SQL 就地变形</strong>。</p>
+    <p>顺序换了一下,差别却很大。ETL 在云仓出现前是主流:目标库(传统数仓)又贵又弱,你不敢把脏数据全塞进去,只能在外面的 ETL 服务器先加工成干净的星型模型再入库——好处是入库即整洁、省存储,坏处是<em>变形逻辑写死在管道里</em>,想换个口径就得重跑整条管道,而且<strong>原始数据没留底</strong>。</p>
+    <p>ELT 是云数仓(Snowflake / BigQuery / Redshift 这类)带火的:存储便宜、算力可弹性扩,于是策略反过来——<strong>先无脑把原始数据全部入库留底</strong>,变形交给数仓内部的 SQL 按需做。好处是原始数据永远在、口径随时能改(改个 SQL 重算即可,呼应昨天 Kafka 的 replay 精神),坏处是库里堆着大量未清洗数据、治理要求更高。对 QuoteFlow 这种<strong>极重 auditability</strong> 的系统,「原始数据留底 + 变形可追溯重算」的 ELT 思路尤其契合合规诉求。</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:20%"></th><th>ETL(先变形)</th><th>ELT(先入库)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">变形发生在</span></td><td>管道里 / 独立计算层</td><td>目标库内部(SQL)</td></tr>
+          <tr><td><span class="lab">入库的是</span></td><td>清洗好的成品</td><td>原始数据(再就地加工)</td></tr>
+          <tr><td><span class="lab">原始数据</span></td><td>通常不留底</td><td><strong>完整留底,可重算</strong></td></tr>
+          <tr><td><span class="lab">改口径</span></td><td>改管道、重跑</td><td>改 SQL、重算即可</td></tr>
+          <tr><td><span class="lab">前提</span></td><td>目标库弱/贵,需先减负</td><td>云数仓:存储便宜、算力弹性</td></tr>
+          <tr><td><span class="lab">合规友好度</span></td><td>原始追溯较弱</td><td>留底 + 重算 → 审计友好</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 不是新旧之争:对 PII 敏感、必须在入库前脱敏的场景,ETL 仍有位置;但云时代默认 ELT 居多。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>流处理的真难点</div>
+    <h2>时间不是你以为的那个时间</h2>
+    <p>批处理为什么省心?因为数据<em>已经全到齐了</em>,你随便排序、随便聚合。流处理的痛,全来自「数据还在源源不断地来,而且会迟到、会乱序」。这里有一对<strong>必须分清</strong>的概念:</p>
+    <p><strong>Event time(事件时间)</strong>是这件事<em>真实发生</em>的时刻——比如某客户的保单 23:59:50 真正生效。<strong>Processing time(处理时间)</strong>是这条事件<em>被系统读到/算到</em>的时刻——可能因为网络、积压,到 00:00:30 才进到流处理引擎。两者几乎从不相等。如果你按「处理时间」分天,这笔本该算进 16 号的保单,就会被错误地算进 17 号——在受监管的定价里,这种<strong>归期错误</strong>可能直接导致对账和披露出问题。</p>
+    <p>因为流是无界的,「算 16 号这一天的总额」就不能傻等(永远等不完)。流处理用 <strong>window(窗口)</strong>把无界流切成有界小段来聚合(比如「按 event time 每 1 小时一个窗口」)。但难点来了:<strong>什么时候能宣布「这个窗口该收口出结果了」?</strong>万一还有迟到的数据呢?引擎用 <strong>watermark(水位线)</strong>来下注——它是一个「我赌 event time 小于 X 的数据都到齐了」的推进信号;水位线一过,窗口就触发计算。比水位线还晚来的,就是 <strong>late data(迟到数据)</strong>,要么丢弃、要么触发已闭合窗口的修正。这套机制,正是流处理比批处理难写一个量级的根源。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">stream · 按 event time 开窗(示意伪代码)</span></div>
+<pre><code><span class="c-com">// 一个永不结束的流处理任务:实时盯 broker 渠道的报价转化</span>
+<span class="c-key">stream</span>(<span class="c-str">"quote-events"</span>)
+  .<span class="c-fn">assignTimestamps</span>(e => e.<span class="c-fn">event_time</span>)            <span class="c-com">// ← 用事件时间,不是处理时间</span>
+  .<span class="c-fn">withWatermark</span>(lateness = <span class="c-num">5</span>.<span class="c-fn">minutes</span>)         <span class="c-com">// 容忍最多迟到 5 分钟</span>
+  .<span class="c-fn">keyBy</span>(e => e.<span class="c-fn">broker_id</span>)
+  .<span class="c-fn">window</span>(<span class="c-fn">Tumbling</span>(<span class="c-num">1</span>.<span class="c-fn">hour</span>))                 <span class="c-com">// 每个 broker、每小时一个窗口</span>
+  .<span class="c-fn">aggregate</span>(count_quotes, sum_bound)
+
+<span class="c-com">// watermark 推过 10:00 → 触发 09:00-10:00 窗口出结果</span>
+<span class="c-com">// 9:58 发生、但 10:03 才到的事件 = 迟到 5 分钟内 → 仍算进 9 点窗口</span>
+<span class="c-com">// 10:30 才到的同款事件 = 超过容忍 → late data,单独走修正/告警</span></code></pre>
+    </div>
+    <p>对比一下:同样「按小时统计 broker 转化」,batch 版本就是一句 <code class="inl">GROUP BY broker_id, hour</code> 跑在昨天的完整数据上——<em>因为数据已经全到齐,根本不需要 watermark 这套东西</em>。这就是延迟换简单性的代价。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>怎么选 + 混合架构</div>
+    <h2>该批、该流,还是两个都要</h2>
+    <p>选择其实回到 Day 2 的老朋友:<strong>你的延迟要求是什么</strong>。结果可以等到明天早上 → batch,简单、便宜、好审计。结果必须秒级出现(实时风控、欺诈拦截、实时大盘) → stream。中间还有个折中:<strong>micro-batch(微批)</strong>——每隔几秒攒一小撮一起算(Spark Structured Streaming 的经典做法),用「几秒延迟」换回「batch 的简单与高吞吐」,是工程上极常用的甜区。</p>
+    <p>当一个业务<em>既</em>要实时近似值、<em>又</em>要事后精确值时,就出现了两种著名的混合架构。<strong>Lambda 架构</strong>:同一份数据同时喂给一条 batch 层(慢但准、定期重算出权威结果)和一条 speed/stream 层(快但近似、补足实时性),查询时把两者合并——准是准,但<strong>同一套逻辑要用批和流各写一遍</strong>,维护翻倍。<strong>Kappa 架构</strong>(呼应昨天 Kafka 的 replay):干脆<em>只保留流这一条路</em>,需要「重算历史」时,就把事件日志的 offset 拨回去重放一遍——用一套代码搞定批与流,代价是对流引擎和日志保留能力要求很高。</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">维度</th><th>Batch</th><th>Stream</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">数据</span></td><td>bounded(有界、到齐)</td><td>unbounded(无界、持续)</td></tr>
+          <tr><td><span class="lab">延迟</span></td><td>高(分钟~小时)</td><td>低(毫秒~秒)</td></tr>
+          <tr><td><span class="lab">吞吐 / 成本</span></td><td>每条成本低、吞吐高</td><td>常驻进程、运维更贵</td></tr>
+          <tr><td><span class="lab">实现复杂度</span></td><td>低:数据全在,随便算</td><td>高:窗口/水位/迟到/状态</td></tr>
+          <tr><td><span class="lab">出错重跑</span></td><td>重跑整批,直观</td><td>靠 checkpoint + replay</td></tr>
+          <tr><td><span class="lab">QuoteFlow 落点</span></td><td>夜间重定价、reserving、月度对账</td><td>实时报价转化看板、欺诈/异常告警</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ QuoteFlow 现实里两者并存:重定价是 batch 的主场,而「broker 渠道实时转化监控、异常报价告警」更适合 stream。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>分水岭是<strong>有界 vs 无界</strong>:batch 等数据到齐再一次算完(高延迟、高吞吐、好审计);stream 来一条算一条(低延迟、复杂、常驻)。</p></div>
+      <div class="tk"><span class="n">2</span><p>QuoteFlow 夜间重定价是经典 batch:<strong>抽取(钉版本)→ 并行计算 → 原子落库 → 对账留痕</strong>,延迟不敏感、吞吐与可审计优先。</p></div>
+      <div class="tk"><span class="n">3</span><p>管道顺序看 <strong>ETL vs ELT</strong>:云数仓时代默认 ELT——<strong>先留底原始数据、再就地变形</strong>,口径可改、审计友好。</p></div>
+      <div class="tk"><span class="n">4</span><p>流处理的真难点是<strong>时间</strong>:分清 event time / processing time,用 <strong>window + watermark</strong> 处理乱序与迟到。batch 因数据到齐而不需要这套。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">「QuoteFlow 每晚把全部 in-force 保单按新费率重算一遍」—— 这更适合 batch 还是 stream?为什么?</span></summary>
+        <div class="ans"><b>Batch。</b>数据是<b>有界</b>的(「昨日收盘的全部保单」)、延迟不敏感(只要天亮前跑完)、需要全局一致并整批原子切版本。这些正是 batch 的主场;用 stream 反而把简单问题做复杂了。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">一笔保单 23:59:50 真实生效,但因积压到次日 00:00:30 才被处理。event time 与 processing time 分别是哪个?按哪个分天才对?</span></summary>
+        <div class="ans"><b>Event time = 23:59:50</b>(真实发生),<b>processing time = 00:00:30</b>(被算到)。该按 <b>event time</b> 归到 16 号;按处理时间会错误地算进 17 号,在受监管定价里可能引发对账/披露问题。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">ELT 相比 ETL,在「可审计 / 可复现」上有什么天然优势?</span></summary>
+        <div class="ans"><b>原始数据完整留底。</b>ELT 先把原始数据原样入库再就地变形,所以任何口径变化都能<b>改 SQL 重算</b>、且能回溯到最原始输入——这与昨天 Kafka 的 replay 精神一致,对 QuoteFlow 这种重 auditability 的系统尤其契合。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 夜间重定价跑到一半挂了(比如第 60 万张保单时崩溃),你希望它具备什么性质才能<strong>安全地重跑</strong>、而不会把已经算过的保单算两遍?(提示:这正好是<strong>明天</strong> idempotency 的核心。)<br>② 如果监管要求把「夜间重定价」从「T+1 出结果」改成「保单一变更就近实时重估」,你会从 batch 切到 stream 吗?这一改,会给一致性、成本、可审计性各带来什么新麻烦?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Batch Processing</dt><dd>对一份有界(已到齐)的数据集一次性扫描计算,任务有始有终。高延迟、高吞吐。</dd></dl>
+      <dl><dt>Stream Processing</dt><dd>对无界、持续到来的数据来一条(或一小撮)算一条,进程常驻不退出。低延迟。</dd></dl>
+      <dl><dt>Bounded / Unbounded Data</dt><dd>有界 = 有明确开始结束、可等到齐;无界 = 永远在来、没有「全部」。batch/stream 的根本分界。</dd></dl>
+      <dl><dt>ETL</dt><dd>Extract→Transform→Load:先在管道里变形,再把成品入库。</dd></dl>
+      <dl><dt>ELT</dt><dd>Extract→Load→Transform:先把原始数据入库留底,再在库内(SQL)就地变形。云数仓时代主流。</dd></dl>
+      <dl><dt>Event Time vs Processing Time</dt><dd>事件真实发生的时刻 vs 被系统处理到的时刻;乱序/迟到时两者不等,聚合应按 event time。</dd></dl>
+      <dl><dt>Window</dt><dd>把无界流切成有界小段来聚合的机制(如每小时滚动窗口 tumbling window)。</dd></dl>
+      <dl><dt>Watermark</dt><dd>流引擎对「event time ≤ X 的数据已基本到齐」的推进信号,用来决定窗口何时收口出结果。</dd></dl>
+      <dl><dt>Late Data</dt><dd>比 watermark 还晚到的数据;需丢弃或触发已闭合窗口的修正。</dd></dl>
+      <dl><dt>Micro-batch</dt><dd>每隔几秒攒一小撮一起算,用少量延迟换 batch 的简单与高吞吐。</dd></dl>
+      <dl><dt>Lambda / Kappa</dt><dd>混合架构:Lambda 同跑批+流两条路再合并;Kappa 只留流一条,靠 replay 重算历史。</dd></dl>
+      <dl><dt>Data Pipeline</dt><dd>把数据从源头搬运、变形、落到目的地的一连串处理阶段。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 18</div>
+      <div class="t">幂等、重试、死信队列与 exactly-once 的真相:批跑到一半崩了怎么安全重跑、消息为什么会重复、以及「恰好一次」到底是不是真的</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 17 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

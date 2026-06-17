@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 16 · 事件驱动架构与 Kafka</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:53.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 16 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 3 周 · 分布式与异步</span>
+    <h1>不止是信箱,而是一本账<br>—— 事件驱动架构与 Kafka</h1>
+    <p class="lede">传统队列像信箱:取走一封信,信箱里就空了。Kafka 像一本永不擦除的流水账:谁读到哪一行,自己记着;新来的人可以从第一行重读。今天我们把「消息」升级成「可重放的事件日志」,看它如何重塑系统沟通的方式——以及为什么这种「账本」思维,对寿险定价天生友好。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><path d="M12 8v4l2.5 2.5"/></svg>昨日回顾 · Day 15</div>
+    <ul>
+      <li>昨天讲 <strong>消息队列与异步</strong>:同步把调用双方绑成命运共同体(延迟叠加、故障传染、强耦合);队列在中间插一层缓冲,把「接收」和「处理」在时间上拆开。红利是<strong>解耦、削峰、弹性缓冲、容错重试</strong>;代价是<strong>最终一致、乱序、at-least-once 重复投递、积压与背压</strong>。</li>
+      <li>我们还分了两种投递模型:<strong>点对点队列</strong>(一份任务、只被消费一次)与 <strong>pub/sub</strong>(一个事实、每个订阅者各一份)。今天就从 pub/sub 往上走——当「发布事实」成为系统的<em>主要</em>沟通方式,架构形态会整个翻转;而把队列做成「<strong>可重放的日志</strong>」的代表,就是 <strong>Kafka</strong>。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>分清三个词:<strong>command(命令)/ event(事件)/ message(消息)</strong>,理解「事件驱动」到底翻转了什么</li>
+      <li>说清传统队列(消费即删)与 <strong>日志型系统(append-only log)</strong>的根本区别:<strong>offset、retention、replay</strong></li>
+      <li>掌握 Kafka 的核心零件:<strong>topic / partition / offset / consumer group</strong>,以及「分区内有序」这条关键保证</li>
+      <li>认识事件驱动的代价:<strong>无人显式拥有流程、最终一致、schema 演进、debug 更难</strong></li>
+      <li>给 QuoteFlow 设计一条事件流,并理解<strong>事件日志天生就是一份 audit trail</strong></li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>翻转控制权</div>
+    <h2>从「叫人做事」到「广播发生了什么」</h2>
+    <p>先把三个常被混用的词钉死。<strong>Command(命令)</strong>是「请你去做某事」——有明确的接收者、期待一个结果,比如 <code class="inl">重算保单 pol_8f3a</code>。<strong>Event(事件)</strong>是「某件事已经发生了」——用过去式陈述一个<em>事实</em>,发布者不关心谁会听、也不期待回应,比如 <code class="inl">PolicyIssued(pol_8f3a)</code>。<strong>Message(消息)</strong>是最中性的词:承载 command 或 event 的那个信封。命令是<em>祈使句</em>,事件是<em>陈述句</em>——这一字之差,决定了整个架构的耦合方向。</p>
+    <p>传统的「命令式」系统里,签发服务做完会<em>主动去调用</em>计费、邮件、再保——它必须知道每一个下游的存在,下游一变它就得改。<strong>事件驱动(event-driven)</strong>把箭头反过来:签发服务只往外喊一句「<code class="inl">保单已签发</code>」,然后<em>不管了</em>;谁关心这件事,谁自己来订阅、自己决定怎么反应。发布者对订阅者<strong>一无所知</strong>——这就是控制权的翻转。</p>
+    <p>好处很直接:加一个新下游(比如「保单签发后触发一次反洗钱复查」),<strong>核心服务一行都不用改、不用重新部署</strong>,新服务订阅那条事件就行。系统从一张「谁调用谁」的硬接线网,变成一块「事实广播 + 自由订阅」的公告板。代价我们第 4 节再算账。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>队列 vs 日志</div>
+    <h2>Kafka 新在哪:消息读完不删</h2>
+    <p>昨天的队列(RabbitMQ、SQS 这类)有个隐含动作:<strong>消息被成功消费、ack 之后,就从队列里删掉了</strong>。队列像信箱,信取走就没了;它关心的是「这件待办有没有人处理掉」。</p>
+    <p>Kafka 这类<strong>日志型(log-based)</strong>系统换了个根本模型:消息被<strong>追加</strong>到一个只增不改的有序日志(append-only log)末尾,<em>读取并不删除它</em>。每条消息有一个单调递增的序号——<strong>offset</strong>。消费者不是「取走」消息,而是<em>记住自己读到了第几号</em>(committed offset),下次从那儿往后接着读。消息留多久,由 <strong>retention(保留策略)</strong>决定——按时间(如 7 天)或按容量,而不是「读完即焚」。</p>
+    <p>这一个改动,解锁了队列做不到的几件事:</p>
+    <p><strong>① 多个独立消费者互不干扰。</strong>计费、分析、再保各自维护自己的 offset,在同一份日志上<em>各读各的进度</em>——这就是 pub/sub,但天然内建,无需把消息复制多份。<strong>② 可重放(replay)。</strong>分析系统改了算法、想重算过去 30 天?把自己的 offset 拨回去,<em>从头再读一遍</em>即可,源头日志原封不动。这对受监管系统是杀手级特性。<strong>③ 日志本身成了「事实的唯一真相源」。</strong>系统状态可以看作「把这串事件从头放一遍」的结果——这正是 <strong>event sourcing</strong> 的内核。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:24%"></th><th>传统队列(RabbitMQ/SQS)</th><th>日志型(Kafka)</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">消费后</span></td><td>消息被删除</td><td>消息保留,只移动 offset</td></tr>
+          <tr><td><span class="lab">消费进度由谁记</span></td><td>broker(队列删了就没了)</td><td>consumer 自己记 offset</td></tr>
+          <tr><td><span class="lab">能否重放历史</span></td><td>不能,读完即逝</td><td><strong>能</strong>,把 offset 拨回去重读</td></tr>
+          <tr><td><span class="lab">多下游各取一份</span></td><td>要复制成多个队列</td><td>天然支持,各维护各的 offset</td></tr>
+          <tr><td><span class="lab">心智模型</span></td><td>信箱:取走即空</td><td>账本:只追加、可回看</td></tr>
+          <tr><td><span class="lab">最擅长</span></td><td>任务分发、命令、即用即弃</td><td>事件流、审计、重放、流处理</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 不是谁取代谁:命令式「待办任务」用队列更顺手;「已发生的事实流」用日志更强。很多系统两者并用。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>核心零件</div>
+    <h2>Topic、Partition、Offset、Consumer Group</h2>
+    <p>Kafka 的扩展能力,全靠 <strong>partition(分区)</strong>这一招。一个 <strong>topic</strong>(比如 <code class="inl">policy-events</code>)在物理上被切成若干 partition,每个 partition 是一条<em>独立的、自带 offset 的有序日志</em>。消息按 <strong>partition key</strong>(比如 <code class="inl">policy_id</code>)做哈希,决定落到哪个 partition。这带来一条<strong>必须记牢</strong>的保证:</p>
+    <p><strong>Kafka 只保证「同一个 partition 内」严格有序,不保证跨 partition 的全局顺序。</strong>所以只要把<em>同一张保单</em>的所有事件用同一个 key 路由到同一个 partition,它们就一定按发生顺序被读到——这正好解决了昨天思考题里「保单生效 / 取消乱序」的隐患(Day 13 分片的分区键思想在这里复用)。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 318" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <text x="20" y="22" font-size="12.5" font-weight="700" fill="#0c7a50">TOPIC · policy-events</text>
+        <!-- partition 0 -->
+        <text x="20" y="58" font-size="11.5" fill="#6a7872">partition 0</text>
+        <g>
+          <rect x="92" y="42" width="40" height="30" rx="4" fill="#cdeede" stroke="#46cf94"/><text x="112" y="62" font-size="11" fill="#0c7a50" text-anchor="middle">0</text>
+          <rect x="134" y="42" width="40" height="30" rx="4" fill="#cdeede" stroke="#46cf94"/><text x="154" y="62" font-size="11" fill="#0c7a50" text-anchor="middle">1</text>
+          <rect x="176" y="42" width="40" height="30" rx="4" fill="#cdeede" stroke="#46cf94"/><text x="196" y="62" font-size="11" fill="#0c7a50" text-anchor="middle">2</text>
+          <rect x="218" y="42" width="40" height="30" rx="4" fill="#e8f6ef" stroke="#46cf94"/><text x="238" y="62" font-size="11" fill="#0c7a50" text-anchor="middle">3</text>
+          <rect x="260" y="42" width="40" height="30" rx="4" fill="#fff" stroke="#cfe9da" stroke-dasharray="3 3"/><text x="280" y="62" font-size="11" fill="#9bb3a8" text-anchor="middle">…</text>
+        </g>
+        <!-- partition 1 -->
+        <text x="20" y="106" font-size="11.5" fill="#6a7872">partition 1</text>
+        <g>
+          <rect x="92" y="90" width="40" height="30" rx="4" fill="#cdeede" stroke="#46cf94"/><text x="112" y="110" font-size="11" fill="#0c7a50" text-anchor="middle">0</text>
+          <rect x="134" y="90" width="40" height="30" rx="4" fill="#cdeede" stroke="#46cf94"/><text x="154" y="110" font-size="11" fill="#0c7a50" text-anchor="middle">1</text>
+          <rect x="176" y="90" width="40" height="30" rx="4" fill="#e8f6ef" stroke="#46cf94"/><text x="196" y="110" font-size="11" fill="#0c7a50" text-anchor="middle">2</text>
+          <rect x="218" y="90" width="40" height="30" rx="4" fill="#fff" stroke="#cfe9da" stroke-dasharray="3 3"/><text x="238" y="110" font-size="11" fill="#9bb3a8" text-anchor="middle">…</text>
+        </g>
+        <!-- partition 2 -->
+        <text x="20" y="154" font-size="11.5" fill="#6a7872">partition 2</text>
+        <g>
+          <rect x="92" y="138" width="40" height="30" rx="4" fill="#cdeede" stroke="#46cf94"/><text x="112" y="158" font-size="11" fill="#0c7a50" text-anchor="middle">0</text>
+          <rect x="134" y="138" width="40" height="30" rx="4" fill="#cdeede" stroke="#46cf94"/><text x="154" y="158" font-size="11" fill="#0c7a50" text-anchor="middle">1</text>
+          <rect x="176" y="138" width="40" height="30" rx="4" fill="#cdeede" stroke="#46cf94"/><text x="196" y="158" font-size="11" fill="#0c7a50" text-anchor="middle">2</text>
+          <rect x="218" y="138" width="40" height="30" rx="4" fill="#e8f6ef" stroke="#46cf94"/><text x="238" y="158" font-size="11" fill="#0c7a50" text-anchor="middle">3</text>
+          <rect x="260" y="138" width="40" height="30" rx="4" fill="#fff" stroke="#cfe9da" stroke-dasharray="3 3"/><text x="280" y="158" font-size="11" fill="#9bb3a8" text-anchor="middle">…</text>
+        </g>
+        <text x="92" y="186" font-size="10.5" fill="#9bb3a8" font-style="italic">← 只追加(append-only),数字 = offset</text>
+        <!-- consumer groups -->
+        <rect x="372" y="46" width="148" height="56" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="446" y="70" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">计费 group</text>
+        <text x="446" y="88" font-size="10.5" fill="#6a7872" text-anchor="middle">offset: p0=3 p1=2 p2=3</text>
+        <rect x="372" y="118" width="148" height="56" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="446" y="142" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">分析 group</text>
+        <text x="446" y="160" font-size="10.5" fill="#6a7872" text-anchor="middle">offset: p0=1 p1=0 p2=2</text>
+        <text x="446" y="198" font-size="10.5" fill="#3d9c74" text-anchor="middle" font-style="italic">各组独立记进度,各读各的</text>
+        <!-- group internal workers -->
+        <rect x="560" y="40" width="140" height="68" rx="11" fill="#f3fbf6" stroke="#cfe9da"/>
+        <text x="630" y="60" font-size="11.5" font-weight="700" fill="#0c7a50" text-anchor="middle">计费 group 内部</text>
+        <rect x="572" y="70" width="56" height="26" rx="6" fill="#fff" stroke="#46cf94"/><text x="600" y="87" font-size="10" fill="#0c7a50" text-anchor="middle">worker A</text>
+        <rect x="634" y="70" width="56" height="26" rx="6" fill="#fff" stroke="#46cf94"/><text x="662" y="87" font-size="10" fill="#0c7a50" text-anchor="middle">worker B</text>
+        <text x="630" y="128" font-size="10" fill="#6a7872" text-anchor="middle">每个 partition 只给组内一个 worker</text>
+        <!-- arrows -->
+        <path d="M306 100 L368 78" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+        <path d="M306 110 L368 142" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+        <path d="M520 74 L556 74" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+      </svg>
+      <figcaption>图 1 · 一个 topic 切成多个 partition;每个 consumer group 独立记 offset;组内每个 partition 只分给一个 worker(这就是 group 内的横向扩展上限 = partition 数)</figcaption>
+    </figure>
+
+    <p>最后两个零件:<strong>consumer group(消费组)</strong>把 pub/sub 和负载均衡<em>合二为一</em>。同一个 group 内,每个 partition 只会分给<em>一个</em> worker——组内是「分担负载」(点对点的效果),所以一个 group 的并行度上限就是 partition 数。而<em>不同</em> group 之间互不影响、各读全量——这是「广播」(pub/sub 的效果)。于是「计费组」「分析组」各自拿到完整事件流,组<em>内部</em>又能多起 worker 分摊。一套机制,同时给了你昨天讲的两种模型。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>没有免费的事件</div>
+    <h2>事件驱动的代价:认清再上车</h2>
+    <p>事件驱动很优雅,但它把复杂度从「代码里显式的调用链」转移到了「散落各处的隐式反应」。不正视这些,系统会变成谁也说不清的「事件意大利面」。</p>
+    <p><strong>① 没有人「拥有」整个流程。</strong>命令式代码里,一个函数从头到尾写明了业务流程,读代码就懂。事件驱动里,「投保 → 核保 → 签发 → 计费」这条链被拆成 N 个互不知情的订阅者,<em>整条流程不写在任何一个地方</em>。要搞懂全貌,得把所有订阅关系拼起来。好处是松耦合,代价是「全局意图」变隐形。</p>
+    <p><strong>② 最终一致,且更难追踪。</strong>事件异步流动,各下游状态在不同时刻才追上(eventual consistency,昨天讲过)。更棘手的是<strong>调试</strong>:一笔业务横跨多个服务、由一串事件串起,要靠 <code class="inl">correlation_id</code> 把碎片缝回一条链(Day 24 可观测性会专门讲分布式追踪)。</p>
+    <p><strong>③ Schema 演进是真问题。</strong>事件一旦发布、还会被<em>长期保留和重放</em>,它的格式就成了服务之间的长期契约。今天加个字段、明天删个字段,可能让一年前的老消费者在重放时崩掉。需要 <strong>schema registry</strong> 和「向前/向后兼容」的纪律(回看 Day 5 API 版本化——这里是同一道题的事件版)。还有老朋友:<strong>at-least-once 依然成立,consumer 仍要幂等</strong>。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>什么时候该选事件驱动 / 日志</div>
+      <ul>
+        <li><strong>该用:</strong>一个事实有<em>多个互不相关</em>的下游反应;需要<em>重放历史</em>(回填、改算法重算、灾后重建);需要<em>不可篡改的事件留痕</em>做审计;要做流处理(Day 17)。</li>
+        <li><strong>别硬上:</strong>只是「A 调一下 B、要立即拿结果」的简单同步请求(直接 API 调用更清楚);团队还没有可观测性与 schema 治理能力时,事件驱动的隐式复杂度会反噬。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>贯穿案例</div>
+    <h2>QuoteFlow 的事件流:日志即审计账本</h2>
+    <p>把 QuoteFlow 的核心生命周期改造成一条事件流。一个 topic <code class="inl">policy-events</code>,用 <code class="inl">policy_id</code> 做 partition key(保证同一保单严格有序),所有状态变化都作为<em>不可变事件</em>追加进去。多个 consumer group 各取所需:</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">一条事件,各方自取</h3>
+      <p>签发服务发布 <code class="inl">PolicyIssued</code>;<strong>计费 group</strong> 建立首期账单、<strong>邮件 group</strong> 发保单文件、<strong>分析 group</strong> 入数仓、<strong>再保 group</strong> 生成上报——四个组互不知情、各记各的 offset。新增一个「合规归档」下游?它订阅同一 topic 即可,签发服务零改动。</p>
+      <h3>日志 = 天生的 audit trail</h3>
+      <p>这是寿险定价最受用的一点:<code class="inl">policy-events</code> 这本只追加、不可改、有序、可重放的日志,<strong>本身就是一份完整的审计轨迹</strong>——每张保单「为什么在某时刻变成这样」,顺着事件从头放一遍就能<em>精确复现</em>。reproducibility / traceability 不再是事后补的日志表,而是架构的副产品。</p>
+    </div>
+
+    <p>下面是一个事件的 schema 与计费 consumer 的骨架,重点看<strong>版本化字段</strong>(schema 演进)、<strong>按 offset 消费</strong>与<strong>幂等</strong>:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">policy_events.py  ·  事件 schema + 日志型 consumer</span></div>
+<pre><code><span class="c-com"># ── 一条事件:过去式命名,陈述「已发生的事实」 ──</span>
+event = {
+    <span class="c-str">"event_type"</span>: <span class="c-str">"PolicyIssued"</span>,
+    <span class="c-str">"schema_version"</span>: <span class="c-num">2</span>,            <span class="c-com"># ← 事件会被长期保留+重放,版本化是底线</span>
+    <span class="c-str">"event_id"</span>: <span class="c-str">"evt_5c1a..."</span>,        <span class="c-com"># 稳定唯一 id → 幂等去重用</span>
+    <span class="c-str">"policy_id"</span>: <span class="c-str">"pol_8f3a"</span>,         <span class="c-com"># ← partition key:同一保单进同一 partition → 有序</span>
+    <span class="c-str">"rate_table_version"</span>: <span class="c-str">"2026-06"</span>,   <span class="c-com"># 复现定价所需:钉住版本</span>
+    <span class="c-str">"occurred_at"</span>: <span class="c-str">"2026-06-16T08:00:12Z"</span>,
+    <span class="c-str">"correlation_id"</span>: <span class="c-str">"req_7b2..."</span>     <span class="c-com"># 跨服务把因果链缝回去</span>
+}
+
+<span class="c-key">def</span> <span class="c-fn">consume_billing</span>(partition, offset, event):
+    <span class="c-com"># 同一组内,这个 partition 只分给我一个 worker → 分区内严格有序</span>
+    <span class="c-key">if</span> processed.<span class="c-fn">exists</span>(event[<span class="c-str">"event_id"</span>]):   <span class="c-com"># at-least-once → 仍需幂等</span>
+        commit_offset(partition, offset)            <span class="c-key">return</span>
+
+    <span class="c-key">with</span> db.<span class="c-fn">transaction</span>():
+        billing.<span class="c-fn">open_invoice</span>(event[<span class="c-str">"policy_id"</span>])
+        processed.<span class="c-fn">add</span>(event[<span class="c-str">"event_id"</span>])
+        commit_offset(partition, offset)            <span class="c-com"># 记进度,不删消息 → 别人/将来可重放</span>
+
+<span class="c-com"># 想重算过去 30 天的账?把分析组 offset 拨回去,从头重读即可,</span>
+<span class="c-com"># 源头日志原封不动 —— 这就是 replay,受监管系统的杀手锏。</span>
+</code></pre>
+    </div>
+    <p>对比昨天的队列 consumer:核心差别是<strong>「commit offset」取代了「ack 删除」</strong>——消息留在日志里,所以才有了重放与多组独立消费。而 <code class="inl">schema_version</code>、<code class="inl">rate_table_version</code>、<code class="inl">correlation_id</code> 这几个字段,是把<em>可演进、可复现、可追踪</em>这三件 non-functional 需求焊进事件本身。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>Command</strong>是「请去做」(有接收者、期待结果),<strong>event</strong>是「已发生」(陈述事实、不管谁听)。事件驱动把箭头反过来:<strong>发布者对订阅者一无所知</strong>,加下游不改核心。</p></div>
+      <div class="tk"><span class="n">2</span><p>队列「消费即删」,日志(Kafka)「读完不删、只移 offset」。后者解锁<strong>多消费者独立读、可重放、日志即真相源</strong>三件大事。</p></div>
+      <div class="tk"><span class="n">3</span><p>Kafka 靠 <strong>partition</strong> 扩展:只保证<strong>分区内有序</strong>,用 partition key(如 policy_id)把同一实体路由到同一分区即可保序。<strong>consumer group</strong> 一招同时给你负载均衡 + 广播。</p></div>
+      <div class="tk"><span class="n">4</span><p>代价:<strong>没人拥有整条流程、最终一致更难调、schema 演进是长期契约</strong>;幂等依旧是底线。但对寿险,<strong>事件日志天生就是 audit trail</strong>——审计与复现成了架构副产品。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw"><code class="inl">重算保单 pol_8f3a</code> 和 <code class="inl">PolicyIssued(pol_8f3a)</code>,哪个是 command、哪个是 event?差别为什么重要?</span></summary>
+        <div class="ans">前者是 <b>command</b>(祈使句:请去做某事,有接收者、期待结果);后者是 <b>event</b>(陈述句:某事已发生,发布者不关心谁听)。差别决定耦合方向:命令式里发送方必须知道接收方;事件式里<b>发布者对订阅者一无所知</b>,加下游不用改核心服务。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">Kafka 与传统队列最根本的区别是什么?它因此多了哪个杀手级能力?</span></summary>
+        <div class="ans"><b>消费后不删消息</b>:Kafka 把消息追加进只增的日志,consumer 只移动自己的 <b>offset</b>,消息按 retention 保留。因此多了 <b>replay(重放)</b>——把 offset 拨回去就能从头重读历史,源头日志不变。这对回填、改算法重算、审计复现极其关键。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">Kafka 说「有序」,到底是哪个范围的有序?怎样保证同一张保单的事件不乱序?</span></summary>
+        <div class="ans">只保证 <b>同一个 partition 内</b>严格有序,<b>不保证跨 partition 的全局顺序</b>。做法:用 <b>policy_id 作 partition key</b>,同一保单的所有事件哈希到同一 partition,就一定按发生顺序被读到。这正好解决昨天「保单生效/取消乱序」的隐患。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 如果把 <code class="inl">policy-events</code> 这本事件日志当作 QuoteFlow 的<strong>审计真相源</strong>(event sourcing),相比「在 SQL 里维护一张保单当前状态表 + 另写一张 audit log」,各有什么取舍?监管复现一笔历史报价时,哪种更靠得住?<br>② QuoteFlow 想把 partition 数从 6 加到 12 来提高并行度。对「同一保单事件有序」这条保证会发生什么?(提示:哈希到 partition 的映射变了)这暗示了什么运维难点?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Event-Driven Architecture</dt><dd>组件通过发布/订阅「已发生的事实」来协作,发布者不知道订阅者是谁。</dd></dl>
+      <dl><dt>Command vs Event</dt><dd>命令=请去做某事(有接收者、期待结果);事件=某事已发生(陈述事实、不管谁听)。</dd></dl>
+      <dl><dt>Log-based / Append-only Log</dt><dd>消息只追加到有序日志末尾,读取不删除,按 retention 保留。</dd></dl>
+      <dl><dt>Offset</dt><dd>日志中每条消息的单调递增序号;consumer 记住自己读到第几号。</dd></dl>
+      <dl><dt>Topic / Partition</dt><dd>topic 是事件的逻辑分类;partition 是把它切成的若干条独立有序日志,扩展与有序的基本单位。</dd></dl>
+      <dl><dt>Consumer Group</dt><dd>组内分担负载(每 partition 只给一个 worker),组间各读全量(广播)。</dd></dl>
+      <dl><dt>Replay</dt><dd>把 offset 拨回历史位置重新消费,源头日志不变;用于回填、重算、复现。</dd></dl>
+      <dl><dt>Event Sourcing</dt><dd>把「事件日志」当作系统状态的唯一真相源,状态=从头重放事件的结果。</dd></dl>
+      <dl><dt>Schema Registry</dt><dd>集中管理事件格式与版本,保证向前/向后兼容,支撑事件长期保留与重放。</dd></dl>
+      <dl><dt>Retention</dt><dd>日志保留策略,按时间或容量决定消息留多久,而非读完即删。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 17</div>
+      <div class="t">批处理 vs 流处理与数据管道(ETL/ELT):同一条事件流,既能实时消费、也能攒成批量——QuoteFlow 夜间百万保单重定价的核心就在这里</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 16 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
