@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 18 · 幂等、重试、死信队列与 exactly-once 的真相</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:60.00%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 18 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 3 周 · 分布式与异步</span>
+    <h1>同一件事做了两遍<br>—— 幂等、重试与 exactly-once 的真相</h1>
+    <p class="lede">在分布式系统里，「这条消息到底处理过没有」往往是个无解的问题。于是工程师不去消灭重复，而是让重复变得无害。今天我们把幂等、重试、死信队列串成一条防线，并戳破「恰好一次」这个最常被误解的承诺。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><path d="M12 8v4l2.5 2.5"/></svg>昨日回顾 · Day 17</div>
+    <ul>
+      <li>昨天用<strong>有界 vs 无界</strong>分清了 batch 与 stream:夜间重定价是经典 batch——<em>抽取(钉版本)→ 并行计算 → 原子落库 → 对账留痕</em>。我们在思考题里留了一个钩子:<strong>跑到第 60 万张保单时崩了，怎么安全重跑而不把已算过的保单算两遍?</strong></li>
+      <li>那个钩子的答案，就是今天的主角:<strong>幂等(idempotency)</strong>。无论 batch 重跑、消息重投、还是用户狂点「提交」，让「重复执行」和「执行一次」产生<em>相同的最终状态</em>——这是分布式系统里把不确定性驯服成确定性的核心手艺。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>理解为什么在分布式系统里 <strong>重复不可避免</strong>:网络的「两将军困境」与 at-least-once 的代价</li>
+      <li>掌握 <strong>idempotency(幂等)</strong> 的精确定义，以及用 <strong>idempotency key + 去重表</strong> 实现它</li>
+      <li>把重试做对:<strong>retry + exponential backoff + jitter</strong>，以及如何避免 <strong>retry storm(重试风暴)</strong></li>
+      <li>认识 <strong>DLQ(死信队列)</strong>:毒丸消息(poison message)的隔离区与人工兜底</li>
+      <li>看穿 <strong>exactly-once</strong> 的真相:它不是「只投一次」，而是 <strong>at-least-once 投递 + 幂等消费 = effectively-once</strong></li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>问题的根源</div>
+    <h2>为什么「到底处理了没」是个无解问题</h2>
+    <p>想象 QuoteFlow 的报价服务，调用下游的<strong>支付服务</strong>给一笔新保单收首期保费。请求发出去了，然后……<em>超时了</em>。现在客户端面对一个残酷的事实:它<strong>无法分辨</strong>到底是哪种情况——是请求根本没送到(下游没收钱)，还是下游收了钱、只是<em>返回的应答在半路丢了</em>?这两种情况，从发送方看<strong>长得一模一样</strong>。</p>
+    <p>这就是经典的<strong>「两将军困境」(Two Generals' Problem)</strong>:在一个会丢包的网络里，发送方永远无法 100% 确认接收方是否收到了消息。没有任何重试次数、任何 ack 协议能彻底消除这个不确定性——这是被证明了的。所以分布式系统的设计者<strong>不去追求「确认」，而是接受这个事实并绕过它</strong>。</p>
+    <p>面对超时，系统通常只有两种选择，各有代价:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">投递语义</th><th>做法</th><th>风险</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">At-most-once<br>(至多一次)</span></td><td>发一次，超时<strong>不重试</strong></td><td>可能<strong>丢</strong>:这笔保费根本没收到，无人察觉</td></tr>
+          <tr><td><span class="lab">At-least-once<br>(至少一次)</span></td><td>超时就<strong>重试</strong>，直到拿到 ack</td><td>可能<strong>重</strong>:万一下游其实成功了，就<strong>收了两次钱</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 鱼与熊掌:要么冒「丢」的险，要么冒「重」的险。绝大多数系统选 at-least-once——因为「重」可以靠下一节的幂等消化掉，而「丢」往往无法挽回。</p>
+    <p>结论很关键:<strong>几乎所有可靠的消息系统(Kafka、SQS、RabbitMQ)默认都是 at-least-once</strong>，宁可重发也不丢。代价就是<em>消费端必然会见到重复</em>。既然重复无法在投递层消灭，那就把它推到处理层——让「处理两遍」和「处理一遍」结果一样。这就是幂等。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>核心武器</div>
+    <h2>幂等:把「重复」变得无害</h2>
+    <p><strong>幂等(idempotent)</strong>的定义很简练:<em>一个操作执行一次和执行多次，对系统状态产生的效果相同</em>。数学里 <code class="inl">abs(abs(x)) = abs(x)</code> 就是幂等。在系统里，「把保单 P 的状态设为 ACTIVE」是幂等的(设几次都一样);而「给账户余额 +100」<strong>不是</strong>幂等的(做两次就多扣/多记一次)。</p>
+    <p>回到昨天的钩子:夜间重定价跑到第 60 万张崩了。如果「写入新保费」这一步设计成<strong>覆盖式写入</strong>(<code class="inl">SET premium = 算出的值 WHERE policy_id = X</code>)，那么重跑时即便前 60 万张被再算一遍，结果也<em>原样覆盖</em>，最终状态不变——这就是幂等让重跑变安全。反之，若那步是「在流水表里 <em>插入</em>一条调整记录」，重跑就会插两条，账就错了。<strong>设计写操作时主动把它做成幂等，是分布式可靠性的第一性原则。</strong></p>
+
+    <h3>HTTP 方法的幂等性(Day 5 的回声)</h3>
+    <p>这也是为什么 <code class="inl">GET / PUT / DELETE</code> 被定义为幂等，而 <code class="inl">POST</code> 不是。<code class="inl">PUT /policies/123 {status: ACTIVE}</code> 重发几次都是同一个状态;但 <code class="inl">POST /quotes</code> 每次都<em>新建</em>一条报价——重发就会冒出多条。所以但凡可能产生副作用又可能被重试的 POST,都需要额外的去重机制。</p>
+
+    <h3>Idempotency key:给每个意图发一张身份证</h3>
+    <p>业界标准做法(Stripe 等支付 API 都这么做):客户端为<em>每一次业务意图</em>生成一个唯一的 <strong>idempotency key</strong>(比如一个 UUID)，放在请求头里。服务端维护一张<strong>去重表</strong>:第一次见到这个 key，正常处理并把「key → 结果」存下来;之后再见到<em>同一个 key</em>，<strong>不重新执行</strong>，直接把上次存的结果原样返回。这样，无论客户端因超时重试了多少遍，真正的副作用<em>只发生一次</em>。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow 首期保费扣款</span>
+      <p>客户在 App 上点「确认投保」，前端为这次操作生成 <code class="inl">idem_key = "pay_a7f3..."</code>。网络抖动，前端没收到应答，<strong>自动重试了 3 次</strong>，带着<em>同一个</em> key。支付服务第一次扣款成功、记下 <code class="inl">pay_a7f3 → {charged: 5820, txn: t_99}</code>;后面 3 次请求一进来就命中去重表，<strong>直接返回那条已有结果</strong>——客户只被扣了一次，前端也拿到了确定的成功应答。审计日志里这笔扣款只有一条，traceable 且金额无误。</p>
+    </div>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">payment-service · 用 idempotency key 去重(示意伪代码)</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">charge_premium</span>(idem_key, policy_id, amount):
+    <span class="c-com"># ① 先查去重表:这个意图以前处理过吗?</span>
+    existing = <span class="c-fn">db_get</span>(<span class="c-str">"idempotency"</span>, idem_key)
+    <span class="c-key">if</span> existing:
+        <span class="c-key">return</span> existing.result          <span class="c-com"># 命中 → 直接还回旧结果,不再扣款</span>
+
+    <span class="c-com"># ② 在一个事务里:既扣款,又登记 key(两者要么都成,要么都不成)</span>
+    <span class="c-key">with</span> <span class="c-fn">db_transaction</span>():
+        txn = <span class="c-fn">do_charge</span>(policy_id, amount)        <span class="c-com"># 真正的副作用,只此一次</span>
+        <span class="c-fn">db_put</span>(<span class="c-str">"idempotency"</span>, idem_key, {
+            <span class="c-str">"result"</span>: { <span class="c-str">"txn"</span>: txn.id, <span class="c-str">"charged"</span>: amount },
+            <span class="c-str">"created_at"</span>: <span class="c-fn">now</span>()
+        })                                  <span class="c-com"># 把 key 与结果一并落库(同一事务!)</span>
+    <span class="c-key">return</span> { <span class="c-str">"txn"</span>: txn.id, <span class="c-str">"charged"</span>: amount }
+
+<span class="c-com"># 关键:扣款 + 写 key 必须在同一事务里原子提交,</span>
+<span class="c-com"># 否则「扣了款但没记下 key」时,重试会再扣一次 —— 破功。</span></code></pre>
+    </div>
+    <p>两个常被忽略的细节:其一，<strong>登记 key 和真正的副作用必须原子</strong>(同一个事务，或借助 Day 17 提过的 outbox 思路)，否则「做了但没记下」的窗口会让幂等失效。其二，去重表不能无限长，要给 key 设 <strong>TTL</strong>(比如保留 24 小时)——这是<em>用存储成本换防重窗口</em>的取舍。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>重试的艺术</div>
+    <h2>重试是把双刃剑:用错了会引爆系统</h2>
+    <p>既然选了 at-least-once，重试就是家常便饭。但「失败就立刻重试」是新手最危险的写法。设想下游支付服务因为过载开始变慢，于是所有调用方<em>同时</em>超时、<em>同时</em>立刻重发——本就喘不过气的下游瞬间被<strong>双倍流量</strong>砸中，更慢，触发更多超时，更多重试……这就是 <strong>retry storm(重试风暴)</strong> / cascading failure,一个小抖动被重试放大成全面雪崩。</p>
+    <p>做对重试有三件套:</p>
+    <p><strong>① Exponential backoff(指数退避)</strong>——每次重试的等待间隔<em>翻倍</em>:1s、2s、4s、8s……给下游喘息和恢复的时间，而不是火上浇油。<br>
+    <strong>② Jitter(抖动)</strong>——在退避时间上加一点随机扰动。否则一千个客户端会在<em>同一秒</em>整齐划一地重试(thundering herd / 惊群)，退避也救不了。加了 jitter，重试被打散在时间轴上，下游负载平滑。<br>
+    <strong>③ 重试上限 + 只重试该重的</strong>——设最大重试次数，超了就放弃(进下一节的 DLQ);并且<strong>只对可重试错误重试</strong>:<code class="inl">503 / 超时 / 网络抖动</code>这类<em>瞬时(transient)</em>错误值得重试，而 <code class="inl">400 参数非法 / 401 鉴权失败</code>这类<em>永久</em>错误重试一万次也是错，只会白白浪费资源。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">client · 指数退避 + 抖动(示意伪代码)</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">call_with_retry</span>(request, max_attempts=<span class="c-num">5</span>):
+    <span class="c-key">for</span> attempt <span class="c-key">in</span> <span class="c-fn">range</span>(max_attempts):
+        resp = <span class="c-fn">send</span>(request)                    <span class="c-com"># 带同一个 idempotency key 重发,才安全</span>
+        <span class="c-key">if</span> resp.ok:
+            <span class="c-key">return</span> resp
+        <span class="c-key">if</span> <span class="c-key">not</span> <span class="c-fn">is_retryable</span>(resp):           <span class="c-com"># 400/401 永久错误 → 立刻放弃,别空转</span>
+            <span class="c-key">raise</span> <span class="c-fn">PermanentError</span>(resp)
+
+        base = <span class="c-num">2</span> ** attempt               <span class="c-com"># 指数退避: 1, 2, 4, 8, 16 秒</span>
+        wait = base + <span class="c-fn">random</span>(<span class="c-num">0</span>, base)     <span class="c-com"># + jitter 抖动,打散惊群</span>
+        <span class="c-fn">sleep</span>(wait)
+
+    <span class="c-fn">send_to_dlq</span>(request)                   <span class="c-com"># 重试耗尽 → 进死信队列,等人工/补偿</span>
+    <span class="c-key">raise</span> <span class="c-fn">RetriesExhausted</span>()</code></pre>
+    </div>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>重试与幂等是绑定出现的</div>
+      <ul><li>注意上面每次重发都带<em>同一个 idempotency key</em>。<strong>重试和幂等必须成对使用</strong>:没有幂等的重试，等于主动制造重复副作用;有了幂等，重试才是安全的。明天的 <strong>circuit breaker(熔断器)</strong>会再加一层保护——下游连续失败时干脆<em>停止重试</em>一段时间，从根上掐断重试风暴。(这正是 Day 20「限流、熔断、背压」的内容。)</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>兜底防线</div>
+    <h2>死信队列:毒丸消息的隔离区</h2>
+    <p>有些消息无论重试多少次都会失败:格式损坏、引用了一个早已不存在的保单、触发了某个永远过不去的 bug。这种叫 <strong>poison message(毒丸消息)</strong>。如果放任它卡在队列头反复重试，它会<em>堵住后面所有正常消息</em>——一颗毒丸毒死整条队列。</p>
+    <p><strong>DLQ(Dead Letter Queue，死信队列)</strong>就是它的隔离区:当一条消息重试达到上限仍失败，系统不再死磕，而是把它<strong>移到一个专门的队列</strong>搁置起来，主队列继续处理后面的消息、不受拖累。DLQ 里的消息<em>不会丢</em>，而是等待人工检查、修复后重新投递(replay)，或触发告警。它把「自动重试解决不了的问题」<strong>从快速失败路径里隔离出来，交给慢速的人工/补偿流程</strong>，既保住了吞吐，又不丢数据。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 286" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ar" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#d39a3a"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- producer -->
+        <rect x="20" y="96" width="120" height="48" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="80" y="116" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">报价服务</text>
+        <text x="80" y="133" font-size="10.5" fill="#6a7872" text-anchor="middle">producer</text>
+
+        <!-- main queue -->
+        <rect x="180" y="92" width="150" height="56" rx="12" fill="#e8f6ef" stroke="#cfe9da"/>
+        <text x="255" y="114" font-size="12.5" font-weight="600" fill="#0c7a50" text-anchor="middle">主队列</text>
+        <text x="255" y="132" font-size="10.5" fill="#6a7872" text-anchor="middle">premium-charges</text>
+
+        <!-- consumer -->
+        <rect x="372" y="92" width="150" height="56" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="447" y="110" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">扣款 consumer</text>
+        <text x="447" y="128" font-size="10.5" fill="#6a7872" text-anchor="middle">幂等处理 · 失败则重试</text>
+        <text x="447" y="142" font-size="10" fill="#6a7872" text-anchor="middle">退避 + jitter,上限 5 次</text>
+
+        <!-- success -->
+        <rect x="566" y="36" width="134" height="46" rx="12" fill="#e8f6f0" stroke="#cdeadd"/>
+        <text x="633" y="56" font-size="12" font-weight="600" fill="#1a7f5a" text-anchor="middle">扣款成功</text>
+        <text x="633" y="72" font-size="10" fill="#6a7872" text-anchor="middle">ack,留痕审计</text>
+
+        <!-- DLQ -->
+        <rect x="566" y="160" width="134" height="56" rx="12" fill="#fbf1da" stroke="#f1e0b8"/>
+        <text x="633" y="182" font-size="12.5" font-weight="700" fill="#7a5400" text-anchor="middle">死信队列 DLQ</text>
+        <text x="633" y="199" font-size="10" fill="#6b4e10" text-anchor="middle">毒丸消息隔离</text>
+        <text x="633" y="211" font-size="10" fill="#6b4e10" text-anchor="middle">告警 → 人工排查</text>
+
+        <!-- arrows -->
+        <path d="M140 120 L176 120" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M330 120 L368 120" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M522 104 L562 70" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M522 138 L562 178" stroke="#d39a3a" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+        <text x="556" y="158" font-size="10" fill="#a06d1e" text-anchor="end" font-style="italic">重试耗尽</text>
+
+        <!-- replay loop -->
+        <path d="M566 200 C420 250 300 230 255 152" stroke="#d39a3a" stroke-width="1.6" stroke-dasharray="5 4" fill="none" marker-end="url(#ar)"/>
+        <text x="360" y="246" font-size="10.5" fill="#a06d1e" text-anchor="middle" font-style="italic">修复后重投(replay)回主队列重处理</text>
+      </svg>
+      <figcaption>图 1 · 一条带 DLQ 的可靠处理链:消费失败先有限次重试(退避+抖动);仍失败则进 DLQ 隔离，主队列继续不被毒丸堵住。修好后可重放回主队列。</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>戳破神话</div>
+    <h2>exactly-once 的真相:它不是你以为的那个意思</h2>
+    <p>「Exactly-once(恰好一次)」是分布式系统里最性感、也最被误解的词。很多人以为它意味着「消息在网络上只传一次、绝不重复」。<strong>那是不可能的</strong>——第 1 节的两将军困境已经判了死刑:只要网络会丢包，发送方就无法保证「只投一次」既不丢又不重。</p>
+    <p>真相是:<strong>exactly-once 描述的不是「投递」，而是「效果」。</strong>它的正确名字应该叫 <strong>effectively-once(效果上恰好一次)</strong>，实现公式是:</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>把它刻进脑子的一句话</div>
+      <ul><li><strong>at-least-once 投递(允许重复)　+　幂等消费 / 去重(消化重复)　=　effectively-once 效果</strong>。底层照样可能投递好几遍，但因为消费端用 idempotency key 或去重逻辑把重复吃掉了，<em>对最终状态而言，就好像只发生了一次</em>。这才是工程上能落地的「恰好一次」。</li></ul>
+    </div>
+    <p>那 Kafka 等系统宣传的「exactly-once semantics(EOS)」是骗人的吗?不是，但要看清它的<strong>边界</strong>:Kafka 的 EOS 通过<em>幂等 producer + 事务</em>，能在「<strong>Kafka 读 → 处理 → 写回 Kafka</strong>」这条<em>闭环内部</em>做到精确一次。可一旦你的副作用<strong>跨出</strong>了这个边界——比如要给外部支付网关扣款、给第三方发邮件、写一个非事务的数据库——Kafka 的事务<em>管不到外面</em>，你仍然必须自己在那一侧用 idempotency key 去重。<strong>没有银弹:跨系统的「恰好一次」，最终都要落到「幂等」这块基石上。</strong></p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:26%">说法</th><th>真实含义</th><th>对 QuoteFlow 怎么用</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">"只投一次"</span></td><td>网络层做不到，是<strong>误解</strong></td><td>别指望它，按「会重复」来设计</td></tr>
+          <tr><td><span class="lab">at-least-once</span></td><td>可靠投递的现实默认:宁重勿丢</td><td>消息/重试的底座，搭配幂等</td></tr>
+          <tr><td><span class="lab">effectively-once</span></td><td>at-least-once + 幂等去重的<strong>效果</strong></td><td>扣款、签发只发生一次的真正实现</td></tr>
+          <tr><td><span class="lab">Kafka EOS</span></td><td>仅在「Kafka→处理→Kafka」闭环内成立</td><td>跨出去调支付仍需自己幂等</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 对一个受监管的扣款/签发系统，「只收一次钱、只签一次保单」不是靠某个神奇开关，而是靠你在每个有副作用的边界上亲手放一个 idempotency key。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>网络的<strong>两将军困境</strong>让「到底处理没」无解，于是可靠系统默认 <strong>at-least-once</strong>:宁可重复，绝不丢失。</p></div>
+      <div class="tk"><span class="n">2</span><p>消化重复的武器是<strong>幂等</strong>:执行一次和多次效果相同。用 <strong>idempotency key + 去重表</strong>，让有副作用的操作只真正发生一次。</p></div>
+      <div class="tk"><span class="n">3</span><p>重试要配 <strong>指数退避 + jitter + 上限</strong>，且只重试瞬时错误，否则会引爆 <strong>retry storm</strong>;重试耗尽的消息进 <strong>DLQ</strong> 隔离待人工。</p></div>
+      <div class="tk"><span class="n">4</span><p><strong>exactly-once 是个效果不是投递</strong>:at-least-once + 幂等 = effectively-once。跨系统的「恰好一次」终究落在幂等上，没有银弹。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">客户端调支付服务扣款，超时了。为什么它<strong>无法</strong>判断到底扣没扣成?这叫什么问题?</span></summary>
+        <div class="ans"><b>两将军困境(Two Generals' Problem)。</b>「请求没送到」和「下游成功了但应答丢在回程」从发送方看完全一样。会丢包的网络里，发送方无法 100% 确认接收方是否收到——这是被证明无解的，所以系统不追求确认，而是用幂等绕过它。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">「给账户余额 +100」和「把保单状态设为 ACTIVE」，哪个天然幂等?对不幂等的那个，重试前你会怎么改造?</span></summary>
+        <div class="ans"><b>「设为 ACTIVE」幂等</b>(设几次都一样);<b>「+100」不幂等</b>(做两次多记一次)。改造:给这次扣款/记账分配一个 <b>idempotency key</b>，服务端用去重表保证同一 key 只真正执行一次，重试只取回旧结果。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">有人说「我们用了 Kafka 的 exactly-once，所以调外部支付网关绝不会重复扣款」。哪里错了?</span></summary>
+        <div class="ans"><b>边界错了。</b>Kafka 的 EOS 只在「Kafka 读→处理→写回 Kafka」的闭环内成立。一旦副作用跨出去(调外部支付网关)，Kafka 事务就管不到了——那一侧仍可能重复，必须<b>自己在支付调用上放 idempotency key</b>去重。跨系统的恰好一次，终归要靠幂等。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 的夜间重定价想做到「跑到一半崩了能安全重跑」。除了把写操作做成覆盖式(幂等)，你还会引入什么机制来记录「已经算到哪了」，让重跑只补未完成的部分?(提示:checkpoint。)这跟给每张保单发 idempotency key，是同一招的两种粒度吗?<br>② idempotency key 的去重表要设 TTL(比如 24 小时)。如果一个客户端在 TTL <em>过期之后</em>用同一个 key 重试，会发生什么?把 TTL 设太短和设太长，分别有什么风险?在受监管的扣款场景你会怎么权衡?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Idempotency</dt><dd>一个操作执行一次与执行多次，对系统最终状态的效果相同。消化重复的核心性质。</dd></dl>
+      <dl><dt>Idempotency Key</dt><dd>客户端为每次业务意图生成的唯一标识，服务端据此去重，保证同一意图的副作用只真正发生一次。</dd></dl>
+      <dl><dt>Two Generals' Problem</dt><dd>会丢包的网络里，发送方无法 100% 确认接收方是否收到消息——被证明无解，是重复不可避免的根源。</dd></dl>
+      <dl><dt>At-least-once</dt><dd>投递语义:超时就重试，保证不丢，但可能重复。可靠消息系统的现实默认。</dd></dl>
+      <dl><dt>At-most-once</dt><dd>投递语义:发一次不重试,不会重复,但可能丢失。</dd></dl>
+      <dl><dt>Exponential Backoff</dt><dd>重试间隔逐次翻倍(1s→2s→4s…)，给下游恢复时间，避免火上浇油。</dd></dl>
+      <dl><dt>Jitter</dt><dd>在退避时间上加随机扰动，打散同时重试的「惊群」，让下游负载平滑。</dd></dl>
+      <dl><dt>Retry Storm</dt><dd>大量调用方同时超时同时重试，把小抖动放大成雪崩(cascading failure)。</dd></dl>
+      <dl><dt>Poison Message</dt><dd>无论重试多少次都会失败的消息(损坏/永久错误)，会堵塞队列。</dd></dl>
+      <dl><dt>Dead Letter Queue (DLQ)</dt><dd>毒丸消息的隔离队列:重试耗尽后移入，不丢、不堵主队列，待人工排查或修复后重放。</dd></dl>
+      <dl><dt>Effectively-once</dt><dd>at-least-once 投递 + 幂等去重得到的效果:底层可能多次，最终状态如同一次。即可落地的「exactly-once」。</dd></dl>
+      <dl><dt>Exactly-once Semantics (EOS)</dt><dd>如 Kafka 提供:仅在「读→处理→写回同一系统」的闭环内成立;跨出边界仍需自行幂等。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 19</div>
+      <div class="t">共识与协调:Raft 概念级、leader election、etcd —— 当一组节点必须就「谁说了算、值是多少」达成一致时，它们到底怎么投票、怎么选主、怎么在故障中不分裂</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 18 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
