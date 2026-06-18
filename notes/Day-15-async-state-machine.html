@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 15 补充 · 异步到底怎么实现 + 状态机</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6; --card:#ffffff; --ink:#0f3d2e; --body:#3a463f; --muted:#6a7872;
+    --accent:#15a06a; --accent-ink:#0c7a50; --accent-soft:#e8f6ef;
+    --border:#e3ebe6; --border-soft:#eef3f0;
+    --code-bg:#0f3d2e; --code-ink:#e6f1ec;
+    --amber:#8a5a00; --amber-soft:#fbf1da;
+    --radius:16px; --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--font);font-size:16.5px;line-height:1.72;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:860px;margin:0 auto;padding:42px 22px 90px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:31px;line-height:1.2;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:18px 0 10px;}
+  .lede{font-size:17px;color:var(--muted);margin:0 0 26px;}
+  h2{font-size:22px;color:var(--ink);font-weight:700;margin:40px 0 12px;letter-spacing:-.01em;}
+  h3{font-size:16.5px;color:var(--ink);font-weight:600;margin:24px 0 8px;}
+  p{margin:0 0 14px;}
+  strong{color:var(--ink);font-weight:600;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+  figure{margin:24px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px 18px 12px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:10px;}
+  .step{display:flex;gap:13px;margin:14px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;box-shadow:var(--shadow);}
+  .step .n{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:27px;height:27px;border-radius:8px;background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-top:2px;}
+  .step p{margin:0;font-size:15px;}
+  .callout{background:#eef9f3;border:1px solid #cfe7da;border-left:4px solid var(--accent);border-radius:var(--radius-sm);padding:15px 18px;margin:20px 0;font-size:15px;}
+  .callout .ct{font-weight:700;color:var(--ink);margin-bottom:6px;font-size:14.5px;}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:14px 17px;margin:20px 0;font-size:15px;color:#6b4e10;}
+  .think b{color:#7a5400;}
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:18px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:10px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:16px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;}
+  .formula{background:var(--code-bg);color:var(--code-ink);font-family:var(--mono);font-size:15px;text-align:center;padding:17px;border-radius:var(--radius-sm);margin:18px 0;letter-spacing:.02em;}
+  .formula .hi{color:#ffd479;} .formula .sm{display:block;font-size:12.5px;color:#7fae97;margin-top:7px;letter-spacing:0;}
+  .tablewrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin:20px 0;}
+  table{width:100%;border-collapse:collapse;font-size:14.5px;}
+  th,td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--border-soft);vertical-align:top;}
+  tr:last-child td{border-bottom:none;}
+  th{color:var(--ink);font-weight:600;background:var(--accent-soft);font-size:13.5px;}
+  td:first-child{white-space:nowrap;font-weight:600;color:var(--accent-ink);}
+  footer{text-align:center;margin-top:46px;padding-top:20px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <span class="eyebrow"><span class="dot"></span>Day 15 补充 · 讨论整理</span>
+  <h1>异步到底是怎么“实现”的 —— 从事件循环到状态机</h1>
+  <p class="lede">概念上的异步（丢消息、立刻返回“已收到”）你已经清楚了。这篇补的是<strong>机器层面到底怎么做到的</strong>：一台机器“等”的时候凭什么能不傻等？一堆活又是怎么分给 worker、靠什么知道哪条该重发？以及把这一切串起来的那个反复出现的词——<strong>状态机</strong>。</p>
+
+  <div class="callout">
+    <div class="ct">先把问题拆成两个尺度（混在一起才觉得说不清）</div>
+    <strong>① 单机尺度：</strong>一台机器在等一件事（比如等网络返回）时，怎么能不阻塞、转头干别的、还知道好了之后接哪一步？<br>
+    <strong>② 跨机尺度：</strong>消息队列在机器层面到底是什么？它怎么把活分给一堆 worker、怎么靠状态知道哪条消息要重发？<br>
+    两个尺度机制<em>完全不同</em>，但共享同一个内核 ↓
+  </div>
+
+  <div class="formula">
+    异步 = 在<span class="hi">「等待」</span>期间不阻塞 ＋ 在事情<span class="hi">「就绪」</span>时被叫回来
+    <span class="sm">同步 = 线程卡住、CPU 空转、啥也不干，直到答案来</span>
+  </div>
+
+  <h2>一、单机：事件循环 + 操作系统的“就绪通知”</h2>
+  <p>直觉里你可能以为机器是不停去查“好了没？好了没？”——这叫 <strong>polling（轮询）</strong>，恰恰是<em>错的</em>实现，因为它还在烧 CPU 空转。真实机制更聪明：<strong>等待这件事，机器交给了操作系统/硬件，自己不盯着。</strong></p>
+
+  <div class="step"><span class="n">1</span><p>发起一个网络请求时，程序把它<strong>交给内核</strong>，说一句“这事好了叫我”，然后<em>立刻返回去干别的活</em>。</p></div>
+  <div class="step"><span class="n">2</span><p>数据真回来时，是<strong>网卡用硬件中断（interrupt）信号 CPU</strong>——“这条 I/O 就绪了”。全程没有人在 busy-poll。</p></div>
+  <div class="step"><span class="n">3</span><p>程序里有一个 <strong>event loop（事件循环）</strong>：一个线程不停转圈——“问内核：我挂着的那些事，现在哪些就绪了？就绪的，挨个执行它<em>事先登记好的</em>后续动作。”底层就是 Linux 的 <code class="inl">epoll</code> / Mac 的 <code class="inl">kqueue</code>；Node.js、Python asyncio、nginx 全是这套。</p></div>
+
+  <figure>
+    <svg viewBox="0 0 860 270" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+      <defs>
+        <marker id="a1" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c97a16"/></marker>
+      </defs>
+      <!-- 同步 -->
+      <text x="20" y="40" font-size="13" font-weight="700" fill="#b45309">同步 · 阻塞：CPU 空转干等</text>
+      <rect x="20" y="52" width="120" height="30" rx="5" fill="#15a06a"/><text x="80" y="72" font-size="11.5" fill="#fff" text-anchor="middle">任务 A 算</text>
+      <rect x="140" y="52" width="380" height="30" rx="5" fill="#f0e0c0" stroke="#e8a24a" stroke-dasharray="4 3"/><text x="330" y="72" font-size="11.5" fill="#8a5a00" text-anchor="middle">等 I/O（线程卡死·CPU 闲置·什么都做不了）</text>
+      <rect x="520" y="52" width="120" height="30" rx="5" fill="#15a06a"/><text x="580" y="72" font-size="11.5" fill="#fff" text-anchor="middle">接着算 A</text>
+      <text x="660" y="72" font-size="11" fill="#b45309">→ 时间全浪费在干等</text>
+
+      <!-- 异步 -->
+      <text x="20" y="132" font-size="13" font-weight="700" fill="#0c7a50">异步 · 事件循环：等待期间去干别的</text>
+      <rect x="20" y="144" width="100" height="30" rx="5" fill="#15a06a"/><text x="70" y="164" font-size="11.5" fill="#fff" text-anchor="middle">A 发起 I/O</text>
+      <rect x="122" y="144" width="96" height="30" rx="5" fill="#1f9e6e"/><text x="170" y="164" font-size="11.5" fill="#fff" text-anchor="middle">去算任务 B</text>
+      <rect x="220" y="144" width="96" height="30" rx="5" fill="#1f9e6e"/><text x="268" y="164" font-size="11.5" fill="#fff" text-anchor="middle">去算任务 C</text>
+      <rect x="520" y="144" width="150" height="30" rx="5" fill="#15a06a"/><text x="595" y="164" font-size="11.5" fill="#fff" text-anchor="middle">回到 A 的后续</text>
+
+      <!-- I/O 交给内核 + 中断回来 -->
+      <text x="170" y="206" font-size="10.5" fill="#6a7872" text-anchor="middle">A 的 I/O 托管给内核 →</text>
+      <line x1="100" y1="159" x2="100" y2="232" stroke="#cfe3d8" stroke-dasharray="3 3"/>
+      <rect x="120" y="218" width="430" height="26" rx="5" fill="#fbf1da" stroke="#f1e0b8"/><text x="335" y="235" font-size="11" fill="#8a5a00" text-anchor="middle">内核替你等这条 I/O（网卡就绪 → 硬件中断）</text>
+      <path d="M545 231 L518 175" stroke="#c97a16" stroke-width="1.8" fill="none" marker-end="url(#a1)"/>
+      <text x="600" y="208" font-size="10.5" fill="#c97a16">就绪中断 → 事件循环触发登记好的 continuation</text>
+    </svg>
+    <figcaption>图 1 · 同步把线程卡在“等 I/O”上空转；异步把等待托管给内核，期间去跑别的任务，I/O 就绪时由中断把控制权拉回“事先登记好的后续”。</figcaption>
+  </figure>
+
+  <h3>“机器怎么知道下一步该做什么”——关键就在这</h3>
+  <p>它<strong>不是</strong>读一个 status 字段然后猜。而是——你在发起任务时，<em>顺手把“完成后该干嘛”一起登记了进去</em>：一个 callback 回调；在 <code class="inl">async/await</code> 写法里，这个“后续”就是函数里 <code class="inl">await</code> 之后的剩余代码，术语叫 <strong>continuation</strong>。status 翻成“就绪”时，event loop 就触发那个<em>早已绑定好的后续</em>。下一步是<strong>预先挂好的，不是临场推断的</strong>。</p>
+
+  <div class="code">
+    <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">continuation：await 之后的代码 = 登记好的“下一步”</span></div>
+<pre><code><span class="c-com"># 同步：线程卡在这一行干等，CPU 空转</span>
+data = db.<span class="c-fn">query</span>(...)        <span class="c-com"># ← 阻塞，直到结果回来才往下走</span>
+<span class="c-fn">process</span>(data)
+
+<span class="c-com"># 异步：发起后立刻交还控制权，去跑别的；就绪了再回到这儿</span>
+<span class="c-key">async def</span> <span class="c-fn">handle</span>():
+    data = <span class="c-key">await</span> db.<span class="c-fn">query</span>(...)   <span class="c-com"># ← await 之后的所有代码 = continuation</span>
+    <span class="c-fn">process</span>(data)              <span class="c-com"># event loop 在 I/O 就绪时,才回来跑这一行</span></code></pre>
+  </div>
+
+  <div class="callout">
+    <div class="ct">另一条单机路线：多线程</div>
+    OS 给你好几个<strong>线程</strong>，线程 A 卡住等待时，<strong>OS 调度器</strong>直接把 CPU 切给线程 B 跑——“转头干别的”是 OS 替你做的。event loop 是更省的版本，省掉了线程切换/内存的开销，所以能用一个线程扛上万个并发连接。两者都在解同一个问题：<em>别让 CPU 在等待里空转</em>。
+  </div>
+
+  <h2>二、跨机：消息队列（broker）内部到底是什么</h2>
+  <p>把神秘感去掉一句话：<strong>broker（队列服务）本质就是一个常驻的服务器进程，里面维护一个“持久化的、有序的列表”，外加每条消息的一本账。</strong>它把消息写到磁盘 / 多副本存储，所以宕机也不丢。参与者都是<em>各自独立、长期运行的进程</em>：</p>
+
+  <div class="step"><span class="n">P</span><p><strong>Producer</strong>：调用 broker（一次 RPC/HTTP）说“把这条消息存进去” → broker 追加到列表尾部。它通常是<em>server 侧的后端服务</em>，不是终端浏览器。</p></div>
+  <div class="step"><span class="n">W</span><p><strong>Worker（consumer）</strong>：是<em>另一批一直在跑的进程</em>，可能几十个、分布在多台机器，循环地向 broker 要活：“给我下一条没人处理的消息”。</p></div>
+
+  <p><strong>“怎么分配资源”其实很朴素</strong>：你（运维）起 N 个 worker 进程；broker 当协调者，保证每条没处理的消息只租给<em>一个</em>空闲 worker。活变多 → 多起几个 worker，就是“天然横向扩展”。broker 不替你“智能分配算力”，它只做“这条给谁、别重给”的调度。</p>
+
+  <h3>让它可靠的那本账 = 每条消息的一台状态机</h3>
+  <p>broker 给<em>每条消息</em>维护一个小小的状态机——这正是异步“可靠”的全部秘密，没有魔法：</p>
+
+  <figure>
+    <svg viewBox="0 0 860 250" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+      <defs>
+        <marker id="ag" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+        <marker id="aa" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c97a16"/></marker>
+      </defs>
+      <!-- states -->
+      <rect x="40" y="96" width="150" height="58" rx="12" fill="#e8f6ef" stroke="#15a06a" stroke-width="1.8"/>
+      <text x="115" y="122" font-size="14" font-weight="700" fill="#0c7a50" text-anchor="middle">pending</text>
+      <text x="115" y="141" font-size="11" fill="#0c7a50" text-anchor="middle">待处理·可见</text>
+
+      <rect x="355" y="96" width="160" height="58" rx="12" fill="#fbf1da" stroke="#e8a24a" stroke-width="1.8"/>
+      <text x="435" y="122" font-size="14" font-weight="700" fill="#8a5a00" text-anchor="middle">in-flight</text>
+      <text x="435" y="141" font-size="11" fill="#8a5a00" text-anchor="middle">锁定·不可见(别人抢不到)</text>
+
+      <rect x="680" y="96" width="150" height="58" rx="12" fill="#e8f6f0" stroke="#1a7f5a" stroke-width="1.8"/>
+      <text x="755" y="122" font-size="14" font-weight="700" fill="#1a7f5a" text-anchor="middle">done</text>
+      <text x="755" y="141" font-size="11" fill="#1a7f5a" text-anchor="middle">删除 / 提交 offset</text>
+
+      <!-- transitions -->
+      <path d="M190 116 L351 116" stroke="#15a06a" stroke-width="2" fill="none" marker-end="url(#ag)"/>
+      <text x="270" y="108" font-size="11" fill="#0c7a50" text-anchor="middle">worker 取走（标记不可见）</text>
+
+      <path d="M515 116 L676 116" stroke="#15a06a" stroke-width="2" fill="none" marker-end="url(#ag)"/>
+      <text x="595" y="108" font-size="11" fill="#0c7a50" text-anchor="middle">worker ack</text>
+
+      <path d="M435 154 C435 210, 115 210, 115 156" stroke="#c97a16" stroke-width="2" fill="none" stroke-dasharray="5 3" marker-end="url(#aa)"/>
+      <text x="275" y="226" font-size="11.5" fill="#c97a16" text-anchor="middle">超时没 ack / worker 崩了 → 重新变可见 → 重发给另一个 worker</text>
+
+      <text x="430" y="40" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">broker 给每条消息维护的状态机</text>
+      <text x="430" y="60" font-size="11" fill="#6a7872" text-anchor="middle">“崩了就重发”这条橙色边 = at-least-once 的来源 = 为什么 consumer 必须幂等</text>
+    </svg>
+    <figcaption>图 2 · 一条消息在 broker 里的状态机：pending → in-flight → done；in-flight 超时则回到 pending 重发（SQS 的 visibility timeout、Kafka 的 offset 未提交，都是这个机制）。</figcaption>
+  </figure>
+
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:20%">状态</th><th>含义</th><th style="width:38%">谁/什么触发它离开</th></tr></thead>
+      <tbody>
+        <tr><td>pending</td><td>已入库、还没人处理，对所有 worker 可见</td><td>某个 worker 取走 → 进 in-flight</td></tr>
+        <tr><td>in-flight</td><td>被一个 worker 锁定、暂时对别人不可见（避免重复抢）</td><td>ack → done；<strong>超时 / 崩溃 → 回 pending</strong></td></tr>
+        <tr><td>done</td><td>处理成功，broker 删掉它（Kafka 里是 consumer 提交 offset）</td><td>终止态</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p><strong>“怎么靠状态知道下一步”——跨机版的答案同样不是读 status 去 if-else：</strong>整条业务流程的“下一步”往往<em>就是下一条消息</em>——worker 处理完一条，<em>自己产出下一条消息</em>丢进下一个队列（这就是事件驱动的 choreography，没有大脑）；或者有一个 <strong>orchestrator</strong>，由它脑子里那台“流程状态机”决定现在该发哪条消息。<strong>队列本身是“笨”的，只负责存和派。</strong></p>
+
+  <h2>三、那个反复出现的词：状态机（state machine）</h2>
+  <p>你已经在上面见过一台了（broker 那本账）。它正是我们一路在问的“机器怎么知道下一步”的标准答案。先把定义钉死：</p>
+
+  <div class="formula">
+    系统永远<span class="hi">恰好</span>处于一组<span class="hi">有限</span>状态中的<span class="hi">某一个</span>；<br>
+    只在「事件」触发下、按<span class="hi">预先定好的规则</span>，从一个状态跳到另一个。
+    <span class="sm">finite state machine, FSM</span>
+  </div>
+
+  <p>五个零件：<strong>① States</strong>（有限、有名字的几个状态）<strong>② Current state</strong>（当前正好在其中一个）<strong>③ Events</strong>（触发事件：“worker 取走”“ack 到了”“超时”）<strong>④ Transitions</strong>（转移规则：“在状态 S 遇到事件 E → 跳到 S′，顺便做动作 A”）<strong>⑤</strong> 一个起始态、可能还有终止态。</p>
+
+  <h3>关键的思维解锁</h3>
+  <p>状态机真正的威力，不在“有几个状态”，而在它把逻辑从“一堆布尔 flag + 散落的 if”<strong>收紧成“永远只在一个具名状态里，且每个状态只允许少数几条合法的下一步”</strong>：</p>
+  <div class="step"><span class="n">A</span><p><strong>非法转移变得<em>看得见</em>、甚至<em>不可能</em>。</strong>比如“<code class="inl">cancelled</code> 不允许跳回 <code class="inl">active</code>”——规则表里没这条，系统当场拦住。</p></div>
+  <div class="step"><span class="n">B</span><p><strong>它直接回答了“怎么知道下一步”</strong>：<em>当前态 + 进来的事件 → 查转移表 → 得到下一个态和要做的动作</em>。不是猜，是查表。</p></div>
+  <p>最熟悉的例子是<strong>红绿灯</strong>：状态 <code class="inl">红/绿/黄</code>，事件是“计时器到”，规则是 <code class="inl">红→绿→黄→红</code>——它<em>跳不过</em>“红直接到黄”，因为没这条转移。</p>
+
+  <h3>QuoteFlow 落地：保单生命周期就是一台状态机</h3>
+  <figure>
+    <svg viewBox="0 0 860 230" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+      <defs>
+        <marker id="bg" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15a06a"/></marker>
+      </defs>
+      <!-- states in a row -->
+      <g font-size="12" font-weight="600">
+        <rect x="14"  y="86" width="96" height="40" rx="9" fill="#fff" stroke="#cfe3d8"/><text x="62"  y="111" fill="#0f3d2e" text-anchor="middle">quoted</text>
+        <rect x="146" y="86" width="96" height="40" rx="9" fill="#fff" stroke="#cfe3d8"/><text x="194" y="111" fill="#0f3d2e" text-anchor="middle">applied</text>
+        <rect x="278" y="86" width="118" height="40" rx="9" fill="#fff" stroke="#cfe3d8"/><text x="337" y="111" fill="#0f3d2e" text-anchor="middle">underwriting</text>
+        <rect x="432" y="86" width="96" height="40" rx="9" fill="#e8f6ef" stroke="#15a06a"/><text x="480" y="111" fill="#0c7a50" text-anchor="middle">issued</text>
+        <rect x="564" y="86" width="100" height="40" rx="9" fill="#e8f6ef" stroke="#15a06a"/><text x="614" y="111" fill="#0c7a50" text-anchor="middle">in-force</text>
+        <rect x="700" y="86" width="146" height="40" rx="9" fill="#fbf1da" stroke="#e8a24a"/><text x="773" y="111" fill="#8a5a00" text-anchor="middle">cancelled / lapsed</text>
+      </g>
+      <!-- legal arrows -->
+      <g stroke="#15a06a" stroke-width="2" fill="none">
+        <path d="M110 106 L143 106" marker-end="url(#bg)"/>
+        <path d="M242 106 L275 106" marker-end="url(#bg)"/>
+        <path d="M396 106 L429 106" marker-end="url(#bg)"/>
+        <path d="M528 106 L561 106" marker-end="url(#bg)"/>
+        <path d="M664 106 L697 106" marker-end="url(#bg)"/>
+      </g>
+      <text x="430" y="44" font-size="12.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">每个箭头都由一个事件触发，且只能顺着箭头走</text>
+      <!-- illegal transition: cancel before issue -->
+      <path d="M194 130 C300 196, 700 196, 773 130" stroke="#d23b3b" stroke-width="1.8" fill="none" stroke-dasharray="6 4"/>
+      <text x="481" y="180" font-size="17" font-weight="700" fill="#d23b3b" text-anchor="middle">✗</text>
+      <text x="481" y="214" font-size="11.5" fill="#d23b3b" text-anchor="middle">“取消”一张还没 issued 的保单 = 非法转移（正是 Day 15 思考题 2 的乱序）</text>
+    </svg>
+    <figcaption>图 3 · 保单生命周期 FSM。乱序处理“取消先于生效”，用状态机的话讲就是<strong>试图执行一条非法转移</strong>——状态机能当场识别并拒绝/告警。</figcaption>
+  </figure>
+  <p>这里有个漂亮的回收——<strong>Day 15 思考题 2「取消先于生效被乱序处理」，精确的说法就是：在还没到 <code class="inl">issued/in-force</code> 的状态上触发了 <code class="inl">cancel</code> 这条非法转移。</strong>你当时的直觉（逻辑错误 + 合规问题）是对的，状态机给了它准确的名字。顺带——状态机天生好审计：每次“状态 + 转移”都能留痕，正中寿险的 traceability。</p>
+
+  <h2>四、为什么 AI agent 的 blog/paper 里到处是它</h2>
+  <p>这几年 agent 设计的主流思路之一，就是<strong>把 agent 框成一台状态机</strong>：</p>
+  <p>朴素 agent = “一个 LLM 在 while 循环里自由决定下一步动作”——强，但<em>不可预测、难调试、难审计</em>：它可能乱跳、跳过该做的步骤、陷进死循环。于是大家给它<strong>套一台状态机</strong>：定义状态如 <code class="inl">planning → searching → reading → verifying → done</code>，<em>每个状态只开放特定的工具/动作</em>（比如只有在 <code class="inl">verifying</code> 态才允许“下结论”，逼它“交付前必须先验证”）。</p>
+
+  <div class="callout">
+    <div class="ct">角色分工变成这样</div>
+    <strong>状态机框死“哪些下一步<em>合法</em>”，LLM 只在合法选项里挑<em>走哪条</em>。</strong>把无界的自由，收成有界、可控的选择。你大概率见过的具体框架是 <strong>LangGraph</strong>——它明确把 agent 建模成一张<em>图（graph）= 状态机</em>：节点是状态，边是转移。
+  </div>
+
+  <p>这么做换来三样东西，全是我们今天聊过的主题：</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th style="width:26%">好处</th><th>怎么来的</th><th style="width:26%">呼应</th></tr></thead>
+      <tbody>
+        <tr><td>可预测 / 有护栏</td><td>动作空间被当前状态收敛，LLM 跳不出规则表</td><td>红绿灯跳不过黄</td></tr>
+        <tr><td>可恢复</td><td>崩了知道“停在哪个状态”，从那儿续跑</td><td>Day 18 的 checkpoint</td></tr>
+        <tr><td>可观测 / 可审计</td><td>每步状态转移都能记录、回放</td><td>broker 那本账 · audit trail</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="think"><b>一句话把三处串起来：</b>agent 里的“状态机”、broker 里的“消息状态机”、saga orchestrator 里的“流程状态机”，<strong>是同一个概念</strong>——都是“永远在一个具名状态、按规则走合法转移”。区别只在<em>谁来决定走哪条转移</em>：定时器、一个 ack、还是一个 LLM。</div>
+
+  <h2>五、把两个尺度在 QuoteFlow 里串一遍</h2>
+  <div class="code">
+    <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">一笔报价请求，两个尺度的异步都用上了</span></div>
+<pre><code>浏览器 ──POST /quote──▶ Quote API
+                         └─ 发 "compute-quote" 给 broker，立刻回 202   <span class="c-com"># 跨机异步(队列)</span>
+broker: [compute-quote] 标 <span class="c-key">pending</span>
+Pricing Worker(常驻): 要活 → broker 把它标 <span class="c-key">in-flight</span> 派过来
+   worker 内部算报价时要查再保 API → 用 event loop 挂起、先处理别的   <span class="c-com"># 单机异步(事件循环)</span>
+   算完 → <span class="c-fn">ack</span>(broker 删消息) → 产出 "quote-ready" 进下一个队列          <span class="c-com"># 下一步=下一条消息</span>
+   若此刻 worker 崩了、没 ack → broker 超时后把 compute-quote 重新派给别人  <span class="c-com"># → 必须幂等兜底</span></code></pre>
+  </div>
+  <p>“请求和处理在时间上解耦”靠的是<strong>队列</strong>（尺度二）；“一个 worker 等再保 API 时不傻等、能并发处理多条”靠的是<strong>事件循环</strong>（尺度一）。两层异步，各解各的问题。</p>
+
+  <div class="callout">
+    <div class="ct">一句话收尾</div>
+    <strong>异步 = 等待时不阻塞 + 就绪时被叫回。</strong>单机靠 <em>OS 中断 + event loop</em>，下一步是<em>预先登记</em>的 continuation；跨机靠 <em>broker = 持久列表 + 每条消息的状态机</em>，资源靠<em>多起 worker</em>，下一步 = <em>下一条消息</em>。而把“怎么知道下一步”这件事抽象出来的通用模型，就叫<strong>状态机</strong>——从 broker 到 saga 到 AI agent，都是它。
+  </div>
+
+  <footer>System Design · 30 天学习计划 · Day 15 补充讨论整理 · 贯穿案例：QuoteFlow（虚构）</footer>
+</div>
+</body>
+</html>

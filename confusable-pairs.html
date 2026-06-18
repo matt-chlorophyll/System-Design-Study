@@ -176,6 +176,11 @@ const L = {
   d13:'Day-13-partitioning-sharding.html',
   hr:'notes/Day-13-hash-ring.html',
   d14:'Day-14-transactions-isolation.html',
+  d15:'Day-15-message-queues.html',
+  asm:'notes/Day-15-async-state-machine.html',
+  d16:'Day-16-event-driven-kafka.html',
+  d17:'Day-17-batch-vs-stream-pipelines.html',
+  d18:'Day-18-idempotency-delivery.html',
 };
 
 const PAIRS = [
@@ -563,6 +568,41 @@ const PAIRS = [
     diff:'对冲突频率的下注不同：乐观 = 先跑后查、冲突才付「重试」的代价（冲突少时高并发）；悲观 = 先锁后跑、人人先付「等待」的代价（冲突多时反而划算）。乐观锁 ≈ Day 8 SSI 的思路。',
     eg:'paid_ytd 自增并发不高 → 乐观锁版本号；若同一热点行被高频抢写、重试雪崩 → 改悲观 FOR UPDATE 排队。',
     mn:'乐观=先跑冲突才重试；悲观=先锁人人先等。' },
+
+  { trip:true, src:'讨论', link:L.d15,
+    a:{t:'Message', zh:'消息 · 数据（名词）', def:'一条被传递的数据 / 一个信封，装着 command 或 event，能躺在队列里、被传来传去、被重发。'},
+    b:{t:'Transaction', zh:'事务 · 执行保证（规矩）', def:'一组操作的原子边界（ACID）：要么全成、要么全不成，绝不留半成品。是处理东西时守的规矩。'},
+    diff:'两个不同维度：一个是「被处理的数据」，一个是「怎么原子地执行」。关系是交叉、不是包含——“处理一条消息”这个动作常被包在一个事务里，但消息≠事务；一个事务能批量处理多条消息，一条消息的处理也能跨多个事务、甚至没有事务。接缝处就是 dual-write / outbox 坑。',
+    eg:'我答思考题①写「每张保单的重算变成一个单独的事务」——其实它是一个独立的任务 / 工作单元；真正的事务，是 worker 处理那条消息时包住「扣款 + 写去重表」的那圈 BEGIN…COMMIT。',
+    mn:'消息是数据（名词）；事务是保证（规矩）。在事务里处理消息，但消息永远不是事务。' },
+
+  { trip:true, src:'讨论', link:L.d15,
+    a:{t:'Phantom Read', zh:'幻读 · 隔离级别现象', def:'同一事务内两次范围查询，因别的事务 INSERT 了匹配的新行，第二次多读到「幻影行」。是并发隔离级别的问题（Day 14）。'},
+    b:{t:'Out-of-order / Causality Violation', zh:'乱序 · 因果违例', def:'消息 / 事件不按真实发生顺序被处理（取消先于生效），违反 happens-before。是投递 / 分区顺序的问题。'},
+    diff:'八竿子打不着：幻读是单事务内被并发 INSERT 搅得范围读不稳定（提高隔离级别解）；乱序是跨消息的处理顺序违反因果（用 partition key 保序解）。用状态机的话讲，乱序 = 试图执行一条非法转移。',
+    eg:'我把「保单取消先于生效被处理」叫成 phantom read——其实那是乱序 / 因果违例（状态机的非法转移），和幻读毫无关系。',
+    mn:'幻读 = 范围读里冒出幻影行（隔离级别）；乱序 = 事件没按发生序处理（保序 / 状态机）。' },
+
+  { trip:true, src:'讨论', link:L.d15,
+    a:{t:'Partition key = 实体 id (policy_id)', zh:'按实体键分区 · 能保序', def:'同一实体的所有消息哈希到同一个分区 → 分区内 FIFO 有序，同一保单的事件按发生序被读到。'},
+    b:{t:'Partition key = message_id', zh:'按消息 id 分区 · 必打散', def:'每条消息的 id 都唯一 → 哈希后四散到不同分区 → 同一保单的消息被打散，有序保证全失。'},
+    diff:'要「同一保单消息有序」，key 必须是<实体标识（policy_id）>而非<消息标识（message_id）>——用 message_id 当 key 效果恰好相反。且同一分区本身就是 FIFO 有序，靠生产端入队顺序 + 单 consumer 顺序消费即可，不需要按时间戳重排（还有时钟漂移坑）。这正是 Day 13 分区键思想的复用。',
+    eg:'我答思考题②说「同一保单的消息存同一分区（根据 message id）」+「按 created_at 排序」——key 用错了对象（应是 policy_id），且同分区天然 FIFO、不必靠时间戳重排。',
+    mn:'保序的 key = 实体 id（policy_id）；message_id 唯一 → 只会把消息打散。' },
+
+  { src:'讨论', link:L.asm,
+    a:{t:'Producer', zh:'生产者 · 只管发', def:'相对于队列的「写」角色：把消息放进队列就走人，可以不关心谁处理、不指挥后续流程。通常是 server 侧的后端服务，不是终端浏览器。'},
+    b:{t:'Orchestrator', zh:'编排者 · 指挥流程', def:'一种控制模式：中心组件持有整条流程的状态机，主动指挥「先做 A、再 B、再 C」。'},
+    diff:'producer 是“相对队列做了写”的角色；orchestrator 是“是否指挥流程”的模式。orchestrator 通常也是个 producer（发 command 去指挥别人），但绝大多数 producer 不是 orchestrator——事件驱动的 choreography 里根本没有 orchestrator，每个 consumer 自己决定怎么反应。',
+    eg:'我问「producer 是不是类似 orchestrator」——不是。Quote API 把 compute-quote 丢进队列 = producer（server 侧），它不指挥下游；saga orchestrator 才指挥流程。是 producer 推不出是 orchestrator。',
+    mn:'producer 只管「往队列写」；orchestrator 才「指挥走哪步」。' },
+
+  { src:'讨论', link:L.asm,
+    a:{t:'Event Loop（单机异步）', zh:'一台机器内不空转', def:'一个进程内：等 I/O 时不阻塞、转头跑别的，靠 OS 中断 + 事先登记的 continuation 在就绪时回来。解决「一台机器等待时别让 CPU 空转」= 并发。'},
+    b:{t:'Message Queue（跨机异步）', zh:'多个进程间解耦', def:'在不同进程 / 机器之间：把「接收请求」和「处理请求」在时间上拆开，靠 broker 存储 + 派发 + 每条消息的状态机。解决分布式解耦。'},
+    diff:'两个尺度的「异步」别混成一个：event loop 是单机并发机制（一个线程扛上万连接）；消息队列是跨机/跨进程的异步解耦机制。一笔报价两者都用：队列把请求与处理拆开，worker 内部又用 event loop 并发查再保。',
+    eg:'Quote API 发 compute-quote 给队列、立刻返回 202 = 跨机异步（队列）；worker 算报价时等再保 API、用 event loop 先处理别的 = 单机异步（事件循环）。',
+    mn:'event loop = 单机不空转（并发）；message queue = 跨机解耦（异步）。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */
