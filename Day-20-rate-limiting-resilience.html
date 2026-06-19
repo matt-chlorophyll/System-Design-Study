@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 20 · 限流、熔断、背压、Bulkhead —— 防雪崩</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:66.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 20 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 3 周 · 分布式与异步</span>
+    <h1>不让一处过载<br>拖垮整座系统</h1>
+    <p class="lede">流量洪峰、慢依赖、重试风暴——一个组件撑不住,故障会像多米诺骨牌一样蔓延成全站雪崩。今天的四件工具:限流、熔断、背压、bulkhead,是系统在压力下「优雅地少做一点,而不是彻底崩掉」的核心手艺。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>昨日回顾 · Day 19</div>
+    <ul>
+      <li>昨天讲共识与协调:一组节点靠 <strong>Raft</strong> 的 leader election、log replication 和<strong>多数派(quorum)</strong>,在故障中表现得像「一个永不自相矛盾的节点」,根治了 split-brain;现成的 <strong>etcd / ZooKeeper</strong> 替你扛下这块地基。</li>
+      <li>共识保证的是<strong>正确性</strong>(大家认同一个真相)。但正确性不等于活着——当请求量超过容量、或某个依赖变慢,系统可能「答案永远对、却再也答不出来」。今天换一条主线:在压力下<strong>怎么活下去</strong>,即 resilience(弹性)。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>看懂<strong>级联故障(cascading failure)</strong>怎么从一处过载滚成全站雪崩,以及<strong>重试风暴</strong>为什么火上浇油</li>
+      <li>掌握四件防护工具,知道各自拦的是<strong>哪一种</strong>过载:<strong>rate limiting、circuit breaker、backpressure、bulkhead</strong></li>
+      <li>会用 <strong>token bucket</strong> 解释限流,会画 circuit breaker 的<strong>三态机</strong></li>
+      <li>把它们落到 QuoteFlow:实时报价 API 的限流、慢依赖的熔断、批量管道的背压、关键路径的隔离</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>问题:雪崩怎么发生</div>
+    <h2>一处过载,如何滚成全站崩</h2>
+    <p>前面几周我们一直在「把容量做大」:加缓存、复制、分片。但容量再大也是<strong>有限</strong>的,而流量和故障是<em>不讲道理</em>的。Resilience 关心的是另一个问题:<strong>当负载超过了你的容量、或某个依赖出了问题,系统是优雅地降级,还是彻底崩盘?</strong></p>
+    <p>最典型的崩盘叫<strong>级联故障(cascading failure)</strong>。设想 QuoteFlow 的实时报价链路:报价服务要调一个<strong>风险评分服务(risk scoring)</strong>。某天风险评分服务变慢,响应从 50ms 涨到 5s。会发生什么?</p>
+    <p>报价服务的每个请求都<em>卡在</em>等风险评分上,线程/连接被一个个占住、迟迟不释放。新请求继续涌入,可用线程很快耗尽——此时报价服务自己也开始<strong>超时、拒绝</strong>。上游的 API 网关看到报价服务挂了,把流量重试到别的实例,于是<em>每一个</em>报价实例都被同样的慢依赖拖垮。最后:一个本来只是「慢」的下游,让<strong>整条报价链路全停</strong>。这就是雪崩。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>重试风暴:好心办坏事</div>
+      <ul><li>「失败就重试」是最自然的容错反应,却也是雪崩的<strong>头号放大器</strong>。当下游已经过载,每个客户端再 retry 3 次,等于瞬间把负载 <strong>×4</strong> 砸向那个奄奄一息的服务——它更起不来了。解药:<strong>指数退避 + 抖动(exponential backoff + jitter)</strong>,失败后等的时间逐次翻倍并加随机扰动,避免所有客户端在同一刻齐刷刷重试(thundering herd)。还要给重试设<strong>总次数上限</strong>和<strong>重试预算</strong>。</li></ul>
+    </div>
+
+    <p>核心心法贯穿今天全篇:<strong>过载时,「拒绝一部分、保住其余」永远优于「全收、然后一起死」。</strong>下面四件工具,本质都是这一句话在不同位置的落地。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>工具一 · Rate Limiting</div>
+    <h2>限流:在门口就挡住超量</h2>
+    <p><strong>Rate limiting(限流)</strong>给「单位时间能进多少请求」设一个上限,超出的直接拒绝(返回 <code class="inl">429 Too Many Requests</code>)或排队。它是<em>主动</em>防线——在请求真正消耗资源之前就拦下。用途有三:防滥用/攻击、保护下游容量、以及给不同客户做<strong>公平配额</strong>(broker A 不能把额度吃光,饿死 broker B)。</p>
+
+    <h3>最常用的算法:Token Bucket(令牌桶)</h3>
+    <p>想象一个桶,以固定速率(比如 100 个/秒)往里滴<strong>令牌(token)</strong>,桶有最大容量(比如 200)。每来一个请求,就从桶里取走一个令牌;<strong>取得到就放行,取不到就拒绝</strong>。它的妙处在于:平时桶里攒着令牌,所以<strong>允许短时突发(burst)</strong>——最多放行「桶容量」个;但长期平均速率被滴入速率死死卡住。这比「每秒就准 100 个、多一个不行」的固定窗口更贴近真实流量。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">token_bucket.py · 报价 API 每客户端限流(示意)</span></div>
+<pre><code><span class="c-key">class</span> <span class="c-fn">TokenBucket</span>:
+    <span class="c-key">def</span> <span class="c-fn">__init__</span>(self, rate, capacity):
+        self.rate = rate          <span class="c-com"># 每秒滴入的令牌数,如 100</span>
+        self.capacity = capacity  <span class="c-com"># 桶容量 = 允许的突发上限,如 200</span>
+        self.tokens = capacity
+        self.last = now()
+
+    <span class="c-key">def</span> <span class="c-fn">allow</span>(self):
+        <span class="c-com"># 按经过的时间补充令牌,但不超过容量</span>
+        elapsed = now() - self.last
+        self.tokens = <span class="c-fn">min</span>(self.capacity, self.tokens + elapsed * self.rate)
+        self.last = now()
+        <span class="c-key">if</span> self.tokens &gt;= <span class="c-num">1</span>:
+            self.tokens -= <span class="c-num">1</span>
+            <span class="c-key">return</span> <span class="c-key">True</span>            <span class="c-com"># 放行</span>
+        <span class="c-key">return</span> <span class="c-key">False</span>               <span class="c-com"># 拒绝 → 调用方返回 429</span>
+
+<span class="c-com"># 每个 broker / API key 一个桶,实现公平配额</span>
+<span class="c-key">if</span> <span class="c-key">not</span> buckets[api_key].<span class="c-fn">allow</span>():
+    <span class="c-key">return</span> <span class="c-fn">Response</span>(<span class="c-num">429</span>, headers={<span class="c-str">"Retry-After"</span>: <span class="c-str">"1"</span>})</code></pre>
+    </div>
+    <p>其它常见算法:<strong>leaky bucket(漏桶)</strong>——请求以恒定速率流出,平滑突发但不允许 burst;<strong>fixed / sliding window</strong>——按时间窗计数,实现简单但窗口边界可能放进双倍流量。分布式部署时,计数器通常放在 <strong>Redis</strong>(Day 7),让多个实例共享同一份配额。别忘了回给客户端 <code class="inl">429</code> + <code class="inl">Retry-After</code>,告诉它<strong>什么时候再来</strong>——这本身就是在引导对方做退避。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>工具二 · Circuit Breaker</div>
+    <h2>熔断:别再去敲一扇已经坏掉的门</h2>
+    <p>限流挡的是「进来的太多」;<strong>circuit breaker(熔断器)</strong>挡的是「出去的依赖坏了」。它的灵感来自电路里的保险丝:当某个下游(如风险评分服务)连续失败/超时到一定程度,熔断器<strong>跳闸</strong>——之后的调用<em>立刻失败(fail fast)</em>,根本不再发出去。这正是治前面那个雪崩的药:报价服务不再傻等 5s,而是瞬间返回,线程立刻释放,自己先活下来。</p>
+
+    <p>熔断器是一个<strong>三态机</strong>,这是今天必须画进脑子里的图:</p>
+
+    <figure>
+      <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- CLOSED -->
+        <circle cx="130" cy="90" r="62" fill="url(#g1)" stroke="#15a06a" stroke-width="2.5"/>
+        <text x="130" y="80" font-size="17" font-weight="700" fill="#0f3d2e" text-anchor="middle">CLOSED</text>
+        <text x="130" y="102" font-size="12" fill="#6a7872" text-anchor="middle">正常放行</text>
+        <text x="130" y="118" font-size="12" fill="#6a7872" text-anchor="middle">统计失败率</text>
+        <!-- OPEN -->
+        <circle cx="590" cy="90" r="62" fill="url(#g1)" stroke="#c0392b" stroke-width="2.5"/>
+        <text x="590" y="80" font-size="17" font-weight="700" fill="#0f3d2e" text-anchor="middle">OPEN</text>
+        <text x="590" y="102" font-size="12" fill="#6a7872" text-anchor="middle">跳闸 · 直接</text>
+        <text x="590" y="118" font-size="12" fill="#6a7872" text-anchor="middle">fail fast</text>
+        <!-- HALF-OPEN -->
+        <circle cx="360" cy="232" r="58" fill="url(#g1)" stroke="#d68910" stroke-width="2.5"/>
+        <text x="360" y="225" font-size="15.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">HALF-OPEN</text>
+        <text x="360" y="247" font-size="12" fill="#6a7872" text-anchor="middle">放少量试探</text>
+        <!-- arrows -->
+        <path d="M192 90 L526 90" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="360" y="78" font-size="12.5" fill="#c0392b" text-anchor="middle" font-weight="600">失败率超阈值 → 跳闸</text>
+        <path d="M560 148 C500 200 450 215 412 222" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="525" y="205" font-size="12" fill="#d68910" text-anchor="middle">冷却计时到</text>
+        <path d="M308 222 C260 213 200 198 158 146" stroke="#46cf94" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="200" y="205" font-size="12" fill="#1a7f5a" text-anchor="middle">试探成功 → 恢复</text>
+        <path d="M360 174 C360 150 360 135 360 120" stroke="#c0392b" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#ah)"/>
+        <text x="478" y="158" font-size="12" fill="#c0392b" text-anchor="middle">试探又失败 → 回 OPEN</text>
+      </svg>
+      <figcaption>图 1 · Circuit breaker 三态机:CLOSED 正常 →(失败率超阈值)OPEN 跳闸快速失败 →(冷却后)HALF-OPEN 放几个试探 → 成功则回 CLOSED,失败则退回 OPEN</figcaption>
+    </figure>
+
+    <p>三态合起来读:<strong>CLOSED</strong> 正常工作并统计失败率;失败率冲过阈值(如 10s 内 &gt;50%)就跳到 <strong>OPEN</strong>,在冷却期内所有调用立即失败、不打扰下游、给它喘息时间;冷却到点进 <strong>HALF-OPEN</strong>,只放<em>少量</em>探测请求——成功就认为下游恢复、回到 CLOSED,失败就再退回 OPEN 接着等。配合<strong>降级(fallback)</strong>更完整:熔断打开时,报价可以返回一个保守的缓存值,或明确告知「核保稍后人工跟进」,而不是直接 500。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>工具三 · 工具四</div>
+    <h2>背压与隔离舱:从源头与边界控住压力</h2>
+
+    <h3>Backpressure(背压)</h3>
+    <p>限流和熔断都是「丢弃」式防护。<strong>背压</strong>是更优雅的一招:当下游处理不过来时,<strong>沿调用链向上游传递「慢一点」的信号</strong>,让生产者主动减速,而不是把活儿堆成无限长的队列直到内存爆掉。这正对应 Day 15 消息队列里的隐患——一个<strong>无界队列(unbounded queue)</strong>看着是缓冲,实则是把过载<em>延后</em>并放大成 OOM。</p>
+    <p>QuoteFlow 的夜间批量重定价(Day 17)是背压的主场:上游读取百万保单的速度,必须<strong>受下游计算/写库能力反向节制</strong>。实现上常见的是<strong>有界队列 + 阻塞</strong>(队列满了,生产者就被挡住,自然减速),或拉取式消费(consumer 主动按自己的节奏 <code class="inl">pull</code>,如 Kafka 的消费模型)。一句话:<strong>让系统按最慢环节的真实速度运转,而不是假装自己无限快。</strong></p>
+
+    <h3>Bulkhead(隔离舱)</h3>
+    <p>名字来自船体的<strong>水密隔舱</strong>:船被分成多个密封舱,一个舱进水,不会淹没整艘船。在系统里,bulkhead 就是<strong>给不同类别的请求分配各自独立的资源池</strong>(线程池、连接池),互不挤占。</p>
+    <p>回到雪崩那一幕:如果报价服务调用风险评分用的是一个<em>独立的</em>线程池,那么即便这个池被慢依赖占满,<strong>处理 broker API、保单查询的其它线程池毫发无伤</strong>——一个功能的故障被「关」在它自己的舱里,而不是耗尽全进程的资源拖垮一切。对 QuoteFlow 尤其关键:绝不能让一个低优先级的<em>分析查询</em>把<em>实时报价</em>的资源吃光。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:20%">工具</th><th>拦住哪种过载</th><th>动作</th><th>QuoteFlow 落点</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Rate Limiting</span></td><td>进来的请求<strong>太多</strong></td><td>超额拒绝(429)/ 排队</td><td>报价 API 按 broker 配额限流</td></tr>
+          <tr><td><span class="lab">Circuit Breaker</span></td><td>调用的<strong>依赖坏了</strong></td><td>跳闸,快速失败 + 降级</td><td>风险评分服务变慢 → 熔断 + 返回保守值</td></tr>
+          <tr><td><span class="lab">Backpressure</span></td><td>生产<strong>快于</strong>消费</td><td>向上游传「慢一点」</td><td>夜间批量按写库速度反向节流</td></tr>
+          <tr><td><span class="lab">Bulkhead</span></td><td>一处故障<strong>蔓延</strong></td><td>隔离资源池,互不挤占</td><td>实时报价 / 分析查询用独立线程池</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 四件工具不是二选一,而是组合拳:限流挡在最外、熔断守在每个依赖调用前、背压贯穿异步链路、bulkhead 在资源层兜底。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>组合落地</div>
+    <h2>把四件工具拼到 QuoteFlow 报价链路上</h2>
+    <p>看一张端到端的图:一个报价请求从 broker 进来,要穿过哪几道防护,以及每道防护各自拦的是什么。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- broker -->
+        <rect x="20" y="130" width="120" height="60" rx="12" fill="url(#g2)" stroke="#d9ebe1"/>
+        <text x="80" y="156" font-size="14" font-weight="600" fill="#0f3d2e" text-anchor="middle">Broker / App</text>
+        <text x="80" y="176" font-size="11.5" fill="#6a7872" text-anchor="middle">发起报价请求</text>
+        <!-- gateway + rate limit -->
+        <rect x="190" y="115" width="140" height="90" rx="12" fill="url(#g2)" stroke="#15a06a" stroke-width="2"/>
+        <text x="260" y="142" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">API 网关</text>
+        <text x="260" y="164" font-size="11.5" fill="#0c7a50" text-anchor="middle">① Rate Limit</text>
+        <text x="260" y="182" font-size="11" fill="#6a7872" text-anchor="middle">超配额 → 429</text>
+        <!-- quote svc + bulkhead -->
+        <rect x="378" y="40" width="155" height="240" rx="12" fill="#f6fbf8" stroke="#d68910" stroke-width="2" stroke-dasharray="6 4"/>
+        <text x="455" y="60" font-size="12" font-weight="700" fill="#9c6b10" text-anchor="middle">④ Bulkhead 隔离</text>
+        <rect x="396" y="74" width="120" height="56" rx="10" fill="url(#g2)" stroke="#d9ebe1"/>
+        <text x="456" y="98" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">报价计算</text>
+        <text x="456" y="116" font-size="11" fill="#6a7872" text-anchor="middle">线程池 A</text>
+        <rect x="396" y="150" width="120" height="56" rx="10" fill="url(#g2)" stroke="#d9ebe1"/>
+        <text x="456" y="174" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">风险评分调用</text>
+        <text x="456" y="192" font-size="11" fill="#6a7872" text-anchor="middle">线程池 B(独立)</text>
+        <rect x="396" y="222" width="120" height="44" rx="10" fill="url(#g2)" stroke="#d9ebe1"/>
+        <text x="456" y="249" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">分析查询 · 池 C</text>
+        <!-- risk svc + breaker -->
+        <rect x="585" y="148" width="115" height="62" rx="12" fill="url(#g2)" stroke="#c0392b" stroke-width="2"/>
+        <text x="642" y="172" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">风险评分服务</text>
+        <text x="642" y="192" font-size="11" fill="#c0392b" text-anchor="middle">② Circuit Breaker</text>
+        <!-- batch -->
+        <rect x="585" y="248" width="115" height="56" rx="12" fill="url(#g2)" stroke="#d9ebe1"/>
+        <text x="642" y="272" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">夜间批量</text>
+        <text x="642" y="290" font-size="11" fill="#0c7a50" text-anchor="middle">③ Backpressure</text>
+        <!-- arrows -->
+        <path d="M140 160 L186 160" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <path d="M330 160 L392 110 L392 102" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <path d="M516 178 L581 178" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <path d="M585 276 C540 276 540 250 522 244" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#ah2)"/>
+      </svg>
+      <figcaption>图 2 · 一个报价请求穿过四道防护:网关限流(①)→ 进入按功能隔离的资源池(④)→ 调风险评分时套熔断(②)→ 夜间批量链路用背压(③)反向节流</figcaption>
+    </figure>
+
+    <p>把雪崩那一幕重放一遍,这次有了防护:风险评分变慢 → <strong>线程池 B 被占满,但 A、C 安然无恙</strong>(bulkhead),报价计算和分析查询照常 → 失败率冲高,<strong>熔断器跳闸</strong>,后续调用立即 fail fast 并返回降级值(circuit breaker),线程立刻释放 → 与此同时,网关的<strong>限流</strong>把异常涌入的重试流量挡在门外。下游得到喘息、慢慢恢复,熔断器在 HALF-OPEN 探测成功后回到 CLOSED。<strong>整条链路始终在线,只是短暂地少做了一点——这就是优雅降级。</strong></p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow · 合规视角</span>
+      <h3 style="margin-top:0">降级也要「留痕」</h3>
+      <p>在受监管的寿险定价里,弹性手段不能是黑箱。每一次<strong>熔断降级返回的报价</strong>、每一笔<strong>被限流拒绝的请求</strong>,都应写进 audit log:用了哪个 fallback、当时下游什么状态、给客户的数字是不是「正常算出来的」。否则事后审计会问出一个答不上来的问题——<em>「这条报价当时为什么是这个数?」</em>。弹性保住了可用性,但<strong>auditability / traceability</strong> 仍是一等公民,降级路径也要可解释、可复现。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>过载时,<strong>「拒绝一部分、保住其余」永远优于「全收、然后一起死」</strong>。这是所有弹性手段的共同信条。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>限流</strong>挡「进来太多」(token bucket 允许突发),<strong>熔断</strong>挡「依赖坏了」(三态机 + fail fast + 降级)。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>背压</strong>让系统按最慢环节运转(警惕无界队列),<strong>bulkhead</strong>把故障关进各自的资源舱、不让它蔓延。</p></div>
+      <div class="tk"><span class="n">4</span><p>盲目<strong>重试是雪崩放大器</strong>;务必加<strong>指数退避 + 抖动</strong>、重试上限与预算。降级路径也要<strong>留痕可审计</strong>。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">限流和熔断,分别是在防「哪个方向」的过载?</span></summary>
+        <div class="ans"><b>限流防「入」</b>——挡住进来的请求太多;<b>熔断防「出」</b>——挡住对一个已经坏掉的下游依赖继续发起调用。前者保护自己的容量,后者保护自己不被慢依赖拖垮(并给下游喘息)。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">token bucket 相比「每秒固定放行 N 个」,多了什么能力?为什么有用?</span></summary>
+        <div class="ans"><b>允许短时突发(burst)</b>。平时桶里攒着令牌,瞬时来一波请求可以一次放行「桶容量」个,只要长期平均不超过滴入速率即可。真实流量本就是一阵一阵的,允许合理 burst 比「卡死每一秒」体验更好,也更少误杀正常用户。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">熔断器的 HALF-OPEN 状态存在的意义是什么?去掉它会怎样?</span></summary>
+        <div class="ans"><b>用少量探测请求安全地试探下游是否恢复</b>,避免「冷却时间一到就把全部流量一次性放回去、瞬间把刚缓过来的下游再次打死」。去掉它,熔断器要么一直 OPEN(永不恢复),要么从 OPEN 直接全量回 CLOSED(容易二次雪崩)。HALF-OPEN 是平滑、试探性的恢复闸门。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 的<strong>实时报价 API</strong> 和<strong>夜间批量重定价</strong>,这四件工具的优先级和配置会怎么不同?(提示:一个怕延迟、一个怕吞吐打满)<br>② 给报价 API 设限流时,你会按 <strong>broker / API key</strong> 限,还是按全局总量限,还是两者都要?各自挡住的是什么风险?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Cascading Failure</dt><dd>一处过载/故障沿依赖链蔓延,最终拖垮整个系统的连锁崩溃。</dd></dl>
+      <dl><dt>Rate Limiting</dt><dd>对单位时间内的请求数设上限,超出则拒绝(429)或排队。</dd></dl>
+      <dl><dt>Token Bucket</dt><dd>限流算法:按固定速率补充令牌,有令牌才放行,允许短时突发。</dd></dl>
+      <dl><dt>Circuit Breaker</dt><dd>依赖连续失败时跳闸、让调用快速失败的三态机(CLOSED/OPEN/HALF-OPEN)。</dd></dl>
+      <dl><dt>Backpressure</dt><dd>下游处理不过来时,向上游传递减速信号,避免队列无限堆积。</dd></dl>
+      <dl><dt>Bulkhead</dt><dd>给不同类别请求分配独立资源池,把故障隔离在各自的「舱」内。</dd></dl>
+      <dl><dt>Exponential Backoff + Jitter</dt><dd>重试间隔逐次翻倍并加随机扰动,防止重试风暴与惊群。</dd></dl>
+      <dl><dt>Graceful Degradation</dt><dd>压力下主动少做一点(降级/返回保守值),而非整体崩溃。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 21</div>
+      <div class="t">第三周复盘 + 小型设计练习:把消息队列、事件流、幂等、共识、限流熔断拼成一个能扛压的子系统</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 20 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构寿险报价平台)
+  </footer>
+
+</div>
+</body>
+</html>
