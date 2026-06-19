@@ -603,6 +603,48 @@ const PAIRS = [
     diff:'两个尺度的「异步」别混成一个：event loop 是单机并发机制（一个线程扛上万连接）；消息队列是跨机/跨进程的异步解耦机制。一笔报价两者都用：队列把请求与处理拆开，worker 内部又用 event loop 并发查再保。',
     eg:'Quote API 发 compute-quote 给队列、立刻返回 202 = 跨机异步（队列）；worker 算报价时等再保 API、用 event loop 先处理别的 = 单机异步（事件循环）。',
     mn:'event loop = 单机不空转（并发）；message queue = 跨机解耦（异步）。' },
+
+  { src:'Day 16', link:L.d16,
+    a:{t:'Command', zh:'命令 · 祈使句', def:'「请你去做某事」——有指定执行者、期待一个结果（重算保单 pol_8f3a）。'},
+    b:{t:'Event', zh:'事件 · 陈述句', def:'「某事已发生」——陈述事实，发布者不关心谁听、不期待回应（PolicyIssued(pol_8f3a)）。'},
+    diff:'一字之差定耦合方向：命令式发送方必须知道每个接收方（下游一变就改核心）；事件式发布者对订阅者一无所知（加下游零改动）。注意这是「语义」轴，和「传输」轴（queue/log）正交——命令可以放 Kafka、事件也能走队列。',
+    eg:'签发服务发 PolicyIssued（event）后不管了，计费/邮件/再保各自订阅；要它显式「去给 pol_8f3a 重定价」则是 command。',
+    mn:'command 祈使（指着人）；event 陈述（广播事实）。' },
+
+  { src:'Day 16', link:L.d16,
+    a:{t:'Queue (consume-delete)', zh:'队列 · 消费即删', def:'消息被 ack 后从队列删除（信箱：取走即空）；broker 记进度，读完即逝、不能重放。'},
+    b:{t:'Log (Kafka, offset+replay)', zh:'日志 · 读完不删', def:'消息追加进只增日志、读取不删，consumer 各记自己的 offset，按 retention 保留（账本：只追加、可回看）。'},
+    diff:'根本差别在「消费后删不删」：队列删了就没（多下游要复制成多队列、不能重放）；日志只移 offset → 解锁多消费者独立读、可重放、日志即真相源。这是「传输」轴、独立于命令/事件——command 也能放 Kafka（拿 consumer group 当 work queue），但会牺牲 per-message ack / DLQ、还吃 head-of-line blocking（transport ≠ intent）。',
+    eg:'即用即弃的任务分发用队列更顺手；policy-events 这种要审计 + 重放的事实流用日志。很多系统两者并用。',
+    mn:'队列消费即删（信箱）；日志读完不删（账本）。' },
+
+  { trip:true, src:'Day 16', link:L.d16,
+    a:{t:'Event log as source of truth', zh:'事件日志即真相源 · 一份', def:'event sourcing：日志就是系统实际依据运行的那份，当前状态是它派生（derived）出来的；审计与行为同源。'},
+    b:{t:'State table + audit log', zh:'状态表 + 审计日志 · 两份', def:'状态表是真相、audit log 是旁路记录，靠应用层纪律保持同步。'},
+    diff:'分水岭是「几个真相源」：一份（event sourcing）→ 审计与行为是同一个 artifact，构造上不可能各说各话；两份（state+audit）→ 只要有代码路径改了状态却漏写 audit、或 audit insert 在事务外失败，审计轨迹就残缺且你察觉不到。event sourcing 的价值正是让审计性从架构来、不靠「设计得足够好」。',
+    eg:'我答思考题①说「设计够好两者等价」——反了：受监管寿险要的就是这个性质从架构来。现实折中：dual-write 可以，但 audit 必须和状态变更进同一事务 + append-only，否则可信度大打折扣。',
+    mn:'一份真相源不可能自相矛盾；两份靠纪律同步、会漂移。' },
+
+  { src:'讨论', link:L.d16,
+    a:{t:'Traceability', zh:'可追溯 · 记下 what', def:'有一份「发生了什么」的记录：保费从 X 变成 Y、时间 T、谁改的。'},
+    b:{t:'Reproducibility', zh:'可复现 · 能重算 why', def:'钉住输入 + 版本（rate_table_version），能从零把那个数算回来、分毫不差。'},
+    diff:'「有审计日志」≠「能复现报价」：状态表只存结果、audit log 顶多记 what（traceability）；event log 钉住 rate_table_version，重放能把保费重算出来（reproducibility）。监管问「为什么这天报这个价」，前者给一份记录，后者当场算回来。',
+    eg:'夜间重定价钉死费率表版本 → 多年后 replay 那条事件 = 确定性重算（reproducibility）；只记「保费变了」= 仅 traceability。',
+    mn:'traceability 记下发生了什么；reproducibility 能把它重新算出来。' },
+
+  { trip:true, src:'讨论', link:L.d16,
+    a:{t:'Retention', zh:'保留策略 · 日志的属性', def:'消息在日志里留多久（按时间/容量），到期 segment 文件被物理删除——没有隐藏永久副本。'},
+    b:{t:'Offset', zh:'偏移量 · consumer 的进度', def:'每个 consumer 自己记「读到第几号」的指针，跟消息留多久无关。'},
+    diff:'两件独立的事别混：retention 是「日志本身」的属性（删的是真实字节）；offset 是「每个 consumer 各自」的进度。consumer 落后超过 retention，数据照删、你还没读它就没了。replay 窗口 = retention 窗口：retention 7 天，第 8 天起 offset 拨回去落到已删区间报 offset out of range。',
+    eg:'我问「Kafka 是不是永久存、只是只留 7 天」——不是，没有永久副本；要长期审计得配无限 retention / tiered storage / 落冷存档（这也是 event sourcing「为留 7 年买单」的成本）。',
+    mn:'retention 是日志留多久（删字节）；offset 是我读到哪（我的书签）。' },
+
+  { src:'讨论', link:L.d16,
+    a:{t:'Delete retention (time-based)', zh:'按时间删 · 留全历史窗口', def:'到期把旧 segment 整段删掉；窗口内保留每条事件的完整顺序与历史。'},
+    b:{t:'Log compaction', zh:'按 key 压实 · 只留最新态', def:'不按时间删，而是每个 key 只保留最新一条、压掉旧值。'},
+    diff:'两种「保留模式」做相反的事：delete retention 保「一段时间内的完整历史」（适合 event sourcing / 审计，但过窗就没）；compaction 保「每个 key 的当前态」（适合 changelog / 物化当前状态），但丢掉中间历史 → 给不了审计要的全过程。',
+    eg:'policy-events 要审计全历史 → 长 retention / 落冷存；「每张保单当前状态」的 changelog topic → compaction 只留最新。',
+    mn:'按时间删 = 留一段全历史；compaction = 每 key 只留最新态。' },
 ];
 
 /* ── 渲染 / 搜索 / 测验 ── */
