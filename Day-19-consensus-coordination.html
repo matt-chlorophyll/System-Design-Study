@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 19 · 共识与协调：Raft、leader election、etcd</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:63.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 19 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 3 周 · 分布式与异步</span>
+    <h1>谁说了算<br>—— 共识、选主与 Raft 的投票</h1>
+    <p class="lede">一组节点要就「谁是老大、那个值到底是多少」达成一致，听起来简单，却是分布式系统里最难的问题之一。今天我们用 Raft 把它讲清楚：怎么选主、怎么靠「多数派」在故障中不分裂，以及 etcd 这类协调服务在真实系统里到底替你扛了什么。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>昨日回顾 · Day 18</div>
+    <ul>
+      <li>昨天讲幂等与投递语义:在分布式里「这条消息处理过没有」常常无解,于是我们<strong>不消灭重复,而让重复无害</strong>——靠幂等键、去重表、死信队列织成防线,并戳破了 exactly-once 的神话(实质是<strong>at-least-once 投递 + 幂等消费</strong>)。</li>
+      <li>那条防线里藏着一个没解释的前提:去重表、幂等键的「权威记录」存在哪、谁来保证多个节点看到的是<strong>同一份真相</strong>?今天就补上这块地基——当一组节点必须就一个值达成一致时,它们靠的是<strong>共识(consensus)</strong>。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>说清<strong>共识(consensus)</strong>到底在解决什么问题,以及为什么「单点真相」不够用</li>
+      <li>用 <strong>Raft</strong> 把抽象的共识落到三件具体的事:<strong>leader election、log replication、majority/quorum</strong></li>
+      <li>理解 <strong>split-brain(脑裂)</strong>是怎么发生的,以及多数派票为什么能根治它</li>
+      <li>认识 <strong>etcd / ZooKeeper</strong> 这类协调服务,知道何时该用它、何时别碰它</li>
+      <li>把以上落到 QuoteFlow:夜间批量重定价的<strong>选主</strong>与版本化配置的<strong>权威存储</strong></li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>问题:为什么需要共识</div>
+    <h2>当「真相」要存在多个节点上</h2>
+    <p>到目前为止,我们很多设计都依赖某个<strong>单一权威</strong>:一个 leader 数据库(Day 12)、一张去重表(Day 18)。单点的好处是「谁说了算」毫无歧义——只有它一个嘴。坏处也很直接:<strong>它一挂,整个系统就停摆</strong>。</p>
+    <p>于是我们想把这个权威做成<strong>一组节点</strong>(通常 3 或 5 个),挂掉一两个还能继续。但麻烦立刻来了:这组节点之间靠网络通信,而网络会<em>延迟、丢包、分区</em>。于是出现一个要命的问题——<strong>它们怎么保证大家认的是同一个「真相」?</strong></p>
+    <p>最危险的失败模式叫 <strong>split-brain(脑裂)</strong>:网络把 5 个节点切成「3 + 2」两堆,两边都以为对面死了、都自封 leader、都开始接受写入。等网络恢复,你有<strong>两份互相冲突的真相</strong>,无法合并。对 QuoteFlow 来说,这可能意味着<em>同一批保单被两个节点各重算了一遍、各写了一套保费</em>——审计时根本说不清哪个数算数。</p>
+    <p>共识算法(Paxos、Raft 等)就是为根治这件事而生。它给的保证可以浓缩成一句:<strong>即使节点会宕机、网络会延迟和分区,只要多数节点还活着并能互通,这组节点对外就表现得像「一个永不自相矛盾的节点」。</strong>注意它<em>不</em>解决拜占庭故障(节点撒谎/被攻陷)——它假设节点会宕机、会慢,但不会恶意造假。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>共识 ≠ 你日常会手写的东西</div>
+      <ul><li>请把共识算法当成<strong>地基设施</strong>:你几乎永远不会自己实现 Raft,而是用现成的协调服务(etcd / ZooKeeper / Consul)或内建共识的数据库。今天的目标是<strong>看懂它给你什么保证、代价是什么</strong>,从而知道在 QuoteFlow 里该把哪些「必须只有一个答案」的状态托付给它。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>Raft 概念级</div>
+    <h2>把共识拆成三件能讲清的事</h2>
+    <p>Paxos 以「难懂」著称;Raft 是 2014 年专门为<em>可理解性</em>设计的等价方案,今天工业界的协调服务大多用它。Raft 把共识拆成三块,逐块看就不神秘了。</p>
+
+    <h3>① 角色与任期(term)</h3>
+    <p>每个节点在任一时刻是三种角色之一:<strong>Leader</strong>(唯一能接收写入的)、<strong>Follower</strong>(被动复制 leader 的日志)、<strong>Candidate</strong>(选举期间的临时状态)。时间被切成一段段<strong>term(任期)</strong>,每个 term 是一个递增的编号,最多有一个 leader。term 就像「第几届」——它是 Raft 判断信息新旧、识别过期 leader 的<strong>逻辑时钟</strong>。</p>
+
+    <h3>② Leader election(选主)</h3>
+    <p>Leader 会周期性地向所有 follower 发<strong>心跳(heartbeat)</strong>。每个 follower 有一个随机的 <strong>election timeout</strong>(比如 150–300ms);只要在超时前收到心跳,就继续当 follower。一旦超时没收到——它认为 leader 挂了,于是:把自己 term +1、变成 candidate、给自己投一票,并向其他节点<strong>拉票(RequestVote)</strong>。谁先拿到<strong>多数票(majority)</strong>,谁就成为新 leader,立刻开始发心跳压住其他人。</p>
+    <p>这里有个精巧的细节:<strong>election timeout 是随机的</strong>。如果所有 follower 同时超时、同时拉票,选票会被瓜分、谁也拿不到多数,只能重选——随机化让某个节点大概率<em>先</em>超时、抢跑成功,把「选不出来」的概率压到极低。</p>
+
+    <h3>③ Log replication(日志复制)</h3>
+    <p>客户端的每个写操作,leader 先<strong>追加到自己的日志(append to log)</strong>,然后并行发给所有 follower。当<strong>多数节点</strong>都确认写入,leader 才把这条日志标记为 <strong>committed(已提交)</strong>、应用到状态机、并回复客户端「成功」。注意顺序:<em>先落到多数派,再算数</em>。这正是它在故障下不丢已确认数据的根本原因。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>多数派:为什么是「半数 + 1」</div>
+    <h2>quorum 是脑裂的解药</h2>
+    <p>Raft(以及几乎所有共识算法)的安全性,全压在一个朴素的算术事实上:<strong>两个不同的「多数派」一定有交集</strong>。5 个节点里,任意两个 ≥3 的子集必然共享至少一个成员。</p>
+    <p>这句算术直接根治了脑裂。回到那个「3 + 2」分区:</p>
+    <ul style="margin:0 0 16px;padding-left:20px;">
+      <li><strong>3 个节点那边</strong>:能凑齐多数(3 ≥ 多数 3)→ 可以选出 leader、可以提交写入,正常服务。</li>
+      <li><strong>2 个节点那边</strong>:永远凑不齐 3 票 → <strong>选不出 leader、拒绝任何写入</strong>,主动「躺平」等网络恢复。</li>
+    </ul>
+    <p>于是无论网络怎么切,<strong>最多只有一边能动</strong>,两份冲突真相不可能同时产生。代价也清楚:<strong>少数派那边宁可不可用,也不愿不一致</strong>——这是 Day 12 CAP 里 CP 取向的活生生例子。共识系统在分区时选择 <em>C 而非 A</em>。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <text x="360" y="24" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">5 节点集群被网络切成「3 + 2」</text>
+
+        <!-- divider -->
+        <line x1="360" y1="44" x2="360" y2="300" stroke="#d9ebe1" stroke-width="2" stroke-dasharray="6 6"/>
+        <text x="360" y="320" font-size="12" fill="#b06a00" text-anchor="middle" font-style="italic">⚡ 网络分区(partition)</text>
+
+        <!-- left: majority of 3 -->
+        <rect x="24" y="52" width="312" height="234" rx="14" fill="#eefaf3" stroke="#cfe9da"/>
+        <text x="180" y="76" font-size="13" font-weight="700" fill="#0c7a50" text-anchor="middle">多数派 · 3 个节点 → 可工作</text>
+
+        <!-- leader -->
+        <rect x="120" y="92" width="120" height="50" rx="11" fill="#15a06a" stroke="#0c7a50"/>
+        <text x="180" y="113" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">Leader</text>
+        <text x="180" y="131" font-size="11" fill="#cdeede" text-anchor="middle">term 8 · 接受写入</text>
+
+        <rect x="48" y="180" width="120" height="46" rx="11" fill="url(#g1)" stroke="#cfe9da"/>
+        <text x="108" y="200" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">Follower</text>
+        <text x="108" y="216" font-size="11" fill="#6a7872" text-anchor="middle">已复制 ✓</text>
+        <rect x="192" y="180" width="120" height="46" rx="11" fill="url(#g1)" stroke="#cfe9da"/>
+        <text x="252" y="200" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">Follower</text>
+        <text x="252" y="216" font-size="11" fill="#6a7872" text-anchor="middle">已复制 ✓</text>
+
+        <path d="M155 142 L120 178" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+        <path d="M205 142 L240 178" stroke="#93a89c" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+        <text x="180" y="258" font-size="11.5" fill="#0c7a50" text-anchor="middle">3 票 ≥ 多数 → commit 成立</text>
+
+        <!-- right: minority of 2 -->
+        <rect x="384" y="52" width="312" height="234" rx="14" fill="#fbf4ea" stroke="#f1e0b8"/>
+        <text x="540" y="76" font-size="13" font-weight="700" fill="#8a5a00" text-anchor="middle">少数派 · 2 个节点 → 停写</text>
+
+        <rect x="420" y="110" width="120" height="46" rx="11" fill="#fff" stroke="#e8cf9a"/>
+        <text x="480" y="130" font-size="12.5" font-weight="600" fill="#7a5400" text-anchor="middle">Candidate</text>
+        <text x="480" y="146" font-size="11" fill="#a07a30" text-anchor="middle">反复拉票…</text>
+        <rect x="540" y="160" width="120" height="46" rx="11" fill="#fff" stroke="#e8cf9a"/>
+        <text x="600" y="180" font-size="12.5" font-weight="600" fill="#7a5400" text-anchor="middle">Follower</text>
+        <text x="600" y="196" font-size="11" fill="#a07a30" text-anchor="middle">只有 1 票回应</text>
+
+        <path d="M540 133 L600 160" stroke="#caa86a" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+        <text x="540" y="238" font-size="11.5" fill="#8a5a00" text-anchor="middle" font-weight="600">2 票 &lt; 多数 3 → 选不出 leader</text>
+        <text x="540" y="256" font-size="11" fill="#a07a30" text-anchor="middle">拒绝写入,等网络恢复(牺牲 A,保 C)</text>
+      </svg>
+      <figcaption>图 1 · 多数派(quorum)如何根治脑裂:分区两边最多一边能凑齐多数,因此最多一个 leader、不可能产生两份冲突真相</figcaption>
+    </figure>
+
+    <p>顺带说明一个常被问的点:<strong>为什么集群节点数偏好奇数(3、5、7)?</strong> 因为容错能力由「多数派门槛」决定。3 节点和 4 节点都只能容忍挂 <strong>1 个</strong>(4 节点的多数是 3,挂 1 还剩 3 能动,挂 2 就只剩 2 &lt; 3),但 4 节点要多养一台机器、还多一个故障点——<em>白花钱不提升容错</em>。所以用奇数。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:30%">集群规模</th><th>多数派门槛</th><th>能容忍宕机数</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">3 节点</span></td><td>2</td><td><strong>1</strong></td></tr>
+          <tr><td><span class="lab">4 节点</span></td><td>3</td><td>1 <span style="color:#b06a00">(没比 3 强,却更贵)</span></td></tr>
+          <tr><td><span class="lab">5 节点</span></td><td>3</td><td><strong>2</strong></td></tr>
+          <tr><td><span class="lab">7 节点</span></td><td>4</td><td>3 <span style="color:#6a7872">(更耐故障,但每次写要等更多确认 → 更慢)</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 节点越多越耐故障,但每次提交要等的确认也越多 → 写延迟上升。多数生产集群停在 3 或 5。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>选主时序</div>
+    <h2>一次 leader 故障到恢复,发生了什么</h2>
+    <p>把上面的机制串成一条时间线。假设 5 节点集群,leader(N1)突然宕机:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">raft-leader-election.log  ·  一次故障切换(示意)</span></div>
+<pre><code><span class="c-com">// term 8:N1 是 leader,正常发心跳</span>
+t=0ms    N1(leader,term8) ──heartbeat──&gt; N2 N3 N4 N5   <span class="c-com">// 一切正常</span>
+
+<span class="c-com">// N1 宕机,心跳停止</span>
+t=20ms   N1 ✗ crash                                    <span class="c-com">// 不再发心跳</span>
+
+<span class="c-com">// follower 各自的随机 election timeout 开始倒数</span>
+t=190ms  N3 election_timeout 先到 → 成为 candidate
+         N3.term = <span class="c-num">9</span>                              <span class="c-com">// 任期 +1</span>
+         N3 vote for self, 广播 <span class="c-fn">RequestVote</span>(term=9)
+
+<span class="c-com">// 其他节点检查:term 9 比自己新、且本任期还没投过 → 投给 N3</span>
+t=205ms  N2 → vote N3   ✓
+         N4 → vote N3   ✓                              <span class="c-com">// N3 已得 3 票(含自己)</span>
+
+<span class="c-com">// 3 票 ≥ 多数(3)→ N3 当选,立刻发心跳压住选举</span>
+t=210ms  N3(leader,term9) ──heartbeat──&gt; N2 N4 N5
+
+<span class="c-com">// N1 复活,带着过期的 term 8 回来</span>
+t=900ms  N1 revived, 自称 leader(term8)
+         N1 收到 N3 的 heartbeat(term9 &gt; 8)
+         → N1 <span class="c-key">退位</span>为 follower,服从 term9 的 N3   <span class="c-com">// 旧 leader 自动让位</span>
+</code></pre>
+    </div>
+    <p>关键看最后一段:<strong>term 是个单调递增的逻辑时钟</strong>。复活的旧 leader 一看到更高的 term,立刻知道「世界已经换届了」,自觉退位。这就是为什么 Raft 里<em>不可能</em>出现两个 leader 同时被大家认可——任何写入都带 term,带着旧 term 的写入会被多数派直接拒绝。整个故障切换通常在<strong>几百毫秒到一两秒</strong>内完成,期间集群短暂无法写入(但读旧值可继续)。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>协调服务</div>
+    <h2>etcd / ZooKeeper:把共识当服务用</h2>
+    <p>你不会自己写 Raft,而是用一个把共识封装好的<strong>协调服务(coordination service)</strong>。最常见的是 <strong>etcd</strong>(Raft,Kubernetes 的大脑)和 <strong>ZooKeeper</strong>(ZAB 协议,Kafka/Hadoop 生态常用),还有 <strong>Consul</strong>。它们对外就是一个<strong>强一致的小型 KV 存储</strong>,但内部用共识保证你写进去的每个值,所有客户端读到的都是同一份。</p>
+    <p>它们典型替你扛四类活:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:24%">用途</th><th>解决什么</th><th>QuoteFlow 里的例子</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Leader election</span></td><td>一堆对等的 worker,选出<strong>唯一一个</strong>来干「只能一个干」的活</td><td>夜间批量重定价:多个 batch 节点里只让一个当 coordinator</td></tr>
+          <tr><td><span class="lab">分布式锁</span></td><td>跨进程互斥:同一资源同一时刻只有一个持有者</td><td>某个 in-force 保单正在被重算时,锁住它防止并发改写</td></tr>
+          <tr><td><span class="lab">配置中心</span></td><td>一份<strong>权威、强一致</strong>的配置,改一次全集群可见</td><td>「当前生效的 rate_table_version」放这里,所有节点读到同一个</td></tr>
+          <tr><td><span class="lab">服务发现</span></td><td>谁在线、地址是什么,动态注册与感知</td><td>报价服务实例上线/下线,网关据此更新路由</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>实现选主和锁的关键原语,是协调服务提供的两样东西:<strong>租约(lease/TTL)</strong> 和 <strong>原子的 compare-and-swap</strong>。下面用 etcd 风格的伪代码演示「抢锁当 leader、靠租约自动释放」——这正是 QuoteFlow 夜间批量需要的:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">elect_batch_coordinator.py  ·  用 etcd 选主(示意)</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">try_become_coordinator</span>(node_id):
+    <span class="c-com"># 1) 申请一个 10 秒租约;只要不续约,key 会自动过期</span>
+    lease = etcd.<span class="c-fn">grant_lease</span>(ttl=<span class="c-num">10</span>)
+
+    <span class="c-com"># 2) 原子写:仅当 key 不存在时才写成功(compare-and-swap)</span>
+    ok = etcd.<span class="c-fn">put_if_absent</span>(
+        key=<span class="c-str">"/quoteflow/nightly-reprice/leader"</span>,
+        value=node_id,
+        lease=lease,
+    )
+
+    <span class="c-key">if</span> <span class="c-key">not</span> ok:
+        <span class="c-key">return</span> <span class="c-str">"follower"</span>     <span class="c-com"># 已有别人占住 → 我当 follower,不跑批</span>
+
+    <span class="c-com"># 3) 抢到了 → 我是 coordinator;必须持续续约,否则租约一过</span>
+    <span class="c-com">#    key 自动消失,其他节点会立刻补位(防止我假死后无人接管)</span>
+    <span class="c-key">while</span> still_alive:
+        etcd.<span class="c-fn">keep_alive</span>(lease)      <span class="c-com"># 心跳续约</span>
+        <span class="c-fn">run_nightly_reprice_batch</span>()
+    <span class="c-key">return</span> <span class="c-str">"leader"</span>
+</code></pre>
+    </div>
+    <p>注意<strong>租约 + 自动过期</strong>这个组合解决了一个很微妙的故障:如果 coordinator 不是干净地崩溃,而是<em>卡死/网络孤立</em>(还以为自己是 leader,但没人能联系它)。靠租约,它一旦停止续约,key 在 10 秒后自动消失,其他节点马上补位——<strong>不需要任何人去「确认它真的死了」</strong>。这就是为什么协调服务比你手搓一个「在数据库里插一行当锁」要稳得多:数据库那行不会因为你卡死而自动消失。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>别把协调服务当通用数据库</div>
+      <ul><li>etcd/ZooKeeper 为<strong>强一致和高可靠</strong>优化,不是为吞吐优化:每次写都要走一轮共识(落到多数派),<strong>写很贵、容量很小</strong>。只往里放「<strong>少量、关键、必须全局一致</strong>」的元数据——leader 是谁、配置版本、锁。<em>千万别</em>把业务数据(保单、报价记录)塞进去,那是关系库/对象存储的活。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>贯穿案例</div>
+    <h2>共识在 QuoteFlow 的两个落点</h2>
+    <p>QuoteFlow 里真正需要共识的地方不多,但每一个都「错了会出大事」——尤其在<strong>可审计</strong>这条红线下。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">① 夜间批量重定价:必须「只有一个在跑」</h3>
+      <p>夜间要对<strong>百万级 in-force 保单</strong>做重定价(周年、CPI indexation、费率表变更)。为了高吞吐,跑批的是<strong>一组 worker 节点</strong>。但「谁来切分任务、谁来标记进度、谁来收尾对账」这件协调工作,<strong>必须只有一个 coordinator</strong>——否则两个节点各跑一遍,同一批保单会被<em>重算两次、写两套保费</em>,审计时根本对不上。用 etcd 选主:抢到租约 key 的当 coordinator,挂了租约自动释放、别人秒级补位。批次本身的幂等(Day 18)是第二道保险:即使切换瞬间有重叠,幂等键也能让重复无害。</p>
+      <h3>② 版本化配置:「当前生效的费率表」要全局一份</h3>
+      <p>QuoteFlow 的 <code class="inl">rate_table_version</code>、<code class="inl">underwriting_rules_version</code> 是定价的命脉,而且和 <strong>auditability</strong> 死死绑定:必须保证<em>所有报价节点在同一时刻读到的是同一个生效版本</em>,绝不能新旧混用、算出两个口径的保费。把「当前生效版本指针」放进 etcd——一次原子切换,全集群强一致可见;切换本身也留痕,谁在何时把生效版本从 <code class="inl">2026-05</code> 切到 <code class="inl">2026-06</code>,可回溯。<strong>真正的费率表数据仍存关系库</strong>,etcd 里只放那个「指向哪一版」的小指针。</p>
+    </div>
+
+    <p>一个值得记住的设计判断:<strong>共识用在「控制平面」,不用在「数据平面」</strong>。选主、配置指针、锁——这些低频、关键、要求全局一致的<em>协调决策</em>交给共识;而海量的报价计算、保单读写这些<em>数据流量</em>,走常规的负载均衡 + 数据库分片(Day 6、Day 13)。把共识用在错的层,会直接把它做成系统瓶颈。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>共识让<strong>一组节点表现得像一个永不自相矛盾的节点</strong>:挂掉少数还能服务,且永远不产生两份冲突真相。代价是分区时<strong>选 C 牺牲 A</strong>。</p></div>
+      <div class="tk"><span class="n">2</span><p>Raft = <strong>选主 + 日志复制 + 多数派</strong>。随机超时选出 leader,写入要落到<strong>多数节点</strong>才算 commit,<strong>term</strong> 让过期 leader 自觉退位。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>多数派(quorum)是脑裂的解药</strong>:两个多数派必有交集,所以分区时最多一边能动。集群用<strong>奇数</strong>(3/5),写延迟随节点数上升。</p></div>
+      <div class="tk"><span class="n">4</span><p>你<strong>不手写共识</strong>,而用 etcd/ZooKeeper。只往里放<strong>少量关键元数据</strong>(leader、配置指针、锁),靠<strong>租约</strong>实现「死了自动释放」。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">一个 5 节点的 Raft 集群,最多能容忍几个节点同时宕机仍正常工作?</span></summary>
+        <div class="ans"><b>2 个。</b>多数派门槛是 3(半数+1),所以只要还剩 ≥3 个能互通,就能选主和提交写入。挂第 3 个就只剩 2 &lt; 3,集群停止接受写入(保一致性、牺牲可用性)。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">Raft 的 election timeout 为什么要做成随机的?</span></summary>
+        <div class="ans"><b>避免选票被瓜分(split vote)。</b>如果所有 follower 同时超时、同时拉票,可能谁都拿不到多数,只能反复重选。随机化让某个节点大概率先超时、抢先拉票成功,把「选不出来」的概率压到极低。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">一个旧 leader 宕机后又复活,带着过期的 term 回来,会不会和新 leader 冲突?</span></summary>
+        <div class="ans"><b>不会。</b>term 是单调递增的逻辑时钟。旧 leader 一收到带更高 term 的心跳/消息,立刻知道自己过期,<b>自动退位为 follower</b>。任何带旧 term 的写入也会被多数派直接拒绝,因此不可能出现两个被认可的 leader。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q4</span><span class="tw">为什么把分布式锁交给 etcd,比在关系库里「插一行当锁」更可靠?</span></summary>
+        <div class="ans"><b>因为租约会自动过期。</b>etcd 的锁 key 绑定一个 TTL 租约,持有者必须持续续约;一旦它<b>卡死/网络孤立</b>(不是干净崩溃),停止续约后 key 自动消失,别人秒级补位——无需任何人去判定它「真的死了」。数据库里那行锁不会因为持有者假死而自动释放,容易死锁。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 夜间批量重定价靠 etcd 选了 coordinator,可它续约的网络刚好抖了一下、租约过期,新 coordinator 被选出来——但旧的其实还活着、还在跑批。<strong>光靠选主够不够防止「重算两遍」?还需要昨天(Day 18)的哪样东西兜底?</strong><br>② 既然共识写很贵,为什么我们仍坚持把「当前生效的 rate_table_version」放进 etcd,而不是放进那台又快又熟悉的关系库?<strong>这里 auditability 和 consistency 各自要的是什么?</strong></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Consensus</dt><dd>一组节点就某个值/状态达成一致的过程,即使存在宕机与网络延迟也不自相矛盾。</dd></dl>
+      <dl><dt>Raft</dt><dd>一种为可理解性设计的共识算法,拆成选主、日志复制、安全性三块;etcd/Consul 都用它。</dd></dl>
+      <dl><dt>Leader Election</dt><dd>从一组对等节点中选出唯一一个 leader 来负责接收写入/协调的过程。</dd></dl>
+      <dl><dt>Term</dt><dd>Raft 中单调递增的任期编号,充当逻辑时钟,用于识别过期 leader、判断消息新旧。</dd></dl>
+      <dl><dt>Quorum / Majority</dt><dd>多数派(半数+1)。两个多数派必有交集,是共识防脑裂的算术基础。</dd></dl>
+      <dl><dt>Split-brain</dt><dd>网络分区后两边都自封 leader、各自接受写入,产生互相冲突真相的危险故障。</dd></dl>
+      <dl><dt>etcd</dt><dd>基于 Raft 的强一致 KV 存储,常用于选主、配置、锁、服务发现;Kubernetes 的状态后端。</dd></dl>
+      <dl><dt>Lease (TTL)</dt><dd>带过期时间的租约;持有者须续约,停止续约后资源自动释放,实现「死了自动让位」。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 20</div>
+      <div class="t">限流、熔断、背压、bulkhead —— 当下游变慢或被打爆时,如何让系统优雅降级、而不是连锁雪崩</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 19 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
