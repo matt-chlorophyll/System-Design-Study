@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 21 · 第三周复盘 + 小型设计练习</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:70.00%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 21 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 3 周 · 分布式与异步</span>
+    <h1>把前三周拼起来<br>设计一个真子系统</h1>
+    <p class="lede">学了二十天的零件——需求、估算、API、缓存、数据库、复制、分片、队列、事件、共识、限流——今天不学新概念,而是把它们装进同一台机器:亲手设计 QuoteFlow 的「夜间批量重定价」子系统,看零件如何咬合成一个能跑、可审计、扛得住的整体。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>昨日回顾 · Day 20</div>
+    <ul>
+      <li>昨天收尾第三周的「弹性」四件套:<strong>rate limiting</strong>(在门口挡超量)、<strong>circuit breaker</strong>(别再敲已坏的门,fail fast)、<strong>backpressure</strong>(下游喊慢、上游就慢)、<strong>bulkhead</strong>(隔舱,别让一处沉船带走全船)。核心心法:<em>过载时「拒一部分、保其余」永远优于「全收、然后一起死」</em>。</li>
+      <li>到此,第三周(分布式与异步)的零件全部到齐。今天是<strong>复盘 + 动手</strong>:把第 1–3 周串成一条主线,再用一道设计练习把它们焊在一起。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>用一张<strong>三周地图</strong>把零散概念归位,看清它们各自解决「设计主线」的哪一步</li>
+      <li>掌握把任意题目<strong>从需求走到架构</strong>的复用流程(Day 1 那六步的实战版)</li>
+      <li>动手设计 <strong>QuoteFlow 夜间批量重定价子系统</strong>,在一张图里同时用上队列、分片、幂等、限流、审计</li>
+      <li>练会在设计里<strong>主动标出取舍点</strong>——这是「会做」和「会讲」的分水岭</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>三周地图</div>
+    <h2>二十天的零件,各归各位</h2>
+    <p>系统设计最容易「学着学着就散了」:每个概念单独看都懂,合起来却不知道谁先谁后、谁配谁。治这个病的办法,是把所有零件挂回 <strong>Day 1 的六步主线</strong>上——每一周其实都在加深主线里的某几步。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:20%">周</th><th>主题</th><th>解决主线的哪一步</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">第 1 周</span><br>基础与思维</td><td>需求拆解、量化 NFR、估算、网络、API、负载均衡、缓存</td><td><strong>步骤 1–4</strong>:把「做什么 + 做多好」问清楚,估出规模,定义接口契约,搭好请求进出的<strong>前门</strong>(LB / 缓存 / API)。</td></tr>
+          <tr><td><span class="lab">第 2 周</span><br>数据层</td><td>ACID、索引、建模、NoSQL、复制、分片、事务隔离</td><td><strong>步骤 5</strong>:数据放哪、怎么存、怎么扩。系统的<strong>记忆与真相</strong>住在这一层——也是最难改、最该想清楚的一层。</td></tr>
+          <tr><td><span class="lab">第 3 周</span><br>分布式与异步</td><td>消息队列、Kafka/事件、批 vs 流、幂等、共识、限流弹性</td><td><strong>步骤 6</strong>:当同步、单机扛不住时,用<strong>异步解耦</strong>把组件拆开,用<strong>幂等/重试</strong>容错,用<strong>共识</strong>协调,用<strong>限流</strong>防雪崩。</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 三周不是三堆知识,而是同一条主线越钻越深。今天的练习会一次踩满这三层。</p>
+
+    <p>第三周内部也有一条隐线,值得单独串一下,因为它最容易混:</p>
+    <ul>
+      <li><strong>queue(队列,Day 15)</strong>是「把活儿丢出去、稍后再做」——解耦生产者和消费者,削峰填谷。</li>
+      <li><strong>log / pub-sub(Kafka,Day 16)</strong>是「把发生过的事记成一条不可变的流」——一份数据,多个消费者各读各的,可回放。</li>
+      <li><strong>batch vs stream(Day 17)</strong>是「攒一大批一次算」对「来一条算一条」——QuoteFlow 的夜间重定价是<em>批</em>,实时报价是<em>流</em>。</li>
+      <li><strong>idempotency(幂等,Day 18)</strong>是异步世界的安全带:消息会重复投递,所以「同一条处理两次 = 处理一次」必须成立,否则保费会被重算两遍。</li>
+      <li><strong>consensus(共识,Day 19)</strong>解决「谁说了算」:谁是 leader、配置以谁为准。</li>
+      <li><strong>resilience(弹性,Day 20)</strong>保证压力下「优雅地少做」,而不是雪崩。</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>复用流程</div>
+    <h2>任何设计题,都按这条路走</h2>
+    <p>Day 1 给过六步主线;经过三周,我们可以把它打磨成一套<strong>能背下来、临场不慌</strong>的动作。面试白板也好、真实立项也好,顺序一样:</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>五步动作清单</div>
+      <ul>
+        <li><strong>① 厘清需求</strong>:列 functional(做什么)+ non-functional(多快/多稳/多可审计)。<em>先别画图。</em></li>
+        <li><strong>② 估算规模</strong>:QPS、数据量、峰值倍数。一个数能否成立,往往这一步就看出来。</li>
+        <li><strong>③ 定接口</strong>:对外的 API / 对内的事件契约长什么样。把 NFR「焊」进契约。</li>
+        <li><strong>④ 画高层架构</strong>:主要组件 + 数据流。哪里同步、哪里异步、数据落在哪。</li>
+        <li><strong>⑤ 找瓶颈、标取舍</strong>:哪会先垮?用缓存/分片/队列/限流补;每补一处,<strong>明说代价</strong>。</li>
+      </ul>
+    </div>
+    <p>注意第 ⑤ 步的「<strong>明说代价</strong>」——这是区分「画了个框图」和「做了个设计」的关键。下面的练习,每个决定我们都会顺手标出它换来什么、又牺牲了什么。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>设计练习</div>
+    <h2>QuoteFlow 夜间批量重定价子系统</h2>
+
+    <div class="case">
+      <span class="tag">Exercise · QuoteFlow</span>
+      <h3 style="margin-top:0">题目</h3>
+      <p>QuoteFlow 有数百万张 in-force(有效)寿险保单。每晚维护窗口里,要对其中一大批保单做<strong>重定价 / 重估</strong>:因为保单到了周年、触发 CPI indexation、或者精算团队发布了新版费率表 / 假设。要求:在窗口内跑完、<strong>每张保单只重算一次(算两次会乱收费)</strong>、用的费率版本要钉死可复现、<strong>每条结果留完整审计痕迹</strong>,而且这个夜间批跑<strong>绝不能拖慢白天的实时报价</strong>。</p>
+    </div>
+
+    <h3>① 厘清需求</h3>
+    <p><strong>Functional</strong>:选出今晚要重算的保单 → 对每张拉取对应版本的费率/规则/假设 → 计算新保费与准备金 → 落库、生成 billing 变更、写审计日志 → 把结果上报下游(reserving / 再保 / 分析)。</p>
+    <p><strong>Non-functional</strong>:<em>高吞吐</em>(百万级 / 几小时窗口);<em>exactly-once 的业务效果</em>(每单恰好重算一次);<em>reproducibility</em>(钉版本,明年能一字不差重跑);<em>auditability</em>(每条为什么是这个数,留痕);<em>隔离</em>(批跑不能吃掉实时报价的资源)。</p>
+
+    <h3>② 估算规模(back-of-envelope)</h3>
+    <p>设 200 万张保单,维护窗口 4 小时 = 14,400 秒。要求平均吞吐 ≈ <code class="inl">2,000,000 / 14,400 ≈ 139 单/秒</code>。但单条重算要拉费率、跑模型、写多张表,假设单 worker 约 20 单/秒,则需要 <code class="inl">139 / 20 ≈ 7</code> 个并行 worker——留余量按峰值 2× 配 <strong>~16 个 worker</strong>。这个数立刻告诉你:这是个<strong>能水平扩展的并行批</strong>问题,不是单机 for 循环。</p>
+
+    <h3>③ 定契约:用「事件 / 任务」而非同步调用</h3>
+    <p>关键判断:重定价是<strong>批 + 异步</strong>(Day 15/17),所以对内契约不是 REST 请求,而是<strong>一条任务消息</strong>。每张待重算保单 = 队列里的一条 task,带上钉死的版本号和一个幂等键:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">repricing_task.json · 夜间重定价任务消息(示意)</span></div>
+<pre><code>{
+  <span class="c-str">"task_id"</span>:        <span class="c-str">"rprc_2026-06-21_p_8f3a91"</span>,  <span class="c-com">// 幂等键 = run_date + policy_id</span>
+  <span class="c-str">"policy_id"</span>:      <span class="c-str">"p_8f3a91"</span>,
+  <span class="c-str">"run_id"</span>:         <span class="c-str">"nightly_2026-06-21"</span>,
+  <span class="c-str">"reason"</span>:         <span class="c-str">"ANNIVERSARY+CPI"</span>,
+  <span class="c-str">"rate_table_version"</span>:   <span class="c-str">"2026-06"</span>,   <span class="c-com">// ← 钉死版本 = 可复现</span>
+  <span class="c-str">"assumption_set"</span>:       <span class="c-str">"AS_2026Q2"</span>,  <span class="c-com">//   整批共用一份快照</span>
+  <span class="c-str">"enqueued_at"</span>:    <span class="c-str">"2026-06-21T02:00:00Z"</span>
+}</code></pre>
+    </div>
+    <p>把版本号<strong>写进任务本身</strong>(而不是让 worker 去读「当前最新版本」),是 reproducibility 的命门:整批共享同一个不可变快照,即使精算团队半夜发了新版,今晚这批也不受影响。这正是 Day 1「把 NFR 焊进契约」的延续。</p>
+
+    <h3>④ 高层架构</h3>
+    <p>整条链路:<strong>调度器</strong>(谁来跑、跑哪些)→ <strong>选单器</strong>(查出今晚的保单,按 policy_id 分片灌进队列)→ <strong>队列</strong> → 一组<strong>幂等的 worker</strong> 并行消费 → 写库 + 审计 + 下游事件。下图把它画出来:</p>
+
+    <figure>
+      <svg viewBox="0 0 720 392" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ahr" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#d68910"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+
+        <!-- scheduler -->
+        <rect x="18" y="24" width="150" height="56" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="93" y="48" font-size="13.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">调度器 Scheduler</text>
+        <text x="93" y="66" font-size="11" fill="#6a7872" text-anchor="middle">02:00 触发 · leader 选举</text>
+
+        <!-- selector -->
+        <rect x="18" y="108" width="150" height="60" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="93" y="132" font-size="13.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">选单器 Selector</text>
+        <text x="93" y="150" font-size="11" fill="#6a7872" text-anchor="middle">查 in-force · 按 id 分片</text>
+
+        <!-- snapshot store -->
+        <rect x="18" y="300" width="150" height="56" rx="12" fill="#eef9f3" stroke="#cfe7da"/>
+        <text x="93" y="324" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">版本化快照</text>
+        <text x="93" y="341" font-size="11" fill="#6a7872" text-anchor="middle">费率 / 规则 / 假设</text>
+
+        <!-- queue -->
+        <rect x="232" y="96" width="120" height="200" rx="12" fill="url(#g1)" stroke="#15a06a" stroke-width="2"/>
+        <text x="292" y="120" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">任务队列</text>
+        <text x="292" y="136" font-size="11" fill="#6a7872" text-anchor="middle">(分区)</text>
+        <rect x="252" y="150" width="80" height="20" rx="4" fill="#e8f6ef" stroke="#cdeede"/>
+        <rect x="252" y="176" width="80" height="20" rx="4" fill="#e8f6ef" stroke="#cdeede"/>
+        <rect x="252" y="202" width="80" height="20" rx="4" fill="#e8f6ef" stroke="#cdeede"/>
+        <rect x="252" y="228" width="80" height="20" rx="4" fill="#e8f6ef" stroke="#cdeede"/>
+        <text x="292" y="272" font-size="10.5" fill="#6a7872" text-anchor="middle">削峰 · 解耦</text>
+
+        <!-- workers -->
+        <rect x="416" y="92" width="150" height="46" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="491" y="112" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">Worker · 幂等消费</text>
+        <text x="491" y="128" font-size="10.5" fill="#6a7872" text-anchor="middle">取版本 → 算 → 写</text>
+        <rect x="416" y="146" width="150" height="46" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="491" y="166" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">Worker · 幂等消费</text>
+        <text x="491" y="182" font-size="10.5" fill="#6a7872" text-anchor="middle">× 水平扩展 ~16</text>
+        <rect x="416" y="200" width="150" height="46" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="491" y="220" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">Worker · 幂等消费</text>
+        <text x="491" y="236" font-size="10.5" fill="#6a7872" text-anchor="middle">限流护下游</text>
+
+        <!-- DLQ -->
+        <rect x="416" y="262" width="150" height="40" rx="10" fill="#fbf1da" stroke="#f1e0b8"/>
+        <text x="491" y="286" font-size="12" font-weight="600" fill="#7a5400" text-anchor="middle">死信队列 DLQ</text>
+
+        <!-- sinks -->
+        <rect x="612" y="92" width="92" height="44" rx="10" fill="#eef9f3" stroke="#cfe7da"/>
+        <text x="658" y="111" font-size="11.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">保单库</text>
+        <text x="658" y="127" font-size="10" fill="#6a7872" text-anchor="middle">(分片)</text>
+        <rect x="612" y="146" width="92" height="44" rx="10" fill="#eef9f3" stroke="#cfe7da"/>
+        <text x="658" y="165" font-size="11.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">审计日志</text>
+        <text x="658" y="181" font-size="10" fill="#6a7872" text-anchor="middle">append-only</text>
+        <rect x="612" y="200" width="92" height="44" rx="10" fill="#eef9f3" stroke="#cfe7da"/>
+        <text x="658" y="219" font-size="11.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">下游事件</text>
+        <text x="658" y="235" font-size="10" fill="#6a7872" text-anchor="middle">再保/分析</text>
+
+        <!-- arrows -->
+        <path d="M93 80 L93 106" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M168 138 L228 150" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M93 300 L93 170" stroke="#93a89c" stroke-width="1.6" stroke-dasharray="4 4" fill="none" marker-end="url(#ah)"/>
+        <text x="78" y="240" font-size="10" fill="#3d9c74" text-anchor="middle" transform="rotate(-90 78 240)">读快照</text>
+        <path d="M352 196 L412 150" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M566 115 L608 114" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M566 169 L608 168" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M566 223 L608 222" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M491 246 L491 260" stroke="#d68910" stroke-width="1.8" fill="none" marker-end="url(#ahr)"/>
+        <text x="540" y="258" font-size="10" fill="#d68910" text-anchor="middle">重试耗尽</text>
+      </svg>
+      <figcaption>图 1 · 夜间重定价子系统:调度(共识选 leader)→ 分片选单 → 队列削峰 → 幂等 worker 并行算 → 写库/审计/下游,失败进 DLQ。一张图里第 3 周的零件全用上了。</figcaption>
+    </figure>
+
+    <h3>⑤ 关键决定,逐个标取舍</h3>
+    <p>架构画完只是骨架,真正的功夫在每个组件「为什么这么选、代价是什么」。挑四个最关键的:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">决定</th><th>为什么(换来什么)</th><th>代价 / 风险</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">用队列异步</span><br><span style="color:var(--muted);font-size:13px">Day 15</span></td><td>解耦选单与计算;削峰让 worker 按自己节奏消费;批跑和实时报价<strong>物理隔离</strong>,互不抢资源(bulkhead 思想)。</td><td>多了一套队列基础设施要运维;端到端变最终一致,「跑完了没」需要单独的进度追踪。</td></tr>
+          <tr><td><span class="lab">幂等 worker</span><br><span style="color:var(--muted);font-size:13px">Day 18</span></td><td>队列<strong>至少投递一次</strong>,消息必然偶尔重复。靠 <code class="inl">task_id</code> 去重,保证「重算两次=一次」,守住「不乱收费」这条红线。</td><td>需要一张去重表 / 唯一约束,每条多一次写或查;要处理「算了一半挂了」的部分完成。</td></tr>
+          <tr><td><span class="lab">按 policy_id 分片</span><br><span style="color:var(--muted);font-size:13px">Day 13</span></td><td>选单和写库都按保单 id 分片,天然并行、负载均匀;同一保单永远落同一分片,避免跨片事务。</td><td>分片键定死后难改;若某批保单热点集中,可能<strong>分片倾斜(skew)</strong>,个别 worker 拖后腿。</td></tr>
+          <tr><td><span class="lab">限流 + DLQ</span><br><span style="color:var(--muted);font-size:13px">Day 20/18</span></td><td>worker 调下游(reserving / billing)时限速,别把它们打爆;反复失败的单丢进 <strong>DLQ</strong> 而非无限重试,不阻塞整批。</td><td>DLQ 里的单需要人工 / 次日补偿处理,要有告警和 runbook,否则会被悄悄遗忘。</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>最后落一段 worker 的核心伪代码,把<strong>幂等 + 钉版本 + 审计</strong>三件事放在同一个事务边界里——这是整道题的灵魂:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">worker.py · 幂等重定价消费者(示意)</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">handle</span>(task):
+    <span class="c-com"># 1) 幂等闸门:这条 task_id 处理过就直接跳过(消息可能重投)</span>
+    <span class="c-key">if</span> audit.<span class="c-fn">already_done</span>(task.task_id):
+        <span class="c-key">return</span> ack()                      <span class="c-com"># 重复 → 安全地确认掉</span>
+
+    <span class="c-com"># 2) 读“钉死的版本”,而不是当前最新 → 可复现</span>
+    rates = snapshot.<span class="c-fn">get</span>(task.rate_table_version)
+    asmp  = snapshot.<span class="c-fn">get</span>(task.assumption_set)
+
+    new_premium = <span class="c-fn">reprice</span>(task.policy_id, rates, asmp)
+
+    <span class="c-com"># 3) 一个事务里:写结果 + 写审计 + 标记 task 完成(原子)</span>
+    <span class="c-key">with</span> db.<span class="c-fn">tx</span>(shard_of(task.policy_id)):
+        policies.<span class="c-fn">update</span>(task.policy_id, new_premium)
+        audit.<span class="c-fn">record</span>(task.task_id, task.run_id,
+                     inputs=[task.rate_table_version, task.assumption_set],
+                     result=new_premium)        <span class="c-com"># 为什么是这个数,留痕</span>
+
+    events.<span class="c-fn">emit</span>(<span class="c-str">"policy.repriced"</span>, task.policy_id)  <span class="c-com"># 通知下游(再保/分析)</span>
+    <span class="c-key">return</span> ack()</code></pre>
+    </div>
+    <p>注意第 3 步:<strong>结果、审计、完成标记必须在同一个事务里</strong>(Day 14)。否则可能「钱改了、审计没写」或「算完了、没标记完成 → 下次又算一遍」。把幂等键的写入和业务结果绑成原子,是异步系统正确性的地基。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>零件不散的秘诀:把每个概念挂回 <strong>Day 1 六步主线</strong>。三周 = 同一条线越钻越深,而非三堆知识。</p></div>
+      <div class="tk"><span class="n">2</span><p>做题永远<strong>「需求→估算→契约→架构→标取舍」</strong>。先别画图;每个决定都<strong>明说代价</strong>,才算设计。</p></div>
+      <div class="tk"><span class="n">3</span><p>异步批处理的灵魂是<strong>幂等 + 钉版本 + 审计绑进一个事务</strong>:让「重算两次=一次」「明年能重跑」同时成立。</p></div>
+      <div class="tk"><span class="n">4</span><p>批跑与实时报价<strong>物理隔离</strong>(队列 + bulkhead),是让百万级夜间作业不拖垮白天 300ms 报价的根本手段。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">为什么把 <code class="inl">rate_table_version</code> 写进任务消息,而不是让 worker 去读「当前最新版本」?</span></summary>
+        <div class="ans"><b>为了 reproducibility(可复现)。</b>整批共享一份不可变快照——即使半夜精算发布了新版费率,今晚这批仍用钉死的旧版,明年原样重跑结果一致。若读「最新」,同一批不同时刻处理的保单可能用上不同版本,审计与复现全乱。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">队列「至少投递一次」,worker 凭什么保证「每张保单只重算一次」的业务效果?</span></summary>
+        <div class="ans"><b>靠幂等。</b>用 <code class="inl">task_id = run_date + policy_id</code> 当幂等键,处理前先查「这条做过没」,做过就直接 ack 跳过;并把<b>完成标记和业务结果写进同一个事务</b>。这样消息重投也只生效一次——这是 exactly-once「效果」,而非传输层真的只投一次。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">如果不用队列,直接让选单器同步循环调用计算服务,会丢掉哪些好处?</span></summary>
+        <div class="ans"><b>丢掉解耦、削峰和隔离。</b>同步循环里,选单器要等每次计算返回,慢一个卡一串;无法独立水平扩展 worker;最危险的是<b>批跑会和白天实时报价抢同一批资源</b>,夜间作业一重,300ms 报价 SLA 就可能被拖垮。队列把两条路径物理隔开。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 夜间批跑到一半,worker 集群崩了一半、窗口也快到点了——你怎么设计才能<strong>安全地从断点续跑</strong>,而不是从头再来、也不重复收费?<br>② 如果把这个「攒一晚一次算」的批,改成「保单一到周年就实时重算」的流(stream),QuoteFlow 会得到什么、又要多付出什么?(这正是 Day 17 批 vs 流的现实抉择)</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Batch Processing</dt><dd>攒一大批数据后一次性集中处理,优化吞吐而非延迟(如夜间重定价)。</dd></dl>
+      <dl><dt>Worker Pool</dt><dd>一组并行消费任务队列的处理进程,可水平扩展以提高吞吐。</dd></dl>
+      <dl><dt>Idempotency Key</dt><dd>唯一标识一次操作的键,用于去重,保证重复执行只生效一次。</dd></dl>
+      <dl><dt>Reproducibility</dt><dd>钉死输入版本(快照),使同一计算日后能一字不差重跑出相同结果。</dd></dl>
+      <dl><dt>Snapshot</dt><dd>某一时刻数据的不可变副本(如费率/假设),供整批共享、保证一致。</dd></dl>
+      <dl><dt>Dead Letter Queue</dt><dd>反复处理失败的消息被转入的旁路队列,待人工或补偿流程处理,避免阻塞主流程。</dd></dl>
+      <dl><dt>Shard Skew</dt><dd>分片负载不均——某些分片数据/请求远多于其它,拖慢整体的并行作业。</dd></dl>
+      <dl><dt>Transactional Boundary</dt><dd>把若干写操作绑成一个原子单元的范围,要么全成功要么全回滚。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 22 · 第 4 周开篇</div>
+      <div class="t">单体 vs 微服务 vs 模块化单体:服务该怎么切边界——把今天这个子系统,从「一段代码」变成「一个/几个独立部署的服务」的取舍</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 21 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
