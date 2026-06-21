@@ -181,9 +181,31 @@ const L = {
   d16:'Day-16-event-driven-kafka.html',
   d17:'Day-17-batch-vs-stream-pipelines.html',
   d18:'Day-18-idempotency-delivery.html',
+  d19:'Day-19-consensus-coordination.html',
 };
 
 const PAIRS = [
+  { trip:true, src:'Day 19', link:L.d19,
+    a:{t:'Leader election 选出的「唯一 leader」', zh:'逻辑唯一 · 谁说了算', def:'同一刻多数派只「认」一个 leader（带最高 term 的那个）。'},
+    b:{t:'同一刻「只有一个节点在执行」', zh:'物理唯一 · 谁在干活', def:'真实世界里同一份活只有一个进程在跑、在写。'},
+    diff:'选主只保证「认谁」的逻辑唯一，给不了「谁在干」的物理唯一。一个假死 / 网络孤立的旧 leader，在它租约过期、自己还没察觉被换掉之前，仍以为自己是 leader、仍在物理上继续写——这段窗口里逻辑上已换人、物理上两个都在跑。所以重复的根源不是「重试」，是「假死旧 leader 与新 leader 的重叠双跑」。',
+    eg:'QuoteFlow 夜间批量：etcd 把新 coordinator 选出来了（逻辑唯一），但旧 coordinator 网络抖一下、租约过期前还在跑批 → 同一批保单被两个节点各算一遍。选主挡不住，得靠幂等（让重复无害）/ fencing token（拒绝旧写）兜那段窗口。',
+    mn:'选主 = 大家「认」谁；它管不住一个假死的旧 leader 还在「干」。逻辑唯一 ≠ 物理唯一。' },
+
+  { src:'Day 19', link:L.d19,
+    a:{t:'Idempotency', zh:'幂等 · 被动', def:'重复来了我认得出、当 no-op，让它无害。'},
+    b:{t:'Fencing Token', zh:'栅栏令牌 · 主动', def:'每次抢锁发单调递增 token，资源拒绝低于已见值的迟到写。'},
+    diff:'两者都防「假死旧节点的迟到写」，但层次相反：幂等是被动收口——让重复执行的最终状态 == 执行一次（upsert 覆盖 / 去重表）；fencing 是主动拦截——压根不让旧持有者那张低 token 的写落地。一个「来了也不出错」，一个「根本不让它进来」。生产里常两个都上。',
+    eg:'夜间重算：幂等让旧 coordinator 重叠写的那批保费覆盖成同一个值（无害）；若给批次写加 fencing——每轮抢到租约 token+1，保单库只接受 ≥ 当前 token 的写，旧 coordinator 那张旧 token 写被直接拒。',
+    mn:'幂等让重复「无害」，fencing 让旧写「进不来」。被动收口 vs 主动拦截。' },
+
+  { src:'Day 19', link:L.d19,
+    a:{t:'etcd 配置中心（强一致指针）', zh:'linearizable · 全局同一瞬间', def:'一次原子切换，全集群同一瞬间读到同一个生效版本。'},
+    b:{t:'关系库 read replica 读指针', zh:'replication lag · 可能读到旧值', def:'又快又熟，但从库有复制延迟，切换后可能仍读到旧值。'},
+    diff:'为什么版本指针放 etcd 而不放「又快又熟悉的关系库」：etcd 给 linearizability——切换是全局可见的一个瞬间，没有「有的节点新、有的节点旧」的中间态；关系库主从复制为了快放松了一致性，read replica 有 lag，切了指针仍可能有报价节点读到旧版 → 新旧口径混算。「又快」恰恰因为它放松了你这里不能放松的那一样东西。',
+    eg:'rate_table_version 从 2026-05 切到 2026-06：放 etcd → 全集群同一刻翻版；放关系库从库 → 滞后的从库上有节点还按 5 月费率报价。而「当时全集群确实用同一版」正是 auditability 的前提——没有强一致，可追溯都是假的。',
+    mn:'配置指针要 linearizable，不能要「最终一致」。关系库的「快」是放松一致换来的，这里不能放松。' },
+
   { trip:true, src:'Day 2', link:L.d2,
     a:{t:'Consistency (strong)', zh:'强一致 · 数据存储层', def:'多副本下，写入后别处能不能立刻读到最新值。'},
     b:{t:'Reproducibility / Determinism', zh:'可复现 / 确定性 · 计算逻辑层', def:'同样输入算出同样结果，与有几个副本无关。'},
