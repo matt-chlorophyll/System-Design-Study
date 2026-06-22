@@ -183,6 +183,7 @@ const L = {
   d18:'Day-18-idempotency-delivery.html',
   d19:'Day-19-consensus-coordination.html',
   d20:'Day-20-rate-limiting-resilience.html',
+  d21:'Day-21-week3-review-exercise.html',
 };
 
 const PAIRS = [
@@ -541,6 +542,13 @@ const PAIRS = [
     diff:'搬家量差别的根源：mod N 改的是「整个映射函数」(全局)——N:4→5 几乎每个 key 的余数都变，≈80% 换家；环加节点只改「被接管那段弧」的归属(局部)，≈1/N。所以 rebalancing 的高成本不是「hash 分区」的锅，是「mod N 这种分配法」的锅。',
     eg:'保单库扩容加一台 shard：mod N 近乎全库重哈希搬家；consistent hashing 只搬新节点接管的那段弧。',
     mn:'mod N 改函数 → 全搬；环挪一段弧 → 搬 1/N。' },
+
+  { src:'Day 21', link:L.d21,
+    a:{t:'Partition', zh:'分区 · 通称', def:'按 key 把一坨数据切成小块；可以全在同一台机器上（PG 单表按月分区、Kafka topic 分区）。'},
+    b:{t:'Shard', zh:'分片 · 特例', def:'partition 的特例——这些块还被分到不同机器 / 节点上做水平扩展。'},
+    diff:'shard ⊂ partition：所有 shard 都是 partition、不是所有 partition 都是 shard——shard 多了「跨机器」这层含义。但更大的混乱来自生态叫法：Kafka / Cassandra / PG 叫 partition，MongoDB / Elasticsearch / Citus 叫 shard，DDIA 干脆把 partition 当通用词。实战别抠词，看「跨不跨节点」。（再分一刀：horizontal=切行，shard 属此；vertical=切列。）',
+    eg:'Day 21 夜间重定价图里：任务队列标「分区」（随 Kafka 叫法，一条 topic 切几片让 ~16 worker 并行各读一片）、保单库标「分片」（百万保单跨多 DB 节点）——底层同一个动作（按 key 切开好并行），只是一个随队列生态、一个随数据库生态。',
+    mn:'partition 切块（可同机）；shard = 切块还跨机。混乱多来自生态叫法，认准「跨不跨节点」。' },
 
   { src:'Day 13', link:L.d13,
     a:{t:'Key-range partitioning', zh:'按键范围切', def:'相邻 key 物理相邻；范围查询高效，但时间型 key 制造「最新分区」热点。'},

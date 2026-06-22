@@ -162,6 +162,7 @@ const L = {
   d18:'Day-18-idempotency-delivery.html',
   d19:'Day-19-consensus-coordination.html',
   d20:'Day-20-rate-limiting-resilience.html',
+  d21:'Day-21-week3-review-exercise.html',
 };
 
 const TERMS = [
@@ -268,8 +269,16 @@ const TERMS = [
    def:'quorum 读发现某副本版本落后时，顺手把它修到最新；Dynamo 一脉（Cassandra / DynamoDB）维持副本收敛的手段之一。'},
 
   // ── Day 13：分区与分片 / consistent hashing（+ hash 原理讨论）──
-  {t:'Partitioning / Sharding', zh:'分区 / 分片', cat:'data', src:['Day 13'], link:L.d13,
-   def:'把一份数据切成多份、每台只放一部分，解决容量与写扩展。与 replication（拷贝、解决可用性 / 读扩展）相乘而非二选一：每个分区内部各自又是一套 leader-follower。'},
+  {t:'Partitioning / Sharding', zh:'分区 / 分片', cat:'data', src:['Day 13','Day 21','讨论'], link:L.d13,
+   def:'把一份数据切成多份、每台只放一部分，解决容量与写扩展。与 replication（拷贝、解决可用性 / 读扩展）相乘而非二选一：每个分区内部各自又是一套 leader-follower。术语之辨：partition 是「按 key 切块」的通称，shard 特指「块还被分到不同机器上」→ 所有 shard 都是 partition、不是所有 partition 都是 shard（shard = partition + 跨节点）；很大程度也是生态叫法差异（Kafka / PG 单机叫 partition，Mongo / ES / Citus 叫 shard，DDIA 把 partition 当通用词）。实战别抠词，看跨不跨节点。'},
+
+  // ── Day 21：第三周复盘 + 夜间批量重定价设计练习 ──
+  {t:'Worker Pool', zh:'工作池', cat:'async', src:['Day 21'], link:L.d21,
+   def:'一组并行消费同一任务队列的处理进程，可水平扩展提吞吐。夜间重定价按 back-of-envelope（200 万单 / 4h ÷ 单 worker ~20 单/s）配 ~16 个；崩掉的 worker 靠队列租约把未 ack 的活自动转交给同伴（呼应 Visibility Timeout / Lease）。'},
+  {t:'Transactional Boundary', zh:'事务边界', cat:'data', src:['Day 21'], link:L.d21,
+   def:'把若干写绑成一个原子单元的范围，要么全成、要么全回滚。夜间 worker 的灵魂：把「写结果 + 写审计 + 标记 task 完成」放进同一个事务，否则会「钱改了审计没写」或「算完没标记完成 → 下次又算一遍」。'},
+  {t:'Snapshot', zh:'快照', cat:'data', src:['Day 21','讨论'], link:L.d21,
+   def:'某一时刻数据的不可变副本（费率 / 规则 / 假设）。把版本号写进任务消息、整批共享同一份快照，是 reproducibility 的命门——半夜精算发了新版费率，今晚这批也不受影响、明年能一字不差重跑。'},
   {t:'Partition Key', zh:'分区键', cat:'data', src:['Day 13'], link:L.d13,
    def:'决定一条记录落在哪个分区的字段。选择铁律：让最高频、最延迟敏感的查询「单分区可达」，且选一个 immutable 的键（避免归属变化导致记录跨分区搬家）。'},
   {t:'Key-range Partitioning', zh:'按键范围分区', cat:'data', src:['Day 13'], link:L.d13,
@@ -278,8 +287,8 @@ const TERMS = [
    def:'对 key 求 hash 再落桶。天然均匀（相似 key 也打散）；代价是顺序没了、范围查询退化成 scatter-gather。代表：Cassandra、DynamoDB。'},
   {t:'Compound Key', zh:'复合分区键', cat:'data', src:['Day 13'], link:L.d13,
    def:'如 (customer_id, created_at)：第一段哈希定分区、第二段在分区内保序 →「查某客户最近的报价」既均匀又高效。兼顾 hash 的均匀与 range 的局部有序。'},
-  {t:'Hot Spot / Skew', zh:'热点 / 倾斜', cat:'data', src:['Day 13'], link:L.d13,
-   def:'负载不均。两种形态：① key-range 的时间型热点（写都砸最新分区）；② 单 key 过热——某个 key 本身承载不成比例的流量，hash 也无解，只能在应用层把它再拆细（broker_42#01 / #02）。'},
+  {t:'Hot Spot / Skew (Shard Skew)', zh:'热点 / 倾斜（分片倾斜）', cat:'data', src:['Day 13','Day 21'], link:L.d13,
+   def:'负载不均。两种形态：① key-range 的时间型热点（写都砸最新分区）；② 单 key 过热——某个 key 本身承载不成比例的流量，hash 也无解，只能在应用层把它再拆细（broker_42#01 / #02）。并行批处理里它表现为 shard skew：个别分片数据远多于其它 → 那个 worker 成 straggler 拖慢整晚。'},
   {t:'Rebalancing', zh:'再平衡', cat:'data', src:['Day 13'], link:L.d13,
    def:'机器数变化时把 key 重新分配到节点。自建分库分表里最容易出事故的运维操作之一；常见缓解：一开始就切多（如 1 台扛 64 个逻辑分区），扩容时整分区搬走、不重切数据。'},
   {t:'Consistent Hashing', zh:'一致性哈希', cat:'data', src:['Day 13','讨论'], link:L.d13,
