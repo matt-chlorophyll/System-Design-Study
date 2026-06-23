@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 23 · API 网关、Service Mesh 与 BFF</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:76.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 23 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 4 周 · 架构与运维</span>
+    <h1>谁来当门口<br>—— API 网关、Service Mesh 与 BFF</h1>
+    <p class="lede">昨天我们决定「拆成几个服务」。今天的问题接踵而来:外面的客户端该敲哪扇门?拆开的服务彼此之间又怎么安全、可靠地说话?答案藏在两类完全不同的流量里。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>昨日回顾 · Day 22</div>
+    <ul>
+      <li>昨天把「单体 vs 微服务」展开成一条谱系,落点在 <strong>modular monolith</strong>:先用编译器守住逻辑边界,只把 NFR 截然不同的「夜间批量重定价」第一个切出去。</li>
+      <li>可一旦你<strong>真的</strong>有了多个独立部署的服务,两个新问题立刻冒出来:① 网站 / App / broker 这些外部客户端,该把请求发给谁?② 服务 A 调服务 B 时,认证、重试、超时、加密这些事,难道每个服务自己写一遍?今天就回答这两问——它们分别对应两类流量。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>分清两类流量:<strong>north-south(客户端↔系统)</strong> vs <strong>east-west(服务↔服务)</strong>——这是理解今天三件套的钥匙</li>
+      <li>讲清 <strong>API Gateway</strong> 做什么、它和单纯的 reverse proxy / load balancer 差在哪</li>
+      <li>理解 <strong>BFF(Backend for Frontend)</strong> 为什么会出现,以及它和网关的分工</li>
+      <li>看懂 <strong>Service Mesh</strong> 的 sidecar 模型:control plane vs data plane,以及它把哪些横切关注点从业务代码里搬走</li>
+      <li>用 QuoteFlow 把三者摆到正确的位置上,并守住 audit / compliance 这条横切线</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>两类流量</div>
+    <h2>先分清南北向和东西向</h2>
+    <p>微服务一多,新手很容易把所有「服务间通信」的问题搅成一团。其实只要先切一刀,整张图立刻清楚:把流量分成<strong>两类方向</strong>。</p>
+    <p><strong>North-South(南北向)</strong>:从系统<em>外部</em>进来、再出去的流量——浏览器、手机 App、broker 的后端打到 QuoteFlow。它穿过你的「边界」,因此天然要处理:<strong>身份认证、限流、TLS 终结、把一个外部请求路由到正确的内部服务</strong>。守这道门的,就是 <strong>API Gateway</strong>(以及给特定前端定制的 BFF)。</p>
+    <p><strong>East-West(东西向)</strong>:系统<em>内部</em>服务之间的流量——报价服务调核保服务、批量服务调保单服务。它不出边界,但量更大、链路更长,要处理的是:<strong>服务发现、重试与超时、熔断、服务间的 mTLS 加密、把每一跳都接进链路追踪</strong>。管这层的,是 <strong>Service Mesh</strong>。</p>
+    <p>一句话记牢:<em>网关守南北门,mesh 管东西巷</em>。它们不是二选一,而是各管一类流量。下面这张图把三件套和两类流量一次摆清。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#46b98a"/></marker>
+        </defs>
+
+        <!-- clients -->
+        <text x="60" y="26" font-size="12" font-weight="700" fill="#0f3d2e" text-anchor="middle">客户端</text>
+        <rect x="18" y="38" width="84" height="30" rx="7" fill="url(#g1)" stroke="#cde3d6"/><text x="60" y="58" font-size="11.5" fill="#0f3d2e" text-anchor="middle">网站 / App</text>
+        <rect x="18" y="80" width="84" height="30" rx="7" fill="url(#g1)" stroke="#cde3d6"/><text x="60" y="100" font-size="11.5" fill="#0f3d2e" text-anchor="middle">broker</text>
+
+        <!-- gateway / BFF column -->
+        <rect x="150" y="34" width="118" height="120" rx="12" fill="#0f3d2e"/>
+        <text x="209" y="58" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">API Gateway</text>
+        <text x="209" y="76" font-size="10" fill="#9fd3ba" text-anchor="middle">authn · 限流</text>
+        <text x="209" y="90" font-size="10" fill="#9fd3ba" text-anchor="middle">TLS · 路由</text>
+        <rect x="166" y="104" width="86" height="22" rx="6" fill="#15a06a"/><text x="209" y="119" font-size="9.5" fill="#fff" text-anchor="middle">App BFF</text>
+        <rect x="166" y="130" width="86" height="22" rx="6" fill="#1a7f5a"/><text x="209" y="145" font-size="9.5" fill="#fff" text-anchor="middle">broker BFF</text>
+
+        <!-- north-south arrows -->
+        <path d="M102 53 L148 58" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M102 95 L148 120" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="125" y="172" font-size="10.5" fill="#6a7872" text-anchor="middle" font-style="italic">↑ North-South</text>
+
+        <!-- mesh boundary -->
+        <rect x="300" y="24" width="404" height="276" rx="14" fill="none" stroke="#9bd9bb" stroke-width="1.5" stroke-dasharray="6 5"/>
+        <text x="502" y="44" font-size="12" font-weight="700" fill="#0c7a50" text-anchor="middle">Service Mesh(东西向流量都套上 sidecar)</text>
+
+        <!-- services with sidecars -->
+        <g>
+          <rect x="326" y="64" width="120" height="58" rx="10" fill="url(#g1)" stroke="#cde3d6"/>
+          <text x="386" y="88" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">报价</text>
+          <rect x="330" y="98" width="112" height="18" rx="5" fill="#e8f6ef" stroke="#9bd9bb"/><text x="386" y="111" font-size="9" fill="#0c7a50" text-anchor="middle">▣ sidecar</text>
+        </g>
+        <g>
+          <rect x="560" y="64" width="120" height="58" rx="10" fill="url(#g1)" stroke="#cde3d6"/>
+          <text x="620" y="88" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">核保</text>
+          <rect x="564" y="98" width="112" height="18" rx="5" fill="#e8f6ef" stroke="#9bd9bb"/><text x="620" y="111" font-size="9" fill="#0c7a50" text-anchor="middle">▣ sidecar</text>
+        </g>
+        <g>
+          <rect x="326" y="178" width="120" height="58" rx="10" fill="url(#g1)" stroke="#cde3d6"/>
+          <text x="386" y="202" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">保单</text>
+          <rect x="330" y="212" width="112" height="18" rx="5" fill="#e8f6ef" stroke="#9bd9bb"/><text x="386" y="225" font-size="9" fill="#0c7a50" text-anchor="middle">▣ sidecar</text>
+        </g>
+        <g>
+          <rect x="560" y="178" width="120" height="58" rx="10" fill="url(#g1)" stroke="#cde3d6"/>
+          <text x="620" y="202" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">夜间批量</text>
+          <rect x="564" y="212" width="112" height="18" rx="5" fill="#e8f6ef" stroke="#9bd9bb"/><text x="620" y="225" font-size="9" fill="#0c7a50" text-anchor="middle">▣ sidecar</text>
+        </g>
+
+        <!-- gateway into mesh -->
+        <path d="M268 94 L324 93" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- east-west arrows (sidecar to sidecar) -->
+        <path d="M446 107 L558 107" stroke="#46b98a" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <path d="M386 122 L386 176" stroke="#46b98a" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <path d="M446 221 L558 221" stroke="#46b98a" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+        <text x="502" y="258" font-size="10.5" fill="#3d9c74" text-anchor="middle" font-style="italic">↔ East-West:每一跳都经 sidecar(mTLS · 重试 · 追踪)</text>
+
+        <!-- control plane -->
+        <rect x="326" y="270" width="354" height="22" rx="6" fill="#0f3d2e"/>
+        <text x="502" y="285" font-size="10.5" fill="#cfeede" text-anchor="middle">Control Plane:下发路由 / 策略 / 证书给每个 sidecar(业务代码无感)</text>
+      </svg>
+      <figcaption>图 1 · 三件套各就各位:网关 + BFF 守南北门(认证/限流/路由),service mesh 用 sidecar 管东西巷(加密/重试/追踪),control plane 在背后统一配置。</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>南北门</div>
+    <h2>API Gateway:边界上的单一入口</h2>
+    <p>当你只有一个单体时,客户端直连它就行。可一旦拆成十几个服务,问题来了:难道让 App 自己记住「报价在 a.svc、核保在 b.svc、保单在 c.svc」,还各自实现一遍登录鉴权?这叫<strong>客户端直连后端的反模式</strong>——前端被内部拓扑绑死,内部一改,所有客户端跟着改。</p>
+    <p><strong>API Gateway 是横在客户端和后端之间的单一入口</strong>。所有外部请求先打到它,由它统一干掉那些<em>每个服务都要做、但不该各做一遍</em>的横切活,再转发给内部服务:</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h12"/></svg>网关典型职责(把横切关注点集中处理)</div>
+      <ul>
+        <li><strong>路由 / 聚合</strong>:把 <code class="inl">/v1/quotes</code> 转给报价服务,<code class="inl">/v1/policies</code> 转给保单服务;有时还把多个后端结果聚合成一个响应。</li>
+        <li><strong>认证与授权(authn/authz)</strong>:校验 token、解析身份,内部服务就不必各自重做(Day 25 会专讲 OAuth2/OIDC)。</li>
+        <li><strong>限流与配额</strong>:给每个 broker、每个 API key 配速率上限,挡住打爆后端的流量(Day 20 的 rate limiting 在这里落地)。</li>
+        <li><strong>TLS 终结、协议转换</strong>:外面收 HTTPS、对内可走 HTTP/gRPC;也能把老的 REST 客户端翻译到新的内部协议。</li>
+        <li><strong>可观测性入口</strong>:统一打访问日志、注入 trace id(Day 24),给每个外部请求一个可追溯的起点。</li>
+      </ul>
+    </div>
+    <p>关键区别要记清:<strong>load balancer</strong> 在 L4 按连接分发,不看内容;<strong>reverse proxy</strong> 在 L7 转发、可做缓存,但路由相对死板;<strong>API gateway</strong> 是「带业务感知的 L7 入口」——它认得 API、懂认证、能限流、按路由规则把请求送到正确的微服务。网关常常<em>就跑在</em>一个反向代理 / 负载均衡之后,但职责更上层。别把网关做成「什么逻辑都往里塞」的新单体——那是它最常见的退化方式。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>给前端定制的门</div>
+    <h2>BFF:一个前端,一扇专属门</h2>
+    <p>有了网关,还会遇到一类更细的问题:<strong>不同前端要的东西不一样</strong>。手机 App 屏幕小、网络差,想要一个「报价 + 保单摘要」打包好的精简响应;而 broker 的后端要的是字段齐全、可批量的接口;网站又是另一套。如果让<em>同一个</em>通用 API 同时伺候所有前端,它会被各方需求撑成一个谁都不满意的怪物。</p>
+    <p><strong>BFF(Backend for Frontend)</strong>的思路:<em>每一类前端,配一个专属的后端适配层</em>。App BFF、broker BFF、Web BFF 各自面向一个前端,负责<strong>为这个前端裁剪、聚合、塑形</strong>下游服务的数据。下游的报价 / 核保 / 保单服务保持通用、不被任何单一前端的口味污染;「这个屏幕需要哪几个字段」这种易变逻辑,被收进对应的 BFF 里。</p>
+    <p>BFF 和网关不矛盾,而是分层:<strong>网关管所有前端共通的横切事(认证、限流、TLS),BFF 管某一个前端特有的聚合与塑形</strong>。小系统里两者可以合一;前端种类一多、各自演进速度不同时,拆出 BFF 就开始划算——它让 App 团队能改自己的 BFF 而不惊动 broker 那条线。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>一个判断口诀</div>
+      <ul><li>横切、所有前端都一样 → 放<strong>网关</strong>;某个前端独有、会随它的 UI 频繁变 → 放它的 <strong>BFF</strong>。把这两类活混在一处,是后期最难拆的债。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>东西巷</div>
+    <h2>Service Mesh:把横切关注点搬出业务代码</h2>
+    <p>南北向解决了,东西向更隐蔽。报价调核保、批量调保单……每一次服务间调用,都得处理:对方在哪(服务发现)、调失败要不要重试、多久算超时、连续失败要不要熔断(Day 20)、这一跳要不要加密、怎么把它接进链路追踪(Day 24)。问题是:<strong>这些逻辑如果写进每个服务的业务代码,就要在十几个服务、几种语言里各实现一遍,还很难统一升级。</strong></p>
+    <p><strong>Service Mesh 的核心招法是 sidecar:</strong>给每个服务实例旁边塞一个轻量代理进程(如 Envoy),让<em>所有进出该服务的网络流量都先过这个 sidecar</em>。于是上面那串横切活——mTLS 加密、重试、超时、熔断、负载均衡、流量镜像、生成追踪 span——全部由 sidecar 代劳,<strong>业务代码只管发一个普通的本地调用,对这些一无所知</strong>。</p>
+    <h3>Data plane vs Control plane</h3>
+    <p>mesh 分两层,这是它最该记住的结构:<strong>data plane(数据面)</strong>就是那一堆 sidecar 代理,真正搬运每一个请求字节;<strong>control plane(控制面)</strong>是大脑,负责把路由规则、重试策略、安全证书<em>下发</em>给所有 sidecar。你想让「报价→核保」的调用统一加 200ms 超时、失败重试 2 次、全程 mTLS?在控制面改一条策略,它推给相关 sidecar 即可——<strong>不动一行业务代码、不重新发布服务</strong>。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>mesh 不是免费的</div>
+      <ul><li>每个服务多一个 sidecar = 多一跳网络、多一份内存/CPU、多一层要运维和排障的东西。<strong>服务不多时,mesh 往往是过度工程</strong>——几个服务用库(如 gRPC 自带的重试)或一个共享的客户端 SDK 就够了。等服务数量、语言种类、安全合规要求都涨上来,mesh 把「东西向治理」标准化的价值才压过它的复杂度成本。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>对照</div>
+    <h2>网关 vs Mesh:别混为一谈</h2>
+    <p>这两个最容易被搅在一起。一张表钉死它们的分工:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%"></th><th>API Gateway</th><th>Service Mesh</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">管哪类流量</span></td><td>North-South(客户端 ↔ 系统)</td><td>East-West(服务 ↔ 服务)</td></tr>
+          <tr><td><span class="lab">位置</span></td><td>系统<strong>边界</strong>上,单一入口</td><td>每个服务<strong>旁边</strong>的 sidecar,无处不在</td></tr>
+          <tr><td><span class="lab">主打职责</span></td><td>认证、限流、路由、TLS 终结、聚合</td><td>服务发现、重试/超时/熔断、mTLS、追踪</td></tr>
+          <tr><td><span class="lab">谁是客户</span></td><td>外部客户端(App / broker)</td><td>内部服务彼此</td></tr>
+          <tr><td><span class="lab">改配置影响</span></td><td>改外部契约 / 入口策略</td><td>改服务间通信策略,业务代码无感</td></tr>
+          <tr><td><span class="lab">什么时候才需要</span></td><td>一旦有外部客户端 + 多个后端,几乎必备</td><td>服务多、跨语言、合规要求高时才划算</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 记忆锚点:网关是「一扇大门」,mesh 是「给每个房间都配了门卫的内部走廊」。两者经常<strong>同时存在</strong>,各管一向流量。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>贯穿案例</div>
+    <h2>把三件套摆进 QuoteFlow</h2>
+    <p>沿用昨天的切法(模块化单体起步,先切出夜间批量)。即便服务还不多,南北门也该先立起来;东西向先用轻量手段,长大了再上 mesh。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">① 网关:所有渠道的统一前门</h3>
+      <p>网站、App、broker 全部打到一个 gateway:它做 TLS 终结、校验 token、给每个 broker 配速率配额(防止某个 broker 批量打报价拖垮系统)、把 <code class="inl">/v1/quotes</code> 路由到报价服务。<strong>关键合规点:网关是给每个外部请求注入 <code class="inl">trace_id</code> 的地方</strong>——这个 id 会一路贯穿到 audit log,让「这条报价从哪个渠道、哪个 broker 发起」可追溯。</p>
+      <h3>② BFF:给 broker 和 App 各裁一套</h3>
+      <p>broker 要批量、字段全的报价接口;App 要轻量、聚合好的「报价 + 保单摘要」。各配一个 BFF,下游报价/核保/保单服务保持通用。broker 那条线的接口演进,不会逼着 App 团队跟着改。</p>
+      <h3>③ Mesh(等长大再上)+ 横切的审计线</h3>
+      <p>服务还少时,报价↔核保走进程内或一个共享客户端 SDK 即可;等服务拆多、跨语言、对「服务间 mTLS + 统一重试策略」有合规诉求时,再引入 mesh,把这些治理从代码里搬到控制面。但<strong>无论用不用 mesh,审计都不能交给它</strong>:mesh 的追踪解决「技术链路连不连得起来」,而<em>「为什么是这个保费」的业务级审计</em>(rate_table_version、rules_applied)必须由业务事件流承载(Day 16),横切所有服务。<strong>受监管定价系统的铁律:基础设施层的 trace 和业务层的 audit,是两条都要有、且不能互相替代的线。</strong></p>
+    </div>
+
+    <p>下面用一段网关路由配置(示意),感受「横切关注点被声明在入口、而非散落在每个服务」是什么意思:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">gateway.yaml · QuoteFlow 网关路由(示意)</span></div>
+<pre><code><span class="c-com"># 所有外部请求先过这里,横切活集中声明</span>
+<span class="c-key">routes</span>:
+  - <span class="c-key">match</span>: { <span class="c-key">path</span>: <span class="c-str">/v1/quotes</span>, <span class="c-key">methods</span>: [<span class="c-str">POST</span>] }
+    <span class="c-key">authn</span>:    <span class="c-str">oidc</span>                 <span class="c-com"># 校验 token,内部服务不必重做</span>
+    <span class="c-key">rate_limit</span>:                      <span class="c-com"># 每个 broker 单独配额(Day 20 落地)</span>
+      <span class="c-key">key</span>: <span class="c-str">broker_id</span>
+      <span class="c-key">limit</span>: <span class="c-num">100</span><span class="c-str">/s</span>
+    <span class="c-key">inject_headers</span>:
+      <span class="c-key">x-trace-id</span>: <span class="c-str">$generated</span>      <span class="c-com"># 注入 trace_id → 一路贯穿到 audit log</span>
+      <span class="c-key">x-channel</span>:  <span class="c-str">$client.kind</span>     <span class="c-com"># 渠道留痕:可追溯报价来源</span>
+    <span class="c-key">forward_to</span>: <span class="c-str">quote-svc</span>          <span class="c-com"># 路由到内部服务(对外隐藏拓扑)</span>
+
+  - <span class="c-key">match</span>: { <span class="c-key">path</span>: <span class="c-str">/broker/v2/*</span> }
+    <span class="c-key">authn</span>: <span class="c-str">mtls</span>                    <span class="c-com"># broker 走更强的双向证书</span>
+    <span class="c-key">forward_to</span>: <span class="c-str">broker-bff</span>         <span class="c-com"># 交给 broker 专属 BFF 去聚合/塑形</span>
+
+<span class="c-com"># 注意:这里没有任何"保费怎么算"的业务逻辑。</span>
+<span class="c-com"># 网关只做横切;业务留在服务里;业务级审计走事件流,不归网关也不归 mesh。</span></code></pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>先分流量方向:<strong>north-south 找网关</strong>,<strong>east-west 找 mesh</strong>。分错方向,后面全乱。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>API Gateway</strong> = 边界单一入口,集中处理认证/限流/路由/TLS;别把业务逻辑塞进去,否则它退化成新单体。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>Mesh</strong> 用 sidecar 把服务间的重试/熔断/mTLS/追踪搬出业务代码,control plane 改策略不动代码——但它有实打实的复杂度成本,服务不多别上。</p></div>
+      <div class="tk"><span class="n">4</span><p>在 QuoteFlow,网关的 trace_id 是<strong>技术追踪</strong>;而「为什么是这个保费」的<strong>业务审计</strong>必须走事件流。两条线都要,不能互相替代。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">「报价服务调用核保服务时的重试和 mTLS」属于 north-south 还是 east-west?该由谁管?</span></summary>
+        <div class="ans"><b>East-West</b>(服务↔服务,在系统内部)。由 <b>service mesh</b> 的 sidecar 管,而不是 API gateway——网关只管从外部进来的 north-south 流量。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">API Gateway 和 BFF 的核心分工是什么?</span></summary>
+        <div class="ans">网关管<b>所有前端共通的横切事</b>(认证、限流、TLS、路由);BFF 管<b>某一个前端特有的聚合与塑形</b>(App 要精简打包、broker 要批量全字段)。共通的放网关,某前端独有且随其 UI 变的放它的 BFF。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">service mesh 的 data plane 和 control plane 各是什么?改一条服务间超时策略要不要重新发布服务?</span></summary>
+        <div class="ans">data plane = 那堆真正搬运请求的 <b>sidecar 代理</b>;control plane = 下发路由/策略/证书的 <b>大脑</b>。改超时策略只在控制面改一条配置、推给 sidecar 即可,<b>不用动业务代码、不用重新发布服务</b>——这正是 mesh 的卖点。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 现在只有「报价/核保/保单」一个模块化单体 + 一个独立的「夜间批量」服务。这个规模,你会上 service mesh 吗?如果不上,东西向的重试/超时/加密你用什么替代?<br>② 网关已经在注入 <code class="inl">trace_id</code> 做技术追踪了,为什么对寿险定价来说还<strong>不够</strong>、非要再有一条独立的业务级 audit 事件流?这两条线分别能回答监管的哪种问题?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>API Gateway</dt><dd>横在客户端与后端之间的单一入口,集中处理认证、限流、路由、TLS 终结等横切关注点。</dd></dl>
+      <dl><dt>BFF (Backend for Frontend)</dt><dd>给某一类前端定制的后端适配层,负责为该前端裁剪、聚合、塑形下游数据。</dd></dl>
+      <dl><dt>Service Mesh</dt><dd>用 sidecar 代理治理服务间(east-west)通信的基础设施层,接管重试/熔断/mTLS/追踪。</dd></dl>
+      <dl><dt>Sidecar</dt><dd>与服务实例并排部署的轻量代理进程,所有进出该服务的流量都先过它。</dd></dl>
+      <dl><dt>North-South Traffic</dt><dd>系统与外部客户端之间、穿过边界的流量。</dd></dl>
+      <dl><dt>East-West Traffic</dt><dd>系统内部服务彼此之间的流量。</dd></dl>
+      <dl><dt>Data / Control Plane</dt><dd>data plane = 搬运请求的 sidecar 群;control plane = 下发路由/策略/证书的大脑。</dd></dl>
+      <dl><dt>mTLS</dt><dd>双向 TLS,通信双方都用证书互相验证身份,常用于服务间加密。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 24</div>
+      <div class="t">可观测性:日志 / 指标 / 链路追踪三支柱,以及 SLI/SLO/SLA 与告警——今天网关注入的那个 trace_id,明天就派上大用场</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 23 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
