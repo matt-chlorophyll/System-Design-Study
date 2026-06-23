@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 22 · 单体 vs 微服务 vs 模块化单体 & 服务边界</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:73.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 22 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 4 周 · 架构与运维</span>
+    <h1>一个进程,还是一群进程<br>—— 单体、微服务与服务边界</h1>
+    <p class="lede">第四周从「单个系统怎么搭」抬到「整套架构怎么切」。今天的主问题不是「微服务好不好」,而是更难也更重要的那个:<em>这条边界,应该划在哪里</em>。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>昨日回顾 · Day 21</div>
+    <ul>
+      <li>昨天用一道设计练习把前三周焊在一起:亲手画 QuoteFlow 的<strong>夜间批量重定价子系统</strong>,在一张图里同时用上队列、分片、幂等、限流、审计,并练「<em>每补一处、明说代价</em>」。</li>
+      <li>那张图里其实已经埋了今天的伏笔:报价、核保、保单、批量重算——它们到底该住在<strong>同一个进程</strong>,还是<strong>各自拆成服务</strong>?第三周教你把组件「异步解耦」,第四周第一课,我们退一步问:<strong>它们一开始就该不该被拆开。</strong></li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>讲清 <strong>monolith</strong> / <strong>microservices</strong> / <strong>modular monolith</strong> 三者各自换来什么、牺牲什么</li>
+      <li>区分两组最常被混的概念:<strong>逻辑模块边界</strong> vs <strong>物理部署边界</strong>;<strong>代码耦合</strong> vs <strong>团队耦合</strong></li>
+      <li>掌握一套划<strong>服务边界(service boundary)</strong>的判据,而不是「拍脑袋拆」</li>
+      <li>用 QuoteFlow 走一遍:哪些该拆、哪些坚决不拆、为什么先从模块化单体起步</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>三种形态</div>
+    <h2>不是「单体 vs 微服务」两选一</h2>
+    <p>大多数人把这件事讲成一道二选一题:老旧的<strong>单体</strong>,还是时髦的<strong>微服务</strong>。这是个误导。真正有用的是一条<em>谱系</em>,中间那个常被忽略的选项,往往才是大多数系统该待的地方。</p>
+
+    <h3>Monolith(单体)</h3>
+    <p>整个应用是<strong>一个可部署单元</strong>:报价、核保、保单、billing 全部编译进同一个进程,共享同一个数据库,一次构建、一次部署。它的好处常被低估:一次进程内函数调用就完成的事,没有网络、没有序列化、没有分布式事务;本地就能跑起整个系统;一次改动一次发布。<strong>缺点</strong>是随着代码长大,内部边界会糊掉——任何模块都能直接读另一个模块的表,改一处牵动全身;而且整个进程<strong>一起扩、一起挂、一起发版</strong>。</p>
+
+    <h3>Microservices(微服务)</h3>
+    <p>把系统拆成<strong>许多个独立部署</strong>的小服务,每个有自己的进程、自己的数据库、自己的发布节奏,彼此通过网络(REST/gRPC/消息)通信。它换来的是<strong>独立部署、独立扩展、技术异构、团队自治、故障隔离</strong>。代价也实打实:进程内调用变成<strong>网络调用</strong>(会超时、会失败、要重试——回到 Day 18 的幂等);一个数据库变成<strong>多个</strong>,跨服务的一致性要靠 saga(Day 14)而非事务;还多出一整套运维负担——服务发现、链路追踪、部署编排。<strong>分布式是一种成本,不是一种成就。</strong></p>
+
+    <h3>Modular Monolith(模块化单体)</h3>
+    <p>常被忽略的中间项,也常是最优起点:<strong>一个部署单元,但内部用强纪律切成清晰模块</strong>。每个模块有明确的公开接口,模块之间<em>只许走接口、不许直接碰对方的表</em>。它保留了单体的部署简单与进程内调用的高效,同时把「将来要拆」的<strong>逻辑边界</strong>提前画好。一旦某个模块真的需要独立扩展或独立发布,把它「切出去」成微服务的代价,远小于从一团泥球里硬撬。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+        </defs>
+        <!-- Monolith -->
+        <text x="118" y="28" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">Monolith</text>
+        <rect x="24" y="40" width="188" height="170" rx="12" fill="url(#g1)" stroke="#cde3d6" stroke-width="1.5"/>
+        <rect x="44" y="60" width="148" height="30" rx="6" fill="#e8f6ef" stroke="#cdeede"/><text x="118" y="80" font-size="12" fill="#0f3d2e" text-anchor="middle">报价</text>
+        <rect x="44" y="96" width="148" height="30" rx="6" fill="#e8f6ef" stroke="#cdeede"/><text x="118" y="116" font-size="12" fill="#0f3d2e" text-anchor="middle">核保</text>
+        <rect x="44" y="132" width="148" height="30" rx="6" fill="#e8f6ef" stroke="#cdeede"/><text x="118" y="152" font-size="12" fill="#0f3d2e" text-anchor="middle">保单 · billing</text>
+        <ellipse cx="118" cy="190" rx="40" ry="11" fill="#0f3d2e"/><text x="118" y="194" font-size="10" fill="#cfeede" text-anchor="middle">1 DB</text>
+        <text x="118" y="232" font-size="11" fill="#6a7872" text-anchor="middle">一个进程 · 边界靠纪律</text>
+
+        <!-- Modular monolith -->
+        <text x="360" y="28" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">Modular Monolith</text>
+        <rect x="266" y="40" width="188" height="170" rx="12" fill="url(#g1)" stroke="#15a06a" stroke-width="2"/>
+        <rect x="286" y="60" width="148" height="30" rx="6" fill="#ffffff" stroke="#9bd9bb" stroke-width="1.5"/><text x="360" y="80" font-size="12" fill="#0f3d2e" text-anchor="middle">报价 ▸ 接口</text>
+        <rect x="286" y="96" width="148" height="30" rx="6" fill="#ffffff" stroke="#9bd9bb" stroke-width="1.5"/><text x="360" y="116" font-size="12" fill="#0f3d2e" text-anchor="middle">核保 ▸ 接口</text>
+        <rect x="286" y="132" width="148" height="30" rx="6" fill="#ffffff" stroke="#9bd9bb" stroke-width="1.5"/><text x="360" y="152" font-size="12" fill="#0f3d2e" text-anchor="middle">保单 ▸ 接口</text>
+        <ellipse cx="360" cy="190" rx="40" ry="11" fill="#0f3d2e"/><text x="360" y="194" font-size="10" fill="#cfeede" text-anchor="middle">1 DB · 分 schema</text>
+        <text x="360" y="232" font-size="11" fill="#0c7a50" text-anchor="middle" font-weight="600">一个进程 · 边界靠编译器</text>
+
+        <!-- Microservices -->
+        <text x="602" y="28" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">Microservices</text>
+        <rect x="508" y="48" width="86" height="56" rx="10" fill="url(#g1)" stroke="#cde3d6" stroke-width="1.5"/><text x="551" y="72" font-size="11.5" fill="#0f3d2e" text-anchor="middle">报价</text><ellipse cx="551" cy="90" rx="22" ry="7" fill="#0f3d2e"/><text x="551" y="93" font-size="8" fill="#cfeede" text-anchor="middle">DB</text>
+        <rect x="610" y="48" width="86" height="56" rx="10" fill="url(#g1)" stroke="#cde3d6" stroke-width="1.5"/><text x="653" y="72" font-size="11.5" fill="#0f3d2e" text-anchor="middle">核保</text><ellipse cx="653" cy="90" rx="22" ry="7" fill="#0f3d2e"/><text x="653" y="93" font-size="8" fill="#cfeede" text-anchor="middle">DB</text>
+        <rect x="508" y="120" width="86" height="56" rx="10" fill="url(#g1)" stroke="#cde3d6" stroke-width="1.5"/><text x="551" y="144" font-size="11.5" fill="#0f3d2e" text-anchor="middle">保单</text><ellipse cx="551" cy="162" rx="22" ry="7" fill="#0f3d2e"/><text x="551" y="165" font-size="8" fill="#cfeede" text-anchor="middle">DB</text>
+        <rect x="610" y="120" width="86" height="56" rx="10" fill="url(#g1)" stroke="#cde3d6" stroke-width="1.5"/><text x="653" y="144" font-size="11.5" fill="#0f3d2e" text-anchor="middle">billing</text><ellipse cx="653" cy="162" rx="22" ry="7" fill="#0f3d2e"/><text x="653" y="165" font-size="8" fill="#cfeede" text-anchor="middle">DB</text>
+        <path d="M594 76 L610 76" stroke="#93a89c" stroke-width="1.6" fill="none" marker-end="url(#ah)"/>
+        <path d="M551 104 L551 120" stroke="#93a89c" stroke-width="1.6" fill="none" marker-end="url(#ah)"/>
+        <text x="602" y="232" font-size="11" fill="#6a7872" text-anchor="middle">多进程 · 边界靠网络</text>
+      </svg>
+      <figcaption>图 1 · 同一套 QuoteFlow,三种切法。从左到右,部署复杂度递增、独立性递增——而中间项把「逻辑边界」先画好,留出将来切出去的缝。</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>两个最常被混的区分</div>
+    <h2>边界有两种,耦合也有两种</h2>
+    <p>这一节是今天的核心,也是面试最容易暴露「是否真懂」的地方。两组概念,长得像、其实正交:</p>
+
+    <h3>逻辑边界 vs 物理边界</h3>
+    <p><strong>逻辑(模块)边界</strong>是代码层面的「这块归报价、那块归核保」;<strong>物理(部署)边界</strong>是运行层面的「这是不是一个独立进程/容器」。微服务的本质,是把两者<em>对齐</em>——每个逻辑模块就是一个物理部署单元。但关键认知是:<strong>你可以有清晰的逻辑边界,却不付物理拆分的代价</strong>——那就是模块化单体。先把逻辑边界画好,物理拆分等到有真实理由时再说。<em>反过来,把物理边界拆得很碎、逻辑边界却糊成一团,就是最糟的「分布式单体」:既要付网络的钱,又没换来独立性。</em></p>
+
+    <h3>代码耦合 vs 团队耦合(康威定律)</h3>
+    <p>Conway's Law:<strong>系统的结构会长成组织沟通结构的样子。</strong>这话反过来用,是微服务最被低估的真实驱动力——很多时候拆服务不是为了性能,而是为了<strong>让团队能独立发版、不互相阻塞</strong>。三个人的小团队硬上十个微服务,是给自己上刑;而当报价和核保是两个不同团队、不同发布节奏时,把它们拆开反而是顺势而为。<strong>先看组织,再定边界。</strong></p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>一句话戳破常见误区</div>
+      <ul>
+        <li><strong>微服务≠高性能。</strong>把进程内调用换成网络调用,单看延迟通常更<em>慢</em>。它买的是独立性(部署/扩展/团队/故障隔离),不是速度。需要更快,先想缓存和扩容,不是拆服务。</li>
+        <li><strong>拆服务≠拆数据库就够了。</strong>真正的难点是「一笔业务原本一个事务能做完,现在要跨两个服务保证一致」——这是 Day 14 saga 的领地,成本远超想象。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>怎么权衡</div>
+    <h2>同一个系统,三种切法的取舍</h2>
+    <p>把上面的话压成一张取舍表。读的时候带着 QuoteFlow 想:它现在更像哪一列?</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">维度</th><th>Monolith</th><th>Modular Monolith</th><th>Microservices</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">部署单元</span></td><td>1 个</td><td>1 个</td><td>N 个,各自发布</td></tr>
+          <tr><td><span class="lab">模块间调用</span></td><td>进程内函数(快)</td><td>进程内,经接口</td><td>网络(会超时/失败)</td></tr>
+          <tr><td><span class="lab">数据</span></td><td>1 库,自由互读</td><td>1 库,按模块分 schema</td><td>每服务自有库</td></tr>
+          <tr><td><span class="lab">独立扩展</span></td><td>不能,整体扩</td><td>不能,整体扩</td><td>能,按热点单独扩</td></tr>
+          <tr><td><span class="lab">故障隔离</span></td><td>弱,一起挂</td><td>弱,一起挂</td><td>强,可隔离降级</td></tr>
+          <tr><td><span class="lab">跨边界一致性</span></td><td>本地事务,简单</td><td>本地事务,简单</td><td>saga / 最终一致,难</td></tr>
+          <tr><td><span class="lab">运维复杂度</span></td><td>低</td><td>低</td><td>高(发现/追踪/编排)</td></tr>
+          <tr><td><span class="lab">最适合</span></td><td>小系统 / 起步期</td><td><strong>多数系统的默认起点</strong></td><td>大团队 / 边界清晰且稳定 / 真有独立扩展需求</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 经验法则(Martin Fowler 的「Monolith First」):除非你已经非常确定边界、且组织规模撑得起,否则<strong>从模块化单体起步</strong>,在它真正长疼的地方再拆。先拆错的边界,比晚拆贵得多。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>边界划在哪</div>
+    <h2>切服务的四条判据</h2>
+    <p>「该不该拆」之外,更难的是「沿哪条缝拆」。好的服务边界不是按技术分层(controller / service / dao 那种),而是按<strong>业务能力</strong>切。判断一条边界划得好不好,看这四点:</p>
+
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>高内聚</strong>:一起变化的东西在一起。改一个业务规则,理想情况只动一个模块,不用跨三个服务联合发版。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>低耦合</strong>:边界上接口要窄。如果两个模块每天要互相调几十个细粒度方法,这条缝多半划错了。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>数据自治</strong>:每个服务拥有自己的数据,别人只能经接口访问。若两服务非得共享一张表才能干活,它们其实是一个。</p></div>
+      <div class="tk"><span class="n">4</span><p><strong>独立节奏</strong>:能独立发布、独立扩展、(理想上)由独立团队负责。对齐康威定律。</p></div>
+    </div>
+
+    <p>一个好用的切法是 <strong>Domain-Driven Design</strong> 的 <em>bounded context</em>:沿着业务语言的「方言边界」切。当「policy(保单)」这个词在两个地方含义不同——新业务里它是「一份待签发的申请」,在 in-force 运营里它是「一份正在收费的合同」——这往往就是一条天然的服务缝。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>贯穿案例</div>
+    <h2>QuoteFlow 该怎么切</h2>
+    <p>把四条判据套到 QuoteFlow 上。结论不是「全拆」也不是「全不拆」,而是<strong>分清三类</strong>:</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">① 天然该独立的:实时报价 vs 夜间批量重定价</h3>
+      <p>这俩的 NFR 根本是两种生物(Day 1 就埋过):实时报价要 <strong>low latency</strong>、白天峰值流量大;夜间批量要 <strong>high throughput</strong>、跑在维护窗口。把它们拆成独立部署,就能<em>各扩各的、各挂各的</em>——白天给报价加机器,夜里给批量加机器,互不拖累。这是「独立扩展」判据的教科书案例。</p>
+      <h3>② 暂时别拆的:报价 ↔ 核保</h3>
+      <p>一次报价里,定价和核保规则评估<strong>耦合极紧、要在一个请求里同步完成</strong>,还共享费率表/规则版本这类数据。强行拆成两个服务,等于把一次进程内调用换成网络往返,还得跨服务保证「用的是同一个 rate_table_version」——徒增延迟和一致性风险。<strong>让它们先做同一个模块化单体里的两个模块</strong>,接口画清,日后真要拆再说。</p>
+      <h3>③ 一等公民、横切所有边界的:audit log</h3>
+      <p>无论怎么切,<strong>auditability / traceability</strong> 都不能被边界切碎。每条报价、每次重算「为什么是这个数」必须能完整复现——所以审计是一条<em>贯穿</em>所有服务的横切关注点(常做成统一的事件流,Day 16),而不是塞进某一个服务里。<strong>受监管定价系统拆服务时,第一个要回答的问题往往是:拆完之后,审计链还连得起来吗?</strong></p>
+    </div>
+
+    <p>所以 QuoteFlow 的理性路径是:<strong>起步用模块化单体</strong>(报价/核保/保单/billing 各是清晰模块,共库分 schema),只把「夜间批量重定价」这种 NFR 截然不同的部分<strong>第一个切出去</strong>独立部署;其余等组织变大、边界变稳、确有独立发布需求时再渐进拆分。下面用伪代码感受一下「模块边界靠接口、而非靠自觉」是什么意思:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">modular_monolith · 模块只许走接口,不许碰对方的表</span></div>
+<pre><code><span class="c-com">// ── 反例:报价模块直接 SQL 读核保的表 → 边界已被悄悄打穿 ──</span>
+<span class="c-key">function</span> <span class="c-fn">quote</span>(req) {
+  <span class="c-key">const</span> rules = db.<span class="c-fn">query</span>(<span class="c-str">"SELECT * FROM underwriting.rules WHERE ..."</span>)  <span class="c-com">// ✗ 偷看别人家</span>
+  ...
+}
+
+<span class="c-com">// ── 正例:只通过核保模块公开的接口拿结果 ──</span>
+<span class="c-key">interface</span> <span class="c-fn">UnderwritingModule</span> {            <span class="c-com">// 唯一允许的入口(将来这就是服务的 API)</span>
+  <span class="c-fn">assess</span>(applicant, product): RiskDecision
+}
+
+<span class="c-key">function</span> <span class="c-fn">quote</span>(req, underwriting: UnderwritingModule) {
+  <span class="c-key">const</span> decision = underwriting.<span class="c-fn">assess</span>(req.applicant, req.product)  <span class="c-com">// ✓ 经接口</span>
+  <span class="c-key">if</span> (decision.declined) <span class="c-key">return</span> <span class="c-fn">reject</span>(decision.reason)
+  <span class="c-key">const</span> premium = <span class="c-fn">price</span>(req, decision.loadings, req.rate_table_version)
+  audit.<span class="c-fn">emit</span>({ quote_id, rules_applied: decision.rules, rate_table_version })  <span class="c-com">// 横切:审计不归任何一边</span>
+  <span class="c-key">return</span> { premium, quote_id }
+}
+<span class="c-com">// 这层接口纪律,就是「拆服务」时唯一要替换的东西:</span>
+<span class="c-com">// 进程内调用 → 网络调用,业务代码几乎不动。这就是模块化单体的价值。</span></code></pre>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>不是「单体 vs 微服务」二选一。<strong>模块化单体</strong>是常被忽略、却最适合多数系统的<strong>默认起点</strong>。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>逻辑边界</strong>(代码)和<strong>物理边界</strong>(部署)是两回事。先把逻辑边界画清,物理拆分等有真实理由再付钱。</p></div>
+      <div class="tk"><span class="n">3</span><p>微服务买的是<strong>独立性</strong>(部署/扩展/团队/故障隔离),不是性能。它是一种<strong>成本</strong>,先看组织(康威定律)再定边界。</p></div>
+      <div class="tk"><span class="n">4</span><p>沿<strong>业务能力 / bounded context</strong> 切,看高内聚、低耦合、数据自治、独立节奏。受监管系统拆服务,先问<strong>审计链还连得起来吗</strong>。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">团队想「让系统更快」,于是把单体拆成微服务。这个理由站得住吗?</span></summary>
+        <div class="ans"><b>通常站不住。</b>拆服务把进程内调用换成网络调用,单次请求往往<b>更慢</b>不是更快。微服务买的是独立部署/扩展/故障隔离,要更快应先考虑缓存、扩容、优化查询。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">「模块化单体」和「单体」的关键区别是什么?</span></summary>
+        <div class="ans"><b>逻辑边界的纪律。</b>两者都是<b>一个部署单元</b>,但模块化单体强制模块间只走公开接口、不许直接碰对方的数据。这让逻辑边界清晰,将来切成微服务时,基本只需把进程内调用换成网络调用。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">什么是「分布式单体」,为什么它是最糟的形态?</span></summary>
+        <div class="ans"><b>物理上拆成多个服务,逻辑上却仍紧耦合</b>(服务间频繁互调、共享数据库)。结果是既付了网络/运维/一致性的<b>全部成本</b>,又没换来独立部署/扩展的<b>任何好处</b>——两头不讨好。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 在 QuoteFlow 里,除了「夜间批量重定价」,你还会把哪个部分<strong>第一个</strong>切出去成独立服务?用今天四条判据说说理由。<br>② 如果把「报价」和「核保」拆成两个独立服务,要保证它们用的是<strong>同一个 rate_table_version</strong>、且审计链不断,你会怎么设计?这暴露了拆服务的什么隐性代价?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Monolith</dt><dd>整个应用作为单一可部署单元,共享一个进程与数据库。</dd></dl>
+      <dl><dt>Microservices</dt><dd>系统拆成多个独立部署、各自拥有数据、经网络通信的小服务。</dd></dl>
+      <dl><dt>Modular Monolith</dt><dd>单一部署单元,但内部按清晰模块切分、模块间只走公开接口。</dd></dl>
+      <dl><dt>Service Boundary</dt><dd>把系统切成服务/模块的那条缝,理想上沿业务能力划分。</dd></dl>
+      <dl><dt>Conway's Law</dt><dd>系统结构倾向于长成组织沟通结构的样子。</dd></dl>
+      <dl><dt>Bounded Context</dt><dd>DDD 概念:一段业务语言含义自洽的边界,常是天然服务缝。</dd></dl>
+      <dl><dt>Distributed Monolith</dt><dd>物理上拆成多服务、逻辑上仍紧耦合的反模式,两头吃亏。</dd></dl>
+      <dl><dt>Cohesion / Coupling</dt><dd>内聚:一起变的放一起;耦合:边界间的依赖强度。好边界高内聚、低耦合。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 23</div>
+      <div class="t">服务拆开之后,流量怎么进、怎么治理:API 网关、service mesh、BFF —— 给微服务装上「前台」与「交通系统」</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 22 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>
