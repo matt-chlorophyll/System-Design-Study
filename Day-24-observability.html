@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 24 · 可观测性 —— 日志 / 指标 / 链路追踪与 SLO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:80.00%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 24 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 4 周 · 架构与运维</span>
+    <h1>系统在凌晨三点出事了<br>—— 你怎么知道、又怎么定位</h1>
+    <p class="lede">服务拆开、流量穿过网关之后,一个新的现实摆在面前:线上是个黑盒。可观测性,就是给这个黑盒装上「能问出问题」的仪表盘——而不是只在它冒烟时才察觉。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>昨日回顾 · Day 23</div>
+    <ul>
+      <li>昨天分清了两类流量:<strong>north-south</strong>(客户端↔系统,由 API Gateway / BFF 把门)和 <strong>east-west</strong>(服务↔服务,由 Service Mesh 的 sidecar 治理)。</li>
+      <li>关键的一笔伏笔:网关在请求入口处注入了一个 <code class="inl">trace_id</code>,sidecar 又把它沿调用链一路透传。当时这个 id 看着不起眼——<strong>今天它就是把日志、指标、追踪串成一条线的那根针</strong>。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>分清 <strong>monitoring</strong>(监控已知指标)和 <strong>observability</strong>(能回答没预设过的问题)的差别</li>
+      <li>掌握三大支柱:<strong>logs / metrics / traces</strong>——各擅长什么、各有什么代价</li>
+      <li>看懂 <strong>distributed tracing</strong> 怎么用 trace_id + span 把一次跨服务请求拼回完整时间线</li>
+      <li>讲清 <strong>SLI / SLO / SLA</strong> 三者的层级关系,以及 <strong>error budget</strong> 怎么把「稳定 vs 迭代」变成一个可算的数</li>
+      <li>懂得对<strong>症状</strong>(symptom)而非<strong>原因</strong>告警,避免 alert fatigue;并守住 QuoteFlow 的 audit 这条线</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>为什么需要可观测性</div>
+    <h2>从「它挂没挂」到「它为什么慢」</h2>
+    <p>单体时代,出了问题你登上那台机器,看一眼日志、top 一下 CPU,基本就定位了。微服务一拆,一次报价请求要穿过网关、报价服务、核保服务、费率服务、数据库——<strong>任何一环慢一点、错一点,客户端看到的都是同一个「报价超时」</strong>。问题不在「哪台机器挂了」,而在「这一笔请求,究竟卡在了链路的哪一跳」。</p>
+    <p>这里有个常被混用、但值得分清的区别:</p>
+    <p><strong>Monitoring(监控)</strong>:盯着你<em>预先想到</em>要盯的东西。CPU 超 80% 报警、错误率超 1% 报警——回答的是「已知问题发生了没有」(known-unknowns)。</p>
+    <p><strong>Observability(可观测性)</strong>:系统对外暴露了足够丰富的信号,让你能<em>事后</em>问出当初没预设过的问题——「为什么<strong>只有</strong>用 broker 渠道、且保额超过 100 万、且命中了某条新核保规则的报价会慢?」这类 unknown-unknowns,靠的不是更多 dashboard,而是数据维度够细、且能下钻。</p>
+    <p>一句话区分:<strong>监控告诉你「系统坏了」;可观测性让你回答「它为什么坏、坏在哪」。</strong>前者是后者的一个子集。对 QuoteFlow 这种受监管系统,还有第三层——你不仅要能定位故障,还要能<strong>解释清楚某一笔具体报价当时经历了什么</strong>,这是 audit 的硬要求。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>三大支柱</div>
+    <h2>Logs / Metrics / Traces:别只用一种</h2>
+    <p>可观测性的数据有三种基本形态,各自回答不同的问题,谁也替代不了谁。新手常犯的错是「只打日志」,然后在日志里硬算指标、硬拼链路——又贵又拼不全。</p>
+
+    <h3>Metrics(指标)—— 便宜、聚合、适合告警</h3>
+    <p>随时间变化的<strong>数值</strong>:QPS、p99 latency、错误率、队列深度。它是预先聚合的(按时间窗口、按标签),所以存储极省、查询极快,<strong>是 dashboard 和告警的主力</strong>。代价:它告诉你「p99 涨到 800ms」,但答不出「是哪些请求慢了、为什么慢」——维度一多,基数爆炸(high cardinality)就扛不住。</p>
+
+    <h3>Logs(日志)—— 离散事件,细节最全</h3>
+    <p>一条条带时间戳的<strong>事件记录</strong>。信息最丰富,适合事后翻查某笔请求的具体经过。务必用 <strong>structured logging</strong>(JSON 而非纯文本),并在每条日志里带上 <code class="inl">trace_id</code>,否则海量日志里你根本捞不出「这一笔」。代价:量大、贵,全量存日志成本会失控,通常要采样或分级保留。</p>
+
+    <h3>Traces(链路追踪)—— 一次请求的完整旅程</h3>
+    <p>把<strong>一次请求穿过所有服务</strong>的路径和每一跳的耗时,拼成一条带层级的时间线。它专治微服务的「到底卡在哪一跳」。代价:要全链路埋点 + context 透传,且高流量下必须采样(只留一小部分 trace)。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:16%"></th><th>Metrics</th><th>Logs</th><th>Traces</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">数据形态</span></td><td>聚合数值时间序列</td><td>离散事件记录</td><td>跨服务的请求树(span)</td></tr>
+          <tr><td><span class="lab">擅长回答</span></td><td>整体「多少 / 多快 / 多错」</td><td>某笔请求「具体发生了什么」</td><td>一次请求「卡在哪一跳」</td></tr>
+          <tr><td><span class="lab">成本</span></td><td>最低</td><td>高(量大)</td><td>中(通常采样)</td></tr>
+          <tr><td><span class="lab">主要用途</span></td><td>dashboard · 告警</td><td>事后排查 · audit</td><td>定位延迟 / 故障跨度</td></tr>
+          <tr><td><span class="lab">QuoteFlow 例子</span></td><td>报价 p99、夜间批量吞吐</td><td>某 quote_id 命中了哪些规则</td><td>这笔报价 47ms 花在了费率服务还是核保</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 三支柱互补:metrics 发现「有问题」,traces 定位「在哪一跳」,logs 揭示「那一跳到底发生了什么」。三者用 <code class="inl">trace_id</code> 串起来,才是完整闭环。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>链路追踪</div>
+    <h2>trace_id + span:把一次请求拼回来</h2>
+    <p>昨天网关注入的那个 <code class="inl">trace_id</code>,现在登场了。一次完整的请求是一个 <strong>trace</strong>,它由若干 <strong>span</strong> 组成——每个 span 是「在某个服务里做的一段工作」,带有开始/结束时间、所属服务、以及指向父 span 的指针。只要每一跳都把 <code class="inl">trace_id</code> 和当前 <code class="inl">span_id</code> 通过 header 传给下游(这就是 <strong>context propagation</strong>),事后就能按父子关系把整棵树拼回来,看出每一跳各花了多久。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <text x="20" y="26" font-size="13" font-weight="700" fill="#0f3d2e">一次报价请求的 trace　·　trace_id = q_8f3a…</text>
+        <text x="20" y="44" font-size="11.5" fill="#6a7872">每条 = 一个 span,长度 ≈ 耗时;缩进 = 父子调用关系</text>
+
+        <!-- time axis -->
+        <line x1="200" y1="60" x2="700" y2="60" stroke="#d9ebe1" stroke-width="1"/>
+        <text x="200" y="74" font-size="10" fill="#93a89c">0ms</text>
+        <text x="448" y="74" font-size="10" fill="#93a89c" text-anchor="middle">25ms</text>
+        <text x="700" y="74" font-size="10" fill="#93a89c" text-anchor="end">50ms</text>
+
+        <!-- spans -->
+        <text x="20" y="100" font-size="12.5" fill="#0f3d2e" font-weight="600">API Gateway</text>
+        <rect x="200" y="88" width="496" height="18" rx="5" fill="url(#g1)" stroke="#cfe3d8"/>
+        <text x="206" y="101" font-size="10.5" fill="#0c7a50">47ms · 鉴权 + 路由</text>
+
+        <text x="36" y="132" font-size="12.5" fill="#0f3d2e" font-weight="600">报价服务</text>
+        <rect x="220" y="120" width="450" height="18" rx="5" fill="#e8f6ef" stroke="#15a06a"/>
+        <text x="226" y="133" font-size="10.5" fill="#0c7a50">44ms · 编排计算</text>
+
+        <text x="52" y="164" font-size="12.5" fill="#0f3d2e" font-weight="600">费率服务</text>
+        <rect x="232" y="152" width="120" height="18" rx="5" fill="url(#g1)" stroke="#cfe3d8"/>
+        <text x="238" y="165" font-size="10.5" fill="#0c7a50">12ms</text>
+
+        <text x="52" y="196" font-size="12.5" fill="#0f3d2e" font-weight="600">核保服务</text>
+        <rect x="360" y="184" width="250" height="18" rx="5" fill="#fbf1da" stroke="#c79a3a"/>
+        <text x="366" y="197" font-size="10.5" fill="#8a5a00">25ms · ← 链路里最慢的一跳</text>
+
+        <text x="68" y="228" font-size="12.5" fill="#0f3d2e" font-weight="600">规则 DB</text>
+        <rect x="372" y="216" width="190" height="18" rx="5" fill="url(#g1)" stroke="#cfe3d8"/>
+        <text x="378" y="229" font-size="10.5" fill="#0c7a50">18ms · 查询新核保规则</text>
+
+        <path d="M392 282 L392 244" stroke="#93a89c" stroke-width="1.5" fill="none" marker-end="url(#ah)"/>
+        <text x="404" y="278" font-size="11.5" fill="#8a5a00">指标看到「p99 涨了」,trace 一眼指出元凶:核保 → 规则 DB 这一跳</text>
+      </svg>
+      <figcaption>图 1 · 同一个 trace_id 把跨服务的各 span 串成时间线——metrics 报警「慢了」,trace 直接定位「慢在核保查规则 DB」</figcaption>
+    </figure>
+
+    <p>这正是昨天那笔伏笔的兑现:<strong>没有透传的 trace_id,你只有一堆各服务孤立的日志,拼不出这张图。</strong>对 QuoteFlow,这条 trace 还有第二层价值——它本身就是一份「这笔报价当时经过了哪些服务、命中了哪个版本的规则」的可审计记录。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>SLI / SLO / SLA</div>
+    <h2>把「够好」变成一个能算账的数</h2>
+    <p>有了信号,下一个问题是:多快、多稳才算「够好」?光说「要快要稳」没法落地。这三个层层递进的概念,把它变成可度量、可承诺、可决策的东西:</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:14%"></th><th>是什么</th><th>对谁</th><th>QuoteFlow 例子</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">SLI</span></td><td>一个<strong>实际测量</strong>的指标(Indicator)</td><td>工程内部</td><td>报价请求中 p99 latency &lt; 300ms 的比例</td></tr>
+          <tr><td><span class="lab">SLO</span></td><td>给 SLI 定的<strong>内部目标</strong>(Objective)</td><td>团队自己</td><td>「99.9% 的报价请求 &lt; 300ms」</td></tr>
+          <tr><td><span class="lab">SLA</span></td><td>对<strong>外部</strong>的合同承诺(Agreement),违约有赔偿</td><td>客户 / broker 合同</td><td>「月可用率 ≥ 99.5%,否则退费」</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 记忆线:SLI 是<strong>测量</strong>、SLO 是<strong>目标</strong>、SLA 是<strong>承诺</strong>。SLO 一般要订得比 SLA 严(留缓冲),这样在违反对外合同之前,内部就先报警了。</p>
+
+    <h3>Error budget:稳定与迭代之间的「预算」</h3>
+    <p>SLO 最妙的副产品是 <strong>error budget(错误预算)</strong>。如果 SLO 是「99.9% 可用」,那剩下的 <strong>0.1% 就是你被允许「不可用」的额度</strong>——一个月约 43 分钟。这把一场没完没了的争吵(「要稳定」vs「要快上线」)变成了一笔可算的账:</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>error budget 怎么用</div>
+      <ul>
+        <li><strong>预算还有富余</strong> → 大胆发新版核保规则、做实验、上灰度,允许冒一点险。</li>
+        <li><strong>预算快烧光</strong> → 本月冻结一切高风险变更,集中力气稳住系统,直到下个周期预算重置。</li>
+      </ul>
+    </div>
+    <p>它的高明之处:<strong>把「该不该上这个变更」从拍脑袋的辩论,变成一个看预算余额的客观决定。</strong>100% 可用不是目标——那意味着你太保守、迭代太慢;目标是「正好花完预算」。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>告警</div>
+    <h2>对症状告警,而不是对原因</h2>
+    <p>有了 SLO,告警就有了锚:<strong>告警应该绑在「用户感受到的症状」上,而不是「某个内部原因」上</strong>。"CPU 80%" 不该半夜叫醒人——CPU 高但报价依然又快又对,那不是事故;反过来,CPU 正常但报价 p99 飙到 2 秒,才是真问题。好的告警问的是:<em>「用户的 SLO 正在被违反吗?」</em></p>
+    <p>这背后是个很实际的痛点:<strong>alert fatigue(告警疲劳)</strong>。如果什么都报警、且大半是噪音,工程师会开始忽略告警——于是真正的事故也被淹没。少而准的告警,远胜多而吵的告警。一个常用分层:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">级别</th><th>含义</th><th>响应</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Page(电话/呼叫)</span></td><td>SLO 正在被违反,用户已受影响</td><td>立刻有人起来处理</td></tr>
+          <tr><td><span class="lab">Ticket(工单)</span></td><td>趋势不妙,但还没伤到用户(如预算消耗偏快)</td><td>工作时间内跟进</td></tr>
+          <tr><td><span class="lab">Info(仅记录)</span></td><td>留痕供事后分析,不打扰任何人</td><td>不告警,进 dashboard</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>下面把这套思路落到 QuoteFlow 的一条 structured log + 一段告警规则上,体会三支柱怎么靠 <code class="inl">trace_id</code> 串起来:</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">QuoteFlow · structured log + SLO 告警(示意)</span></div>
+<pre><code><span class="c-com">// ── 一条结构化日志:带 trace_id,可被 audit 也可被排查 ──</span>
+{
+  <span class="c-str">"ts"</span>: <span class="c-str">"2026-06-24T08:00:12Z"</span>,
+  <span class="c-str">"level"</span>: <span class="c-str">"INFO"</span>,
+  <span class="c-str">"service"</span>: <span class="c-str">"underwriting"</span>,
+  <span class="c-str">"trace_id"</span>: <span class="c-str">"q_8f3a..."</span>,        <span class="c-com">// ← 把日志/指标/追踪缝在一起的那根针</span>
+  <span class="c-str">"quote_id"</span>: <span class="c-str">"q_8f3a..."</span>,
+  <span class="c-str">"rate_table_version"</span>: <span class="c-str">"2026-06"</span>,    <span class="c-com">// 可审计:用的是哪版费率</span>
+  <span class="c-str">"rules_applied"</span>: [<span class="c-str">"base_rate"</span>, <span class="c-str">"high_sum_loading"</span>],
+  <span class="c-str">"latency_ms"</span>: <span class="c-num">25</span>,
+  <span class="c-str">"msg"</span>: <span class="c-str">"underwriting decision computed"</span>
+}
+
+<span class="c-com">// ── 告警规则:绑在“症状/SLO”上,而不是 CPU ──</span>
+<span class="c-key">alert</span>: QuoteLatencySLOBurn
+<span class="c-key">expr</span>:  <span class="c-fn">histogram_quantile</span>(<span class="c-num">0.99</span>, quote_latency_ms) &gt; <span class="c-num">300</span>
+        <span class="c-key">for</span>: <span class="c-num">5m</span>            <span class="c-com">// 持续 5 分钟才报,过滤瞬时抖动</span>
+<span class="c-key">severity</span>: page              <span class="c-com">// 直接违反用户 SLO → 立刻呼叫</span>
+<span class="c-key">summary</span>:  <span class="c-str">"报价 p99 &gt; 300ms,SLO 正在被违反"</span></code></pre>
+    </div>
+    <p>注意这条日志同时服务两个目的:<strong>排查</strong>(顺着 <code class="inl">trace_id</code> 看这笔卡在哪)和 <strong>审计</strong>(留下「这笔报价用了哪版费率、命中哪些规则」的痕迹)。在受监管定价里,可观测性和 auditability 常常是同一套基础设施的两张脸。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>Monitoring</strong> 回答「坏了没」(known-unknowns);<strong>observability</strong> 让你回答没预设过的「为什么坏」(unknown-unknowns)。</p></div>
+      <div class="tk"><span class="n">2</span><p>三支柱互补:<strong>metrics</strong> 发现问题、<strong>traces</strong> 定位哪一跳、<strong>logs</strong> 揭示细节。用 <strong>trace_id</strong> 串成一条线。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>SLI</strong> 测量 → <strong>SLO</strong> 目标 → <strong>SLA</strong> 承诺;<strong>error budget</strong> 把「稳定 vs 迭代」变成可算的余额。</p></div>
+      <div class="tk"><span class="n">4</span><p>告警绑<strong>症状(SLO)</strong>而非原因,少而准,避免 alert fatigue。在受监管系统里,observability 与 <strong>auditability</strong> 共用一套基建。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">报价 p99 突然涨到 800ms。你想知道「慢在链路哪一跳」,该先看三支柱里的哪一个?</span></summary>
+        <div class="ans"><b>Traces。</b>metrics 只告诉你「整体慢了」,trace 才能把这一笔请求按 span 拆开,指出是费率服务、核保还是 DB 这一跳吃掉了时间;定位到跳之后再用该跳的 logs 看细节。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">「99.9% 的报价请求在 300ms 内返回」——这是 SLI、SLO 还是 SLA?</span></summary>
+        <div class="ans"><b>SLO</b>(内部目标)。其中「p99 latency &lt; 300ms 的请求占比」这个被测量的量是 <b>SLI</b>;如果把类似承诺写进对 broker 的合同、违约要赔,那才升级成 <b>SLA</b>。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">为什么「CPU &gt; 80% 就半夜呼叫工程师」通常是个坏告警?</span></summary>
+        <div class="ans"><b>因为它对的是原因,不是症状。</b>CPU 高但报价依然又快又对,用户毫无感知,不该叫醒人;这类噪音告警多了会造成 <b>alert fatigue</b>,真事故反被淹没。应该对「报价 p99 / 错误率」这种直接反映 SLO 的症状告警。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 的「实时报价」和「夜间批量重定价」NFR 截然不同——你会分别给它们定哪几个 SLI?批量任务的「latency」还有意义吗,该换成什么?<br>② 全量存 trace/log 太贵,必须采样。但 audit 又要求「每一笔报价都可追溯」。这两个诉求冲突吗?你会怎么设计,既控成本又不丢审计?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Observability</dt><dd>系统暴露足够信号,使人能事后回答没预设过的问题(unknown-unknowns)的能力。</dd></dl>
+      <dl><dt>Monitoring</dt><dd>对预先设定的已知指标做持续观测与告警(known-unknowns)。</dd></dl>
+      <dl><dt>Metrics</dt><dd>随时间变化的聚合数值(QPS、p99、错误率),便宜、适合 dashboard 与告警。</dd></dl>
+      <dl><dt>Structured Logging</dt><dd>以结构化格式(如 JSON、带字段)输出的日志,便于检索、过滤与关联。</dd></dl>
+      <dl><dt>Distributed Tracing</dt><dd>用 trace_id + span 把一次跨服务请求拼成带层级的时间线。</dd></dl>
+      <dl><dt>Span</dt><dd>trace 中的一段工作单元,记录某服务内的起止时间及父子关系。</dd></dl>
+      <dl><dt>SLI / SLO / SLA</dt><dd>实测指标 / 内部目标 / 对外可赔付的合同承诺,三层递进。</dd></dl>
+      <dl><dt>Error Budget</dt><dd>1 − SLO 的允许失败额度,用来决策何时该冒险迭代、何时该冻结求稳。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 25</div>
+      <div class="t">安全:authentication vs authorization、OAuth2 / OIDC、密钥与加密、最小权限——网关在门口验的那张「身份」,到底是怎么验出来、又凭什么放行的</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 24 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

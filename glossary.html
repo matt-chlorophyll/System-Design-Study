@@ -165,6 +165,7 @@ const L = {
   d21:'Day-21-week3-review-exercise.html',
   d22:'Day-22-monolith-vs-microservices.html',
   d23:'Day-23-api-gateway-mesh.html',
+  d24:'Day-24-observability.html',
 };
 
 const TERMS = [
@@ -217,8 +218,8 @@ const TERMS = [
    def:'一旦挂掉就让整个服务不可用的那个组件；单台机器、单个负载均衡器都是。消除靠冗余（多摆几台 + 健康切换）。'},
   {t:'LB High Availability (Active-Passive / Active-Active)', zh:'负载均衡器自身高可用', cat:'avail', src:['Day 6','讨论'], link:L.d6,
    def:'别让 LB 自己成新单点。主备(active-passive)：共享一个虚拟 IP(VIP)、靠 VRRP/keepalived 心跳，主挂备接管同一 IP；多活(active-active)：DNS 多 A 记录 / Anycast 把流量分到多个 LB。盯 LB 健康的是同伴心跳 / DNS，不是另一个应用组件；云托管 LB 把这套外包了。'},
-  {t:'SLA', zh:'服务等级协议', cat:'avail', src:['Day 2'], link:L.d2,
-   def:'对外承诺的服务等级（如 p99 < 300ms、99.9% 可用）；通常写在 p99 这类百分位上。'},
+  {t:'SLA', zh:'服务等级协议', cat:'avail', src:['Day 2','Day 24'], link:L.d24,
+   def:'Service Level Agreement——对外（客户 / broker 合同）承诺的服务等级，违约有赔偿（如「月可用率≥99.5%，否则退费」）。三层里最外层的「承诺」：SLI 测量 → SLO 内部目标 → SLA 对外合同；SLA 通常比内部 SLO 宽松（留缓冲），常写在 p99 这类百分位上。'},
 
   // ── 数据 · 一致性 · 复制 ──
   {t:'Consistency (strong)', zh:'强一致', cat:'data', src:['Day 2','讨论'], link:L.d2,
@@ -602,6 +603,34 @@ const TERMS = [
   {t:'Cross-cutting Concern', zh:'横切关注点', cat:'arch', src:['Day 23','讨论'], link:L.d23,
    def:'不属于任何单一业务功能、却每个功能都要的关注点（认证、限流、加密、日志、追踪、错误处理）。架构图里业务功能是纵向柱子，它们横向穿过所有柱子 → 故称「横切」（cross-cutting，源自 AOP）。若让每根柱子各实现一遍 = 重复代码；网关 / mesh 存在的全部理由，就是把它抽出业务代码、收进专门的一层（网关收南北向、sidecar 收东西向）。'},
 
+  // ── Day 24：可观测性 · logs/metrics/traces · SLI/SLO/SLA · error budget ──
+  {t:'Observability', zh:'可观测性', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'系统对外暴露足够丰富的信号，让你能事后问出当初没预设过的问题（unknown-unknowns），如「为什么只有 broker 渠道 + 保额>100万 + 命中某条新核保规则的报价会慢」。靠数据维度够细、能下钻，而不是堆更多 dashboard。是 monitoring 的超集；在受监管系统里与 auditability 常共用一套基建。'},
+  {t:'Monitoring', zh:'监控', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'盯着你「预先想到要盯」的已知指标并告警（CPU>80%、错误率>1%）→ 回答 known-unknowns「已知问题发生了没」。是「拿 metrics 去盯、去告警」的动作，区别于 metrics 这个数据形态本身；是 observability 的一个子集。'},
+  {t:'Metrics', zh:'指标', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'可观测性三支柱之一：随时间变化的聚合数值（QPS、p99、错误率、队列深度），预先按时间窗 / 标签聚合 → 存储省、查询快，是 dashboard 与告警的主力。短板：答不出「哪些请求慢、为什么」，维度一多就 high cardinality 爆炸。'},
+  {t:'Structured Logging', zh:'结构化日志', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'三支柱之一（logs）：以结构化格式（JSON 带字段）而非纯文本输出的离散事件记录，信息最全、适合事后翻查某笔请求的具体经过。务必每条带 trace_id，否则海量日志里捞不出「这一笔」。代价：量大、贵 → 要采样 / 分级保留。QuoteFlow 里同一条带 rate_table_version / rules_applied 的日志兼做排查与审计。'},
+  {t:'Distributed Tracing', zh:'分布式链路追踪', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'三支柱之一（traces）：用 trace_id + span 把「一次请求穿过所有服务」的路径与每跳耗时拼成带层级的时间线，专治微服务「到底卡在哪一跳」。靠 context propagation（trace_id / span_id 经 header 透传）实现；高流量下必须采样。'},
+  {t:'Span', zh:'跨度', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'一个 trace 里的最小工作单元 =「在某服务里做的一段工作」，带起止时间、所属服务、指向父 span 的指针。按父子关系把一堆 span 拼起来 = 整棵调用树（图 1 那些横条：长度≈耗时、缩进=父子关系）。'},
+  {t:'Context Propagation', zh:'上下文透传', cat:'arch', src:['Day 24','讨论'], link:L.d24,
+   def:'每一跳把当前 trace_id 和 span_id 经请求 header 传给下游，下游以它为父继续开 span → 事后才能按父子把整棵 trace 树拼回来。没有透传，你只有各服务孤立的日志、拼不出那张图。Day 23 网关注入、sidecar 透传 trace_id 就是为这一步埋的伏笔。'},
+  {t:'SLI', zh:'服务等级指标', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'Service Level Indicator——一个「实际测量」的指标，定义为「好请求占总请求的比例」（如 p99<300ms 的报价请求占比）。三层里最底层的「测量」、给工程内部看。注意 SLI 要绑用户感受到的症状；retry 次数这类 cause-side 信号是诊断指标、不该当 SLI。'},
+  {t:'SLO', zh:'服务等级目标', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'Service Level Objective——给 SLI 定的内部目标（如「99.9% 的报价请求<300ms」），团队自己的「目标」。一般订得比对外的 SLA 更严、留缓冲 → 违反对外合同前内部先报警。它的副产品就是 error budget。'},
+  {t:'Error Budget', zh:'错误预算', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'1 − SLO 的允许失败额度（SLO 99.9% → 每月约 43 分钟可不可用）。把「要稳定 vs 要快迭代」的争吵变成一笔可算的账：预算有富余→大胆发版 / 灰度 / 实验；预算快烧光→冻结高风险变更稳住系统。目标是「正好花完预算」，100% 可用反而意味着太保守。区别于 Day 2 那个分配给链路各段的 latency budget。'},
+  {t:'Alert Fatigue', zh:'告警疲劳', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'告警太多、大半是噪音 → 工程师开始忽略告警 → 真事故被淹没。根因常是「对原因告警」（CPU 高就半夜呼叫）而非「对症状 / SLO 告警」。解法：少而准，按 page / ticket / info 分级，只有「SLO 正被违反、用户已受影响」才 page。'},
+  {t:'Tail-based Sampling', zh:'尾部采样', cat:'arch', src:['Day 24','讨论'], link:L.d24,
+   def:'决定「这条 trace 留不留」放在请求结束之后（已知它是否出错 / 超慢）做：成功又快的「无聊」请求只留小比例，出错 / 超慢 / 被标记的 100% 全留。对比 head-based（开头随机掷骰子，可能恰好漏掉出问题那条）。直接堵住「出问题的请求却没 trace」的洞。'},
+  {t:'High Cardinality', zh:'高基数', cat:'arch', src:['Day 24'], link:L.d24,
+   def:'一个维度可能取值的数量。给 metrics 打的标签若高基数（如 user_id、quote_id 这种近乎无限），时间序列数量爆炸 → 存储 / 查询扛不住。这正是 metrics 答不出「具体哪笔请求」的原因——那种细粒度该交给 logs / traces。'},
+
   // ── 数学 · 估算工具 ──
   {t:'Indicator Function 1[·]', zh:'指示函数', cat:'math', src:['讨论'], link:L.ll,
    def:'括号内条件成立取 1、否则取 0；用它把 N(t) 写成一串线段的叠加。'},
@@ -757,10 +786,10 @@ const TERMS = [
    def:'在离用户近的 edge 节点缓存静态内容、就地终止 TLS 握手，再用暖连接回源 → 不改业务代码压低延迟。Day 7 主题。'},
   {t:'curl', zh:'命令行 HTTP 客户端', cat:'infra', src:['讨论'], link:L.d4,
    def:'命令行版“浏览器”：给个 URL 就走完 DNS→TCP→TLS→HTTP 并打印原始响应，-v 可摊开四层。PowerShell 里 curl 默认是 Invoke-WebRequest 别名，真 curl 用 curl.exe。'},
-  {t:'Blue-green Deployment', zh:'蓝绿部署', cat:'arch', src:['Day 4','讨论'], link:L.d4,
-   def:'两套相同生产环境一服务一待命；新版部署到待命环境验证后整体切换，零停机、可秒级回滚。Day 26 细讲。'},
-  {t:'Canary Deployment', zh:'金丝雀发布', cat:'arch', src:['讨论'], link:L.d4,
-   def:'新版本先放小比例流量（1%→10%→…）观察无误再逐步放量；与蓝绿“全量一次切”相对。Day 26。'},
+  {t:'Blue-green Deployment', zh:'蓝绿部署', cat:'arch', src:['Day 4','Day 24','讨论'], link:L.d4,
+   def:'两套相同的完整生产环境，一套在用（蓝）、一套待命（绿）；新版部署到待命环境验证后，流量「整体一次性」切过去，零停机、可秒级回滚（切回旧的）。与灰度 / 金丝雀「按比例渐进切」相对。Day 26 细讲。'},
+  {t:'Canary / Gray Release', zh:'金丝雀发布 / 灰度发布', cat:'arch', src:['Day 24','讨论'], link:L.d4,
+   def:'新版本不一次性全量上线，先放给一小撮流量 / 用户（1%→10%→50%→100%），靠可观测性（p99 / 错误率 / 异常保费这些 SLI）盯着没问题再逐步放量，一崩就拨回 0% 回滚 → 把爆炸半径（blast radius）先框在一小撮里。「灰度」之名来自新（白）旧（黑）并存的过渡灰态；与蓝绿「整体一刀切」相对。典故：矿工带金丝雀下井探毒气。Day 26 细讲。'},
   {t:'Failover', zh:'故障转移', cat:'arch', src:['Day 4','Day 6','讨论'], link:L.d6,
    def:'把流量从挂掉的节点 / 机房切到健康的；可经 DNS（慢，受 TTL 限）或负载均衡的健康检查（快，Day 6 自动摘除坏机器）。'},
 

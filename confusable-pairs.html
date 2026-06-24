@@ -186,9 +186,38 @@ const L = {
   d21:'Day-21-week3-review-exercise.html',
   d22:'Day-22-monolith-vs-microservices.html',
   d23:'Day-23-api-gateway-mesh.html',
+  d24:'Day-24-observability.html',
 };
 
 const PAIRS = [
+  { src:'Day 24', link:L.d24,
+    a:{t:'Monitoring', zh:'监控 · 已知问题', def:'盯预先设定的已知指标并告警（CPU>80%、错误率>1%）→ 答「已知问题发生了没」(known-unknowns)。'},
+    b:{t:'Observability', zh:'可观测性 · 没预设过的问题', def:'系统暴露足够信号，让你事后问出当初没预设过的问题(unknown-unknowns)，还能下钻定位。'},
+    diff:'monitoring 是 observability 的子集。监控只能回答你「事先想到要问」的问题（盯固定 dashboard 等它变红）；可观测性让你回答事后才冒出来、没预设过的问题——靠数据维度够细 + 能下钻，而非堆更多 dashboard。一句话：监控告诉你「坏了」，可观测性让你回答「为什么坏、坏在哪」。',
+    eg:'「报价错误率>1% 报警」= monitoring；事后追问「为什么只有 broker 渠道 + 保额>100万 + 命中某条新核保规则的报价会慢」= observability。',
+    mn:'监控答「坏没坏」(known-unknowns)；可观测答「为什么坏」(unknown-unknowns)。后者是前者的超集。' },
+
+  { trip:true, src:'Day 24', link:L.d24,
+    a:{t:'Metrics（指标 · 数据形态）', zh:'三支柱之一 · 名词', def:'随时间变化的聚合数值（QPS / p99 / 错误率），是可观测性三支柱里的一根。'},
+    b:{t:'Monitoring（监控 · 动作）', zh:'拿数据去盯 · 动词', def:'「拿着 metrics 去盯、去告警」这个行为本身，不是一种数据。'},
+    diff:'一个是数据形态（名词），一个是行为（动词）。三支柱是 metrics / logs / traces——是 metrics，不是 monitoring。monitoring 消费 metrics、用它来盯和告警，但它本身不是那根支柱。',
+    eg:'我在「我的理解」里把三支柱写成「monitor / log / trace」——把「监控这个动作」错当成了支柱。正解：三支柱 = metrics / logs / traces。',
+    mn:'三支柱是 metrics（数据），不是 monitoring（动作）。monitoring 拿 metrics 去盯。' },
+
+  { src:'Day 24', link:L.d24,
+    a:{t:'SLO (Objective)', zh:'内部目标 · 对自己', def:'团队给 SLI 定的内部目标（「99.9% 报价<300ms」）；没达标内部先报警，不赔钱。'},
+    b:{t:'SLA (Agreement)', zh:'对外合同 · 违约赔偿', def:'写进客户 / broker 合同的对外承诺（「月可用率≥99.5% 否则退费」）；违约要赔。'},
+    diff:'三个共享 "SL"=Service Level，区别在末字母：SLI 测量(Indicator)→SLO 目标(Objective)→SLA 承诺(Agreement)。SLO 对内、SLA 对外；且 SLO 要订得比 SLA 更严（留缓冲）——这样在违反对外合同、要赔钱之前，内部就先告警了。',
+    eg:'QuoteFlow 内部定 SLO「99.9% 报价<300ms」，对 broker 合同只承诺 SLA「99.5% 可用否则退费」——SLO 比 SLA 严，留出抢救窗口。',
+    mn:'SLI 测 → SLO 内部目标 → SLA 对外合同（违约赔）。SLO 比 SLA 严。' },
+
+  { src:'Day 24', link:L.d24,
+    a:{t:'Canary / 灰度（金丝雀）', zh:'按比例渐进切', def:'新版本先放 1% 流量，盯 SLI 没问题再 10%→50%→100%，一崩拨回 0%。'},
+    b:{t:'Blue-Green / 蓝绿', zh:'整体一刀切', def:'两套完整环境，新版就绪后流量「整体一次性」切过去，留着旧的好秒回滚。'},
+    diff:'都为安全发布 + 快速回滚，区别在「怎么切」：灰度 / 金丝雀按比例渐进放量（任一档 SLI 崩就停 / 回滚，爆炸半径只在那一小撮）；蓝绿整体一刀切（不渐进，但保留旧环境秒级切回）。灰度靠可观测性边放量边盯，蓝绿靠「切换前在待命环境验好」。',
+    eg:'发新版核保规则：先让 1% 报价走新规则、盯 p99 / 异常保费，稳了再放量 = 灰度；准备一整套带新规则的环境、验好后把全部流量一次切过去 = 蓝绿。',
+    mn:'灰度 / 金丝雀 = 按比例渐进切；蓝绿 = 整体一刀切（留旧的秒回滚）。' },
+
   { src:'Day 23', link:L.d23,
     a:{t:'API Gateway', zh:'南北门 · 边界单一入口', def:'横在客户端与后端之间，集中处理 north-south 流量的认证 / 限流 / 路由 / TLS。'},
     b:{t:'Service Mesh', zh:'东西巷 · 每服务旁的 sidecar', def:'用 sidecar 治理 east-west 服务间流量的重试 / 超时 / 熔断 / mTLS / 追踪。'},
