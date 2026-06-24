@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 2 周复习 · 数据怎么存对,又怎么在散开后还对</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --gold:#c79528;
+    --gold-soft:#fbf0d2;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:0 22px 96px;}
+
+  /* topbar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:820px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:46.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:44px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout.gold{background:var(--gold-soft);border-color:#ecd9a3;border-left-color:var(--gold);}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout.gold .ct{color:#7a5400;}
+  .callout.gold .ct svg{color:var(--gold);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* ===== knowledge graph ===== */
+  .graphwrap{margin:8px 0 0;background:radial-gradient(120% 120% at 50% 0%,#ffffff,#f1faf4);
+    border:1px solid var(--border);border-radius:var(--radius);padding:16px 14px 12px;box-shadow:var(--shadow);overflow:hidden;}
+  #kg{display:block;width:100%;height:auto;touch-action:none;cursor:grab;}
+  #kg.grabbing{cursor:grabbing;}
+  .link{stroke:#cfe3d8;stroke-width:1.4;transition:opacity .18s, stroke .18s;}
+  .link.l-seq{stroke:#d8e4dd;stroke-dasharray:2 5;}
+  .link.l-next{stroke:#d6dcd9;stroke-dasharray:5 5;}
+  .node{cursor:pointer;}
+  .node circle{transition:opacity .18s, filter .18s;stroke:#fff;stroke-width:2;}
+  .node .lbl{font-size:11px;fill:var(--body);text-anchor:middle;font-weight:500;pointer-events:none;transition:opacity .18s;}
+  .node .num{font-size:12px;fill:#fff;text-anchor:middle;font-weight:700;pointer-events:none;dominant-baseline:central;}
+  .n-day circle{fill:var(--accent);}
+  .n-day .lbl{fill:var(--ink);font-weight:600;}
+  .n-concept circle{fill:#2f8f6e;}
+  .n-concept .lbl{fill:#14513a;font-weight:600;}
+  .n-repro circle{fill:var(--gold);}
+  .n-repro .lbl{fill:#7a5400;font-weight:700;}
+  .n-next circle{fill:#b9c4bf;}
+  .n-next .lbl{fill:#7f8c86;}
+  /* hover dimming */
+  #kg.dim .link{opacity:.07;}
+  #kg.dim .node circle{opacity:.16;}
+  #kg.dim .node .lbl{opacity:.18;}
+  #kg.dim .link.hot{opacity:1;stroke:#5cbf95;stroke-width:2;}
+  #kg.dim .node.hot circle{opacity:1;filter:drop-shadow(0 2px 6px rgba(15,61,46,.25));}
+  #kg.dim .node.hot .lbl{opacity:1;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin:14px 4px 2px;font-size:12.5px;color:var(--muted);}
+  .legend .it{display:inline-flex;align-items:center;gap:7px;}
+  .legend .sw{width:13px;height:13px;border-radius:50%;flex-shrink:0;}
+  .legend .ln{width:20px;height:0;border-top:2px dashed #b9c4bf;}
+  .ghint{font-size:12.5px;color:var(--muted);margin:10px 4px 0;}
+
+  /* ===== thread sections ===== */
+  .lane{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 14px;}
+  .dchip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;font-family:var(--mono);
+    background:var(--accent-soft);color:var(--accent-ink);border:1px solid #cdeede;padding:3px 9px;border-radius:99px;}
+  .dchip.f{background:#eef1ef;color:#7f8c86;border-color:#dfe5e2;}
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:0;margin:18px 0;}
+  .step{flex:1 1 150px;min-width:140px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);
+    padding:13px 14px;margin:6px;box-shadow:var(--shadow);position:relative;}
+  .step .d{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--accent-ink);letter-spacing:.04em;}
+  .step .h{font-weight:700;color:var(--ink);font-size:15px;margin:3px 0 4px;}
+  .step .x{font-size:13.5px;color:var(--body);line-height:1.55;}
+
+  /* takeaways grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* day quick-ref grid */
+  .dgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:22px 0;}
+  .dcard{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 17px;box-shadow:var(--shadow);}
+  .dcard .top{display:flex;align-items:center;gap:9px;margin-bottom:8px;}
+  .dcard .bdg{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:24px;padding:0 7px;border-radius:7px;
+    background:var(--ink);color:#fff;font-size:12px;font-weight:700;font-family:var(--mono);}
+  .dcard .ti{font-weight:700;color:var(--ink);font-size:15px;}
+  .dcard p{margin:0 0 10px;font-size:14px;line-height:1.58;}
+  .dcard .terms{display:flex;flex-wrap:wrap;gap:5px;}
+  .dcard .terms span{font-family:var(--mono);font-size:11px;background:#eef6f1;color:#0f5c3e;border:1px solid #dcebe2;border-radius:6px;padding:2px 7px;}
+
+  /* confusable pairs */
+  .pair{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:16px 0;box-shadow:var(--shadow);overflow:hidden;}
+  .pair .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border-soft);background:#fbfdfc;}
+  .pair .hd .nm{font-weight:700;color:var(--ink);font-size:15.5px;}
+  .pair .trip{font-size:11.5px;font-weight:700;color:#9a3b2f;background:#fbe6e2;border:1px solid #f3c8c0;border-radius:99px;padding:3px 10px;white-space:nowrap;}
+  .pair .cols{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+  .pair .c{padding:14px 18px;font-size:14px;line-height:1.55;}
+  .pair .c:first-child{border-right:1px solid var(--border-soft);}
+  .pair .c .t{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--accent-ink);margin-bottom:4px;}
+  .pair .ft{padding:12px 18px;border-top:1px solid var(--border-soft);background:#fafdfb;font-size:13.5px;color:var(--body);}
+  .pair .ft b{color:var(--ink);}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:30px;}
+    h2{font-size:22px;}
+    .grid,.pair .cols{grid-template-columns:1fr;}
+    .pair .c:first-child{border-right:none;border-bottom:1px solid var(--border-soft);}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">第 2 周复习 · Day 8–14</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 2 周 · 数据层 · 复习</span>
+    <h1>数据怎么存得对,<br>又怎么在散开之后还对。</h1>
+    <p class="lede">第一周一路把数据库当“真相(source of truth)”在用,却没问它<strong>凭什么</strong>配当真相。第二周钻进数据层补这一课:前半周(Day 8–11)在<strong>一个库里</strong>把数据存对、查快、建好、必要时换种存法;后半周(Day 12–14)数据一旦<strong>复制 / 分区 / 跨服务散开</strong>,ACID 的保证就被一条条打折,逼着你逐个赎回。和上周一样,先看清把这 7 天缝起来的<strong>贯穿线</strong>,再逐天回看。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>复习约 25 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>覆盖 Day 8 – Day 14</span>
+    </div>
+  </header>
+
+  <section id="graph">
+    <div class="kicker"><span class="num">◆</span>关系图谱</div>
+    <h2>第二周的知识网</h2>
+    <p>绿色是 <strong>7 天</strong>,深绿是把它们串起来的<strong>贯穿概念</strong>,<strong>金色</strong>是这周最粗、且延续自第一周黄金线的那根——<em>不可变 / append-only</em>,它一个人连着全部 7 天。灰色虚线指向<strong>第三周</strong>(分布式与异步)会兑现的伏笔。连得越多的节点越是“枢纽”,值得反复回看。</p>
+
+    <div class="graphwrap">
+      <svg id="kg" viewBox="0 0 820 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="第二周知识关系图谱">
+        <g id="links"></g>
+        <g id="nodes"></g>
+      </svg>
+      <div class="legend">
+        <span class="it"><span class="sw" style="background:#15a06a"></span>Day 节点（点击跳转）</span>
+        <span class="it"><span class="sw" style="background:#2f8f6e"></span>贯穿概念</span>
+        <span class="it"><span class="sw" style="background:#c79528"></span>黄金线 · 不可变/append-only</span>
+        <span class="it"><span class="sw" style="background:#b9c4bf"></span>通向第 3 周</span>
+        <span class="it"><span class="ln"></span>伏笔（虚线）</span>
+      </div>
+      <p class="ghint">💡 把鼠标悬在任一节点上 → 高亮它的所有关联;按住可拖动节点;点 Day 节点直接跳到下面对应的速查卡。</p>
+    </div>
+  </section>
+
+  <section id="spine">
+    <div class="kicker"><span class="num">1</span>一周的主线</div>
+    <h2>从“在一个库里存对”到“散开后还对”</h2>
+    <p>把 7 天排成一条线,是一段清晰的两幕剧:<strong>Day 8–11 是“单库内功”</strong>——在一台机器、一个库里,把数据存对(ACID)、查快(索引)、建好(建模)、必要时换种存法(NoSQL);<strong>Day 12–14 是“离开单库的代价”</strong>——数据一旦被复制、被切片、被跨服务写,Day 8 立下的 ACID 黄金标准就被现实一条条砍价,你得想办法把每一条赎回来。</p>
+
+    <div class="flow">
+      <div class="step"><div class="d">DAY 8</div><div class="h">存对</div><div class="x">ACID 立下“对”的黄金标准;单库事务全包 A/C/I/D。</div></div>
+      <div class="step"><div class="d">DAY 9</div><div class="h">查快</div><div class="x">索引让亿级数据仍可查 → auditability 在大表上“依然可用”。</div></div>
+      <div class="step"><div class="d">DAY 10</div><div class="h">建好</div><div class="x">可变状态 3NF、不可变事实 append-only,分开建模。</div></div>
+      <div class="step"><div class="d">DAY 11</div><div class="h">换法</div><div class="x">NoSQL 按访问模式选;每个强项都是“放弃换来的”。</div></div>
+    </div>
+    <div class="flow">
+      <div class="step"><div class="d">DAY 12</div><div class="h">复制</div><div class="x">一份变多份拷贝;C 被 replication lag 打折(CAP/PACELC)。</div></div>
+      <div class="step"><div class="d">DAY 13</div><div class="h">分区</div><div class="x">一份切多块各放一处;跨分区事务的 A 被打破。</div></div>
+      <div class="step"><div class="d">DAY 14</div><div class="h">出门</div><div class="x">事务跨库/跨服务;saga 主动弃 I,再手工焊回。</div></div>
+    </div>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.5 6.5L21 9l-5 4 1.5 7L12 16l-5.5 4L8 13 3 9l6.5-.5z"/></svg>一句话抓住整周</div>
+      <ul><li>前半周教你<strong>在一个库里把数据存到“可信”</strong>(对 → 快 → 好 → 选对存储);后半周告诉你<strong>数据一散开,这份“可信”就要付费赎回</strong>——而决定哪些数据贵、哪些便宜的那把尺子,是整周最值钱的新工具:<em>这份数据是“可变状态”还是“不可变事实”?</em></li></ul>
+    </div>
+  </section>
+
+  <section id="threads">
+    <div class="kicker"><span class="num">2</span>六条贯穿线</div>
+    <h2>把 7 天缝起来的线</h2>
+    <p>这是这份复习的核心。每条线都是一个概念<strong>跨多天反复出现</strong>的轨迹——看懂线,就看懂了这些知识点为什么是一个整体,而不是 7 段彼此无关的内容。</p>
+
+    <!-- 线 1 -->
+    <h3 style="color:#7a5400">🟡 线 1 · 黄金线(延续第一周):不可变 / append-only = 可复现 / 可审计</h3>
+    <div class="lane"><span class="dchip">D8</span><span class="dchip">D9</span><span class="dchip">D10</span><span class="dchip">D11</span><span class="dchip">D12</span><span class="dchip">D13</span><span class="dchip">D14</span></div>
+    <p>第一周那根“可复现 / 可审计”的金线没断,这周它换了副数据层的面孔:<strong>把会变的东西冻成不可变的事实、把改动变成只增不改的追加</strong>。检验场景还是那句——<em>两年后监管来查一笔当时的报价 / 一次当晚的重算,你能不能一字不差地复现、并看清中间每一步</em>。</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="width:14%">出现在</th><th>这一天它怎么现身</th></tr></thead>
+      <tbody>
+        <tr><td><span class="lab">Day 8</span></td><td><strong>Durability</strong> 就是 Day 7「write-back 丢数据」的正反面:COMMIT 一返回,数据已落非易失存储。「写路径别图快」第一次有了技术名字。</td></tr>
+        <tr><td><span class="lab">Day 9</span></td><td>索引让 <strong>auditability 在亿级数据下依然可用</strong>——监管随时抽查某保单为何这样定价,查询不能一跑几分钟。</td></tr>
+        <tr><td><span class="lab">Day 10</span></td><td>本周主场:<strong>快照 / 版本引用 / effective dating / append-only</strong>。「不可变事实(报价、审计、版本、重算结果)随便反范式;可变状态老实 3NF」。</td></tr>
+        <tr><td><span class="lab">Day 11</span></td><td>append-only 事件流 + <strong>只授 INSERT 权限</strong>当兜底;核心保单记录留关系库 =「合规上的保守正确」。</td></tr>
+        <tr><td><span class="lab">Day 12</span></td><td><strong>版本化、不可变的费率表天然免疫 replication lag</strong>——读旧副本也是同一个合法值。这是定价系统专属红利。</td></tr>
+        <tr><td><span class="lab">Day 13</span></td><td>分区级重算失败重跑,必须<strong>钉死同一组版本</strong> + <code class="inl">run_id/attempt</code> 留痕,审计才看得出「失败→重跑→成功」。</td></tr>
+        <tr><td><span class="lab">Day 14</span></td><td><strong>补偿事务天生 append-only</strong>(新增一笔反向记录、不抹除),跟 audit log 严丝合缝——“签发→撤销、谁做的、为什么”整条链留痕。</td></tr>
+      </tbody>
+    </table></div>
+    <div class="callout gold">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>这根线的总纲</div>
+      <ul><li>第一周的金线是“别让加速毁掉可复现”;第二周把它落到具体动作上——<strong>凡是要当证据的数据,就冻成不可变 + 只追加</strong>。它还顺手解决了一致性(线 4)、隔离窗口(线 3)一大堆难题:不可变的东西,根本没有“读到半新半旧错值”这回事。</li></ul>
+    </div>
+
+    <!-- 线 2 -->
+    <h3>🔵 线 2 · 本周冠军尺子:可变状态(state) ↔ 不可变事实(fact)</h3>
+    <div class="lane"><span class="dchip">D10</span><span class="dchip">D11</span><span class="dchip">D12</span><span class="dchip">D13</span><span class="dchip">D14</span></div>
+    <p>Day 10 锻造、之后每天都掏出来用的一把尺。建模、选存储、定一致性、选分区键、画事务边界——背后都是同一个问题:<strong>我现在碰的,是“现在是什么”(可变、要付钱),还是“当时发生了什么”(不可变、免疫一堆问题)?</strong></p>
+    <ul>
+      <li><strong>Day 10</strong>(锻造):客户资料/保单状态是<em>状态</em>→ UPDATE 合法、老实 3NF;报价/审计/版本/重算结果是<em>事实</em>→ append-only、改它就是销毁证据。这是 Day 10 最值钱的判断力。</li>
+      <li><strong>Day 11</strong>:in-force 保单是“可变状态”、最该留关系库;给夜批派生的“定价输入文档”是可重算的副本——<em>不动权威记录,另立派生读模型</em>。</li>
+      <li><strong>Day 12</strong>(收口):几乎每个实体都有<em>两张脸</em>——“当前值”(可变、付一致性钱)与“在 T 时刻是什么”(不可变历史、免疫 lag)。问“这数据能不能免疫一致性”问错了,要问“我读的是哪张脸”。</li>
+      <li><strong>Day 13</strong>:分区键要 <code class="inl">immutable</code>——<code class="inl">policy_id</code> 终身不变(选它);<code class="inl">customer_id</code> 会变(归属转让)→ 记录被迫跨分区搬家。</li>
+      <li><strong>Day 14</strong>:ledger 余额是“可变当前值”→ 借贷必须收进单库一个事务瞬时配平;投保链是一串“已发生的事实”→ 可交 saga、错了用补偿。</li>
+    </ul>
+    <p>一句话记住这把尺:<strong>把“现在是什么”和“当时是什么”分开建模</strong>——前者老实付钱,后者冻起来,大半的一致性 / 审计难题在分类那一步就化解了。</p>
+
+    <!-- 线 3 -->
+    <h3>🟢 线 3 · ACID 失乐园:离开单库,四个字母被逐条砍价又赎回</h3>
+    <div class="lane"><span class="dchip">D8</span><span class="dchip">D12</span><span class="dchip">D13</span><span class="dchip">D14</span></div>
+    <p>Day 8 的单库事务是<strong>伊甸园</strong>——A/C/I/D 四个保证一次全给你。可数据不可能永远待在一个库里:要扛读量得复制、要扛容量得分区、要跨服务得拆事务。<strong>每往外走一步,就有字母掉队,你得用别的机制把它赎回来。</strong></p>
+
+    <figure>
+      <svg viewBox="0 0 820 250" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ar2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+        </defs>
+        <!-- baseline arrow -->
+        <text x="20" y="26" font-size="12.5" font-weight="700" fill="#0f3d2e">离单库越远 →</text>
+        <path d="M150 20 L800 20" stroke="#cdd9d3" stroke-width="1.4" marker-end="url(#ar2)"/>
+
+        <!-- stage helper: four ACID dots -->
+        <!-- 单库 D8 -->
+        <rect x="22" y="56" width="176" height="150" rx="13" fill="#eef9f3" stroke="#bfe6d2"/>
+        <text x="110" y="80" font-size="13" font-weight="700" fill="#0c7a50" text-anchor="middle">单库事务 · D8</text>
+        <g font-size="13" font-weight="700" text-anchor="middle">
+          <circle cx="58"  cy="112" r="15" fill="#15a06a"/><text x="58"  y="117" fill="#fff">A</text>
+          <circle cx="94"  cy="112" r="15" fill="#15a06a"/><text x="94"  y="117" fill="#fff">C</text>
+          <circle cx="130" cy="112" r="15" fill="#15a06a"/><text x="130" y="117" fill="#fff">I</text>
+          <circle cx="166" cy="112" r="15" fill="#15a06a"/><text x="166" y="117" fill="#fff">D</text>
+        </g>
+        <text x="110" y="158" font-size="10.5" fill="#3a463f" text-anchor="middle">四个全给</text>
+        <text x="110" y="176" font-size="10.5" fill="#3a463f" text-anchor="middle">伊甸园:一个</text>
+        <text x="110" y="191" font-size="10.5" fill="#3a463f" text-anchor="middle">BEGIN…COMMIT 包圆</text>
+
+        <!-- 复制 D12 -->
+        <rect x="214" y="56" width="176" height="150" rx="13" fill="#fbfdfc" stroke="#dde7e1"/>
+        <text x="302" y="80" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">复制 · D12</text>
+        <g font-size="13" font-weight="700" text-anchor="middle">
+          <circle cx="250" cy="112" r="15" fill="#15a06a"/><text x="250" y="117" fill="#fff">A</text>
+          <circle cx="286" cy="112" r="15" fill="#c79528"/><text x="286" y="117" fill="#fff">C</text>
+          <circle cx="322" cy="112" r="15" fill="#15a06a"/><text x="322" y="117" fill="#fff">I</text>
+          <circle cx="358" cy="112" r="15" fill="#c79528"/><text x="358" y="117" fill="#fff">D</text>
+        </g>
+        <text x="302" y="158" font-size="10.5" fill="#7a5400" text-anchor="middle">C 被 lag 打折(CAP/PACELC)</text>
+        <text x="302" y="176" font-size="10.5" fill="#7a5400" text-anchor="middle">D 看同步/异步</text>
+        <text x="302" y="191" font-size="10.5" fill="#3a463f" text-anchor="middle">赎:版本不可变 / quorum</text>
+
+        <!-- 分区 D13 -->
+        <rect x="406" y="56" width="176" height="150" rx="13" fill="#fbfdfc" stroke="#dde7e1"/>
+        <text x="494" y="80" font-size="13" font-weight="700" fill="#0f3d2e" text-anchor="middle">分区 · D13</text>
+        <g font-size="13" font-weight="700" text-anchor="middle">
+          <circle cx="442" cy="112" r="15" fill="#c79528"/><text x="442" y="117" fill="#fff">A</text>
+          <circle cx="478" cy="112" r="15" fill="#15a06a"/><text x="478" y="117" fill="#fff">C</text>
+          <circle cx="514" cy="112" r="15" fill="#15a06a"/><text x="514" y="117" fill="#fff">I</text>
+          <circle cx="550" cy="112" r="15" fill="#15a06a"/><text x="550" y="117" fill="#fff">D</text>
+        </g>
+        <text x="494" y="158" font-size="10.5" fill="#7a5400" text-anchor="middle">跨分区的 A 被打破</text>
+        <text x="494" y="176" font-size="10.5" fill="#3a463f" text-anchor="middle">赎:让高频查询单分区</text>
+        <text x="494" y="191" font-size="10.5" fill="#3a463f" text-anchor="middle">可达 + 幂等重跑</text>
+
+        <!-- saga D14 -->
+        <rect x="598" y="56" width="200" height="150" rx="13" fill="#fbf6e6" stroke="#ecd9a3"/>
+        <text x="698" y="80" font-size="13" font-weight="700" fill="#7a5400" text-anchor="middle">跨服务 saga · D14</text>
+        <g font-size="13" font-weight="700" text-anchor="middle">
+          <circle cx="640" cy="112" r="15" fill="#c79528"/><text x="640" y="117" fill="#fff">A</text>
+          <circle cx="676" cy="112" r="15" fill="#c79528"/><text x="676" y="117" fill="#fff">C</text>
+          <circle cx="712" cy="112" r="15" fill="#b9c4bf"/><text x="712" y="117" fill="#fff">I</text>
+          <circle cx="748" cy="112" r="15" fill="#15a06a"/><text x="748" y="117" fill="#fff">D</text>
+        </g>
+        <text x="698" y="158" font-size="10.5" fill="#7a5400" text-anchor="middle">A=补偿 · C=最终一致</text>
+        <text x="698" y="176" font-size="10.5" fill="#7f8c86" text-anchor="middle">I=主动放弃 · D=每步提交</text>
+        <text x="698" y="191" font-size="10.5" fill="#3a463f" text-anchor="middle">赎 I:semantic lock 手工焊</text>
+      </svg>
+      <figcaption>图 · ACID 随“离单库的距离”逐条衰减:<span style="color:#15a06a;font-weight:700">绿=保住</span> / <span style="color:#c79528;font-weight:700">琥珀=打折,要赎回</span> / <span style="color:#9aa6a0;font-weight:700">灰=主动放弃</span>。记住 saga 那句口诀:<b>给的是 ACD,唯独没有 I</b>。</figcaption>
+    </figure>
+    <p>所以 Day 12/13/14 不是三个新话题,是<strong>同一道题的三种走远</strong>:Day 8 给你满血 ACID,后面每一天都在回答“这次又掉了哪个字母、拿什么赎”。最锋利的判断不是“能不能上 2PC 把字母抢回来”,而是先问<em>这字母在这条路径上到底值不值得赎</em>——报价路径连 C 都主动不要,赎它纯属浪费。</p>
+
+    <!-- 线 4 -->
+    <h3>🟠 线 4 · 一致性不是一个全局开关,是逐条路径的预算分配</h3>
+    <div class="lane"><span class="dchip">D8</span><span class="dchip">D12</span><span class="dchip">D13</span><span class="dchip">D14</span></div>
+    <p>新手以为“一致性”是整个系统一个旋钮,拧高更安全。第二周反复打碎这个直觉:<strong>同一个 QuoteFlow 里,不同数据、不同路径,各拿各的一致性档位</strong>,判别式永远是 Day 1 那句——<em>这份数据错了 / 丢了,代价是什么</em>。</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="width:22%">路径 / 数据</th><th>选的档</th><th>理由(代价是什么)</th></tr></thead>
+      <tbody>
+        <tr><td><span class="lab">实时报价(读)</span></td><td>A / 弱</td><td>版本钉死、不可变 → lag 顶多让新费率晚几秒可见,<strong>没有错值可容忍</strong>;算错代价 ≈ 0(可重算)。</td></tr>
+        <tr><td><span class="lab">保单签发(写)</span></td><td>C / 强</td><td>创建有法律意义的权威记录,重复 / 分叉 = 合规事故 → 宁可暂停也不分叉(分区时收单库)。</td></tr>
+        <tr><td><span class="lab">夜间批量重算</span></td><td>钉快照</td><td>不付实时一致,改用<strong>钉死版本 + 幂等</strong>买可复现:同输入同版本 = 同结果。</td></tr>
+        <tr><td><span class="lab">audit log</span></td><td>QUORUM</td><td>不可变 → 免疫“读到错值”(mutability 轴),但仍要 <strong>QUORUM 保不丢条目</strong>(durability 轴)。</td></tr>
+      </tbody>
+    </table></div>
+    <p>真正的手艺还有反向那一半:<strong>会对“假一致性需求”说不</strong>。PM 喊“绝不许两人同一秒读到不同版本费率”,senior 的第一反应不是去拧 sync 旋钮,而是回 Day 1 问“这防的是哪个<em>真实损害</em>?”——两个陌生人各自拿到一个合法、已钉版本、会被 honor 的报价,不伤害任何人,八成是把工程师对“不一致”的本能不适误当成了业务约束。</p>
+
+    <!-- 线 5 -->
+    <h3>🟣 线 5 · 同一招反复奏效:版本化 + 钉死时点</h3>
+    <div class="lane"><span class="dchip">D8</span><span class="dchip">D10</span><span class="dchip">D12</span><span class="dchip">D13</span></div>
+    <p>第一周线 4(“版本化 + 不可变”)在数据层继续兑现——同一个杠杆,这周又撬开四个看似无关的问题:</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="width:14%">在</th><th>它解决了什么</th></tr></thead>
+      <tbody>
+        <tr><td><span class="lab">Day 8</span></td><td><strong>MVCC</strong> 本身就是“每次写生成行的新版本”——读按自己的快照挑可见版本,读不加锁。版本化是隔离机制的底层引擎。</td></tr>
+        <tr><td><span class="lab">Day 10</span></td><td><strong>版本引用 vs 快照</strong>:源头已 immutable 版本化(费率表)→ 只存 <code class="inl">version_id</code> 指针;= 数仓 SCD Type 2 / effective dating 一字不差。</td></tr>
+        <tr><td><span class="lab">Day 12</span></td><td>版本化费率表<strong>免疫 lag</strong>;优雅解=拆“指针 vs 内容”:当前版本指针读 leader(小、要一致),版本内容读任意 replica(大、不可变)。</td></tr>
+        <tr><td><span class="lab">Day 13</span></td><td>分区重算钉死 <code class="inl">rate_table_version</code>:重跑晚几分钟也不准用新版,否则同一晚不同分区两个版本 → 不可复现。</td></tr>
+      </tbody>
+    </table></div>
+    <p>精髓还是第一周那句:<strong>不是“让副本追上源头”,而是“让副本永不变,于是无需追”。</strong>把“当前是哪个版本”缩成一个极小的指针单独付一致性的钱,其余大块内容因为不可变,白嫖了一致性。</p>
+
+    <!-- 线 6 -->
+    <h3>🔴 线 6 · senior 手艺:先测量、先质疑,别靠猜也别瞎赎</h3>
+    <div class="lane"><span class="dchip">D9</span><span class="dchip">D10</span><span class="dchip">D11</span><span class="dchip">D12</span></div>
+    <p>这条不是知识点,是贯穿后五天的一种<strong>工作姿势</strong>——也是最贴你 capstone 的一条。每次要“优化 / 搬家 / 加一致性”之前,先按住手:</p>
+    <ul>
+      <li><strong>Day 9</strong>:“用不用索引”是优化器按 selectivity 自己决定的,你只能影响、不能强令 → 凡事先 <code class="inl">EXPLAIN ANALYZE</code> 看它真打算怎么取数。</li>
+      <li><strong>Day 10</strong>:要不要反范式(冗余列 / 汇总表),<em>不要靠猜</em>——先 EXPLAIN ANALYZE 确认瓶颈,说不定加个索引就够。</li>
+      <li><strong>Day 11</strong>:“搬去 MongoDB 会快很多”是未经测量的假设;第一步是 benchmark,不是搬家——<strong>搬家之前,先证明现有的家真的不行</strong>。</li>
+      <li><strong>Day 12</strong>:面对“加强一致性”的需求,先质疑它是不是<em>假需求</em>,回 Day 1 问“防的是哪个真实损害”。</li>
+    </ul>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M12 4v16"/></svg>为什么这条对你最值钱</div>
+      <ul><li>你重做定价 workflow 时,系统复杂度的下限,基本由两个判断定:<strong>哪些数据真要付一致性的钱(线 4)、哪些靠版本钉死就免疫(线 5)</strong>;而这条手艺保证你<em>不会为想象中的问题付真实的复杂度</em>——polyglot、强一致、反范式,都是被测量和真实损害逼出来的,不是技术品味。</li></ul>
+    </div>
+  </section>
+
+  <section id="traps">
+    <div class="kicker"><span class="num">3</span>易混雷区</div>
+    <h2>你实际栽过 / 最该刻意分清的对子</h2>
+    <p>复习最高效的部分:不是重看你已经懂的,而是盯住<em>差一点就混</em>的地方。下面带 ⚠ 的是讨论里你<strong>实际答偏过</strong>的——优先复盘。本周栽得最密的是 Day 10/11/12 那几道思考题。</p>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">snapshot(快照·复制值) &nbsp;vs&nbsp; version reference(版本引用·存指针)</span><span class="trip">⚠ 你栽过 · Day 10</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">snapshot 快照</div>源头<strong>可变且无版本管理</strong> → 把当时的值<em>复制</em>进本行(客户申报的年龄/吸烟住 Customer 表、随时被 UPDATE → 必须复制)。</div>
+        <div class="c"><div class="t">version reference 版本引用</div>源头自己<strong>已 immutable 版本化</strong> → 只存 <code class="inl">version_id</code> 指针(费率表发布即冻结)。引用一个不可变的东西 = 等价快照,还白送反查 impact。</div>
+      </div>
+      <div class="ft"><b>你怎么混的:</b>你把<b>费率表判成“快照”</b>,正解是<b>版本引用</b>。两步判别:① 源头以后变了、本行该不该跟着变?该跟 → FK 引用;不该跟 → 钉死时点。② 钉死时点的:源头自己版本化了吗?是 → 版本引用(费率表、核保规则<i>版本</i>);否 → 复制快照(申报信息;核保<i>结果</i>是第一手产出、无处可引,也是快照)。再补一刀:快照 or 引用<b>不是字段的固有属性,是每张表按自己要回答的问题定的</b>。</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">mutable state(可变状态) &nbsp;vs&nbsp; immutable fact(不可变事实)</span><span class="trip">⚠ 你栽过 · Day 10</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">可变状态 · 现在是什么</div>客户资料、in-force 保单状态:<strong>UPDATE 合法</strong>,老老实实 3NF 范式化。</div>
+        <div class="c"><div class="t">不可变事实 · 当时发生了什么</div>报价、审计、版本、重算结果:<strong>append-only</strong>,UPDATE = 销毁证据;反范式随便用(反正不会改)。</div>
+      </div>
+      <div class="ft"><b>你怎么混的:</b>你答“夜间重算结果表该建<b>可变</b>”——但重算结果是<b>计算产出的事实</b>、要喂 reserving / 再保上报,UPDATE 它就是毁证据。正解 append-only + <code class="inl">UNIQUE(policy_id, run_date)</code>:跨晚只增、晚内重试 <code class="inl">ON CONFLICT DO NOTHING</code> 变 no-op。建模第一问就该问“这数据是<b>状态</b>还是<b>事实</b>”——这是 Day 10 最值钱的判断力,也是本周线 2 的源头。</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">靠不可变“免疫”一致性 &nbsp;vs&nbsp; 仍要付的另两根轴</span><span class="trip">⚠ 你栽过 · Day 12</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">免疫的那根:mutability 轴</div>不可变 / append-only 数据每条写下永不改 → 读旧副本也是同一个值,lag <strong>不会读到“半新半旧的错值”</strong>。</div>
+        <div class="c"><div class="t">照付的那两根:durability + recency</div>不可变 ≠ 不用付钱:仍要保证<strong>别丢条目</strong>(durability,所以 audit 写用 QUORUM)、<strong>刚 append 的到没到</strong>(recency / read-your-writes)。</div>
+      </div>
+      <div class="ft"><b>你怎么混的:</b>你把 <b>audit log</b> 列进“永远要付一致性钱”的一类——其实它恰是 append-only 不可变的<b>教科书例子</b>,免疫了 stale 错值;只是仍要用 QUORUM 保 durability。你把<b>三根独立的轴(mutability / durability / recency)混成了一根</b>。真正“永远要付一致性钱”的不是某个实体,而是任何<b>可变、权威、被并发写的“当前值”</b>(余额、计数器、live 指针)。</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">sync replication(写侧旋钮) &nbsp;vs&nbsp; linearizable read(读侧保证)</span><span class="trip">⚠ 你栽过 · Day 12</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">同步复制 · 写侧</div>leader 等 follower 确认再回“写成功”——管的是 <strong>durability</strong>(写返回前几台先存好)。</div>
+        <div class="c"><div class="t">线性化读 · 读侧</div>任何两个读都看到同一“当前值”——靠<strong>读单一真相源(读 leader)</strong>或 consensus 协调读实现。</div>
+      </div>
+      <div class="ft"><b>你怎么混的:</b>PM 要“所有人读到同一版本”,你第一反应是“调成 synchronous”——<b>在写路径拧旋钮去解一个读路径的问题,方向偏了</b>;而且就算上全 sync 也<b>解决不了</b>:发布的传播窗口里不同 replica 仍一新一旧,读打到不同 replica 照样不一致。要一致只能在<b>读路径</b>动刀。优雅解:把“当前是哪个版本”缩成极小指针读 leader,版本内容(不可变大块)读任意 replica。</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">MVCC(引擎) &nbsp;vs&nbsp; isolation level(策略)</span><span class="trip">⚠ 你栽过 · Day 8</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">MVCC · 底层引擎</div>每次写生成行的新版本、读按快照挑可见版本;读不加锁、读写不互阻。<strong>本身不是“某一档”。</strong></div>
+        <div class="c"><div class="t">isolation level · 上层策略</div>并发可见度的<strong>四档旋钮</strong>;档与档的差别在“<em>快照多久换一张</em>”+ 要不要查冲突。</div>
+      </div>
+      <div class="ft"><b>你怎么混的:</b>你一度以为 MVCC“属于第 2 档(Read Committed)”、又因它有 snapshot 像第 3 档——其实它<b>哪一档都不是,是四档共用的引擎</b>。第 2 档每条语句重拍快照(所以有 non-repeatable read)、第 3 档整事务冻住同一张、第 4 档冻住再加冲突裁判。<b>记法:MVCC = 相机(引擎);隔离级别 = 多久拍一张新的(策略)。</b></div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">system of record 搬家 &nbsp;vs&nbsp; derived read model 派生副本</span><span class="trip">⚠ 你栽过 · Day 11</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">权威记录搬家</div>把 in-force 保单的“家”整个换成新存储:<strong>事务 / 约束 / 备份 / 审计工具链 / 下游分析全要跟着搬</strong>。一个访问模式绑架了全部访问模式。</div>
+        <div class="c"><div class="t">派生读模型</div>权威记录<strong>不动</strong>,只为单一访问模式(夜批重算)物化一份读优化副本:可重算、丢了不是事故。</div>
+      </div>
+      <div class="ft"><b>你怎么混的:</b>思考题①你把“每天 filter in-force 同步去 MongoDB”当成<b>提议的缺点</b>列出来——翻转视角,它<b>正是正解的形状</b>,区别只在“谁当 system of record”。搬家前先问:我要换权威记录,还是只要一个读优化副本?(同款逻辑:Day 10“汇总表 = 长成表的缓存”,派生数据可重算。)</div>
+    </div>
+
+    <div class="pair">
+      <div class="hd"><span class="nm">分区键:policy_id(选它) &nbsp;vs&nbsp; customer_id(别选)</span><span class="trip">⚠ 你栽过 · Day 13</span></div>
+      <div class="cols">
+        <div class="c"><div class="t">policy_id · immutable + 均匀</div>签发即<strong>终身不变</strong> → 记录住死在一个分区、不搬家;保单高频按单号点查 → <strong>单分区直达</strong>。</div>
+        <div class="c"><div class="t">customer_id · 会变 + 倾斜</div>客户持单数差异巨大 → <strong>倾斜热点</strong>;归属可变(转让 / 合并)→ 记录<strong>跨分区搬家</strong>;夜间重算时倾斜分区成 straggler。</div>
+      </div>
+      <div class="ft"><b>修正你漏的两个提示:</b>你答对了“变好(按客户查)+ 团体大客户成热点”,但漏了 ①<b>分区键须 immutable</b>(customer_id 一变记录就跨分区搬家)、②<b>倾斜分区成 straggler</b>——夜间 per-partition 并行,扛着数千张团体保单那片最慢,<b>整晚完成时间被它钉死</b>(Day 2 tail latency 换场景重现)。选分区键两条暗规:immutable + 均匀,customer_id 两条都踩。</div>
+    </div>
+
+    <h3>顺手再分清四对(没栽过但常混)</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th style="width:30%">对子</th><th>一句话区别</th></tr></thead>
+      <tbody>
+        <tr><td><span class="lab">2PC vs 2PL</span></td><td>名字都“两阶段”却毫不相干:<strong>2PC</strong>(Two-Phase Commit)= 跨库的原子<em>提交协议</em>;<strong>2PL</strong>(Two-Phase Locking)= 单库内 Serializable 的<em>上锁纪律</em>。一个管“跨库原子”,一个管“单库隔离”。</td></tr>
+        <tr><td><span class="lab">compensating tx vs rollback</span></td><td>真正回滚在 <strong>commit 之前</strong>、用 undo log 抹除、<em>不留痕</em>;补偿在 <strong>commit 之后</strong>、是“新增一笔反向记录”、<em>天生 append-only</em>(对 audit log 反是优点,但撤不回已发邮件/已扣款的物理副作用)。</td></tr>
+        <tr><td><span class="lab">staleness vs consistency violation</span></td><td>读到“旧但有效”的合法版本 = <strong>staleness</strong>(选 A 主动买来的,问“能不能接受”);读到半写/脏值/两副本矛盾 = <strong>violation</strong>(真错误,必须修)。判别:读到的值本身合法吗?</td></tr>
+        <tr><td><span class="lab">equality column vs range column</span></td><td>复合索引列序口诀“<strong>等值列在前、范围列在后</strong>”:等值放前能精确 seek 出一段;范围列一出现,它后面的列在索引里就失去定位力。(你曾把 <code class="inl">action='ISSUE'</code> 这个等值条件漏看成低选择性。)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="quickref">
+    <div class="kicker"><span class="num">4</span>逐日速查</div>
+    <h2>7 天 · 一卡一句核心</h2>
+    <p>当纯复习用:每张卡 = 那天的一句话主旨 + 必记术语。点上方图谱里的 Day 节点也会跳到这里。</p>
+    <div class="dgrid">
+      <div class="dcard" id="d8card">
+        <div class="top"><span class="bdg">D8</span><span class="ti">关系库 · ACID</span></div>
+        <p>事务把相关语句捆成全成或全退的单元;ACID(A 靠回滚 / C 守约束 / I 并发不互扰 / D COMMIT 即落非易失存储)是数据库配当 source of truth 的根。四档隔离挡三种并发异常,MVCC 是底层引擎、WAL 撑原子与崩溃恢复。</p>
+        <div class="terms"><span>ACID</span><span>隔离四档</span><span>dirty/non-repeatable/phantom</span><span>MVCC</span><span>WAL</span><span>deadlock</span><span>SSI vs 2PL</span></div>
+      </div>
+      <div class="dcard" id="d9card">
+        <div class="top"><span class="bdg">D9</span><span class="ti">索引 · 查询性能</span></div>
+        <p>B+tree 用 O(log n) 取代全表 O(n) 扫;复合索引看 leftmost prefix（等值在前、范围在后);用不用索引看 selectivity、由优化器定;INCLUDE 凑覆盖 → Index Only Scan 免回表;写要付 write amplification。EXPLAIN ANALYZE 看真相。</p>
+        <div class="terms"><span>B+tree</span><span>leftmost prefix</span><span>selectivity</span><span>covering/INCLUDE</span><span>回表 random IO</span><span>page split</span><span>EXPLAIN ANALYZE</span></div>
+      </div>
+      <div class="dcard" id="d10card">
+        <div class="top"><span class="bdg">D10</span><span class="ti">数据建模 · 范式</span></div>
+        <p>先定 entity/relationship;3NF(the key, the whole key, nothing but the key)防三种 anomaly,够用;反范式有意识引冗余、写时维护换读速,但别靠猜。核心尺子:<strong>可变状态 3NF / 不可变事实 append-only</strong>;快照 vs 版本引用、effective dating = SCD Type 2。</p>
+        <div class="terms"><span>1NF/2NF/3NF</span><span>functional dependency</span><span>snapshot vs version ref</span><span>append-only</span><span>effective dating</span><span>汇总表=表的缓存</span></div>
+      </div>
+      <div class="dcard" id="d11card">
+        <div class="top"><span class="bdg">D11</span><span class="ti">NoSQL 家族</span></div>
+        <p>NoSQL = “Not Only SQL”,为特定访问模式<strong>放弃换专精</strong>(KV/文档/宽列/图各放弃 JOIN/查询/扫描)。选型第一问“查询长什么样”,第二问“这家放弃的我付得起吗”。schema-on-read 把校验挪应用层;核心保单留关系库 = 合规保守正确;polyglot 是被逼的不是品味。</p>
+        <div class="terms"><span>Not Only SQL</span><span>query-driven</span><span>KV/文档/宽列/图</span><span>schema-on-read</span><span>index-free adjacency</span><span>polyglot persistence</span></div>
+      </div>
+      <div class="dcard" id="d12card">
+        <div class="top"><span class="bdg">D12</span><span class="ti">复制 · 一致性</span></div>
+        <p>复制为 latency/durability/availability/读扩展,代价是一致性。CAP(分区时 C/A 二选一)/ PACELC(平时 L/C);leader-follower、quorum(W+R>N)。逐路径分配一致性预算:报价 A、签发 C、批量钉快照、audit QUORUM。版本不可变免疫 lag;会对假一致性需求 push back。</p>
+        <div class="terms"><span>CAP / PACELC</span><span>leader-follower</span><span>quorum</span><span>replication lag</span><span>read-your-writes</span><span>monotonic reads</span><span>linearizable</span></div>
+      </div>
+      <div class="dcard" id="d13card">
+        <div class="top"><span class="bdg">D13</span><span class="ti">分区 · 分片</span></div>
+        <p>复制=多份拷贝(可用+读扩展);分区/分片=切成子集各放一处(容量+写扩展),两者相乘(每分区各一套 leader-follower)。range 保序赌热点 / hash 保匀失顺序;分区键要 immutable + 均匀;rebalancing 贵根源是 <code class="inl">mod N</code>,consistent hashing(环+虚拟节点)降到 ≈1/N;二级索引裂 local/global。</p>
+        <div class="terms"><span>partition vs shard</span><span>range vs hash</span><span>分区键 immutable</span><span>consistent hashing</span><span>virtual nodes</span><span>local/global index</span><span>scatter-gather</span></div>
+      </div>
+      <div class="dcard" id="d14card">
+        <div class="top"><span class="bdg">D14</span><span class="ti">事务 · saga</span></div>
+        <p>单库隔离挡 dirty/non-repeatable/phantom(还有 lost update/write skew),靠 locking/MVCC/SSI、乐观 vs 悲观锁。出了单库门:2PC 给强一致但持锁脆、协调者单点;saga 拆本地事务+补偿,<strong>给 ACD 没有 I</strong>,中间态可见 → 用 semantic lock 手工焊回 I。选择 = 容不容忍中间态。</p>
+        <div class="terms"><span>lost update</span><span>乐观/悲观锁</span><span>2PC vs saga</span><span>ACD 无 I</span><span>compensating tx</span><span>semantic lock</span><span>orchestration</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="selftest">
+    <div class="kicker"><span class="num">?</span>串联自测</div>
+    <h2>这几题要连着好几天才答得出</h2>
+    <p>不是单日知识点,而是跨天综合——能答出来,说明这张网真的连上了。</p>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">“可变状态 vs 不可变事实”这一把尺,为什么能同时切开 Day 10 的建模、Day 12 的一致性、Day 13 的分区键、Day 14 的事务边界?</span></summary>
+        <div class="ans"><b>因为这四件事问的是同一个底层问题:我碰的是“现在是什么”还是“当时发生了什么”。</b>Day 10——状态可 UPDATE(3NF)、事实只追加(append-only);Day 12——同一实体两张脸,“当前值”要付一致性钱、“在 T 时刻是什么”不可变 → 免疫 lag,所以问“能不能免疫”问错了,要问“读的是哪张脸”;Day 13——分区键必须挑<b>不可变</b>的那张脸(<code>policy_id</code> 终身不变,<code>customer_id</code> 会变就要搬家);Day 14——ledger 是可变当前值(借贷必须单库瞬时配平)、投保链是一串已发生的事实(可 saga + 补偿)。<b>一句话:先分类“状态 or 事实”,大半的建模/一致性/分区/事务难题在分类那一步就化解了。</b></div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">Day 8 的满血 ACID,到了 Day 12/13/14 各掉了哪个字母、又拿什么赎回?</span></summary>
+        <div class="ans"><b>顺着“离单库越来越远”数:</b>① <b>Day 12 复制</b>——<b>C</b> 被 replication lag 打折(CAP 分区时 C/A 二选一、PACELC 平时 L/C),<b>D</b> 看同步还是异步;赎法不是无脑上 sync,而是<b>版本不可变让读路径免疫 lag</b> + audit 用 <b>QUORUM</b> 保 D。② <b>Day 13 分区</b>——跨分区事务的 <b>A</b> 被打破;赎法是<b>让最高频查询单分区可达</b> + 重算<b>幂等</b>(<code>UNIQUE(policy_id, run_date)</code>)只重跑失败那片。③ <b>Day 14 跨服务 saga</b>——<b>I</b> 被主动放弃(给的是 <b>ACD</b>),中间态对外可见;赎法是 <b>semantic lock</b>(<code>status=pending_*</code>)在应用层手工焊回 I。<b>关键判断:</b>不是“能不能用 2PC 把字母抢回来”,而是先问“这字母在这条路径值不值得赎”——报价路径连 C 都主动不要,赎它是浪费。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">“夜间给百万保单批量重定价”这一件事,怎么把 Day 8/9/10/12/13 全用上?</span></summary>
+        <div class="ans"><b>这道工程串起整周:</b>① <b>事务边界(Day 8)</b>——不是每张一事务(commit/fsync 开销爆)、也不是整批一大事务(锁/回滚/日志/bloat 爆),而是 <b>chunked batch</b>(每 ~1000 张一 commit)的 U 形甜点。② <b>access path(Day 9)</b>——重算要扫一大批保单 = 低选择性,优化器正确地走 <b>Seq Scan</b> 而非索引回表;注意它和事务大小是<b>两根独立旋钮</b>(读 scope 大、写 scope 小,同一 job 方向相反)。③ <b>结果表(Day 10)</b>——重算结果是<b>事实</b> → append-only + <code>UNIQUE(policy_id, run_date)</code>,跨晚只增、晚内重试 no-op。④ <b>钉版本(Day 12)</b>——全程钉死同一组 <code>rate_table_version</code>,版本不可变 → 重算可复现、免疫 lag。⑤ <b>分区并行(Day 13)</b>——按 <code>policy_id</code> hash 分区、per-partition 并行;某片失败只重跑那片(靠④的幂等+钉版本保审计),倾斜分区是 straggler 风险。<b>这正是你 capstone 里“夜间批量重定价”的系统设计骨架。</b></div>
+      </details>
+      <details>
+        <summary><span class="q">Q4</span><span class="tw">为什么说“版本化、不可变的费率表”这一个设计,同时帮到了 Day 8 的隔离、Day 12 的免疫 lag、和整周的可复现?</span></summary>
+        <div class="ans"><b>因为它把“保持一致”这个难题整个绕过去了(延续第一周线 4)。</b>Day 8——报价要读一张费率表的很多行,读到一半版本变了会混用新旧费率(跨行 non-repeatable read);版本钉死(或显式 pin)就不必为此升到 Repeatable Read,<b>用最便宜的方式拿到一致快照</b>。Day 12——发布新版只是“新建一个不可变版本 + 改一个极小的‘当前 effective’指针”,replication lag 顶多让新版晚几秒可见,读旧版也是合法值,<b>没有错值、无需重试</b>;优雅解是指针读 leader、内容读任意 replica。整周——旧版本永远留着,两年后审计调出当时的 <code>version_id</code> 就能<b>一字不差复现</b>那个报价。<b>一招通吃,因为它们本是同一个问题:副本怎么跟上源头——答案是“让副本永不变,于是无需追”。</b></div>
+      </details>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">承上启下 · 第 3 周 · 分布式与异步</div>
+      <div class="t">第二周把数据“存对、存好、散开后还对”讲完,但很多保证是靠<strong>异步</strong>赎回的——saga 的步怎么可靠串起来?第 3 周给答案:Day 15 消息队列(saga 的步靠它投递)→ Day 16 事件驱动 / Kafka(append-only log 推到极致,线 1 的终极形态)→ Day 17 批 vs 流 → Day 18 幂等 / 重试 / exactly-once 的真相(本周的 <code>UNIQUE</code> 幂等键在这展开)→ Day 19 共识 / 选主(leader 挂了谁顶、routing 元数据谁说了算)→ Day 20 限流熔断背压 → Day 21 复盘。第二周问“数据怎么存才对”,第三周问“消息怎么传才不丢不重”。</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　第 2 周复习(Day 8–14)　·　讨论中手动维护,非日常流程<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  // ---------- graph data ----------
+  var NODES = [
+    {id:'d8',  label:'关系库·ACID', type:'day', num:'D8',  go:'d8card'},
+    {id:'d9',  label:'索引', type:'day', num:'D9',  go:'d9card'},
+    {id:'d10', label:'数据建模', type:'day', num:'D10', go:'d10card'},
+    {id:'d11', label:'NoSQL', type:'day', num:'D11', go:'d11card'},
+    {id:'d12', label:'复制·一致性', type:'day', num:'D12', go:'d12card'},
+    {id:'d13', label:'分区·分片', type:'day', num:'D13', go:'d13card'},
+    {id:'d14', label:'事务·saga', type:'day', num:'D14', go:'d14card'},
+
+    {id:'immutable', label:'不可变·append-only', type:'repro'},
+    {id:'statefact', label:'状态↔事实', type:'concept'},
+    {id:'acid',      label:'ACID 失乐园', type:'concept'},
+    {id:'budget',    label:'一致性·逐路径预算', type:'concept'},
+    {id:'version',   label:'版本化·钉时点', type:'concept'},
+    {id:'idem',      label:'幂等·唯一约束', type:'concept'},
+    {id:'measure',   label:'先测量·先质疑', type:'concept'},
+
+    {id:'mq',        label:'消息队列→D15', type:'next'},
+    {id:'kafka',     label:'事件日志→D16', type:'next'},
+    {id:'exactly',   label:'exactly-once→D18', type:'next'},
+    {id:'consensus', label:'共识·选主→D19', type:'next'}
+  ];
+
+  var LINKS = [
+    // golden thread (immutable / append-only) — 连全部 7 天
+    ['immutable','d8'],['immutable','d9'],['immutable','d10'],['immutable','d11'],['immutable','d12'],['immutable','d13'],['immutable','d14'],
+    // state vs fact 尺子
+    ['statefact','d10'],['statefact','d11'],['statefact','d12'],['statefact','d13'],['statefact','d14'],
+    // ACID 失乐园
+    ['acid','d8'],['acid','d12'],['acid','d13'],['acid','d14'],
+    // 一致性逐路径预算
+    ['budget','d8'],['budget','d12'],['budget','d13'],['budget','d14'],
+    // 版本化钉时点
+    ['version','d8'],['version','d10'],['version','d12'],['version','d13'],
+    // 幂等唯一约束
+    ['idem','d8'],['idem','d10'],['idem','d13'],['idem','d14'],
+    // 先测量先质疑
+    ['measure','d9'],['measure','d10'],['measure','d11'],['measure','d12'],
+    // curriculum backbone (sequential)
+    ['d8','d9','seq'],['d9','d10','seq'],['d10','d11','seq'],['d11','d12','seq'],['d12','d13','seq'],['d13','d14','seq'],
+    // forward to week 3 (dashed)
+    ['mq','d14','next'],['kafka','d10','next'],['exactly','d13','next'],['exactly','d10','next'],['consensus','d12','next'],['consensus','d13','next']
+  ];
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var svg = document.getElementById('kg');
+  var gLinks = document.getElementById('links');
+  var gNodes = document.getElementById('nodes');
+  var W = 820, H = 580, cx = W/2, cy = H/2;
+
+  var byId = {};
+  NODES.forEach(function(n,i){
+    byId[n.id] = n;
+    n.r = n.type==='repro' ? 30 : n.type==='day' ? 25 : n.type==='next' ? 14 : 20;
+    // initial positions: spread on a circle, deterministic (no Math.random)
+    var ang = (i/NODES.length) * Math.PI * 2;
+    var rad = n.type==='next' ? 250 : n.type==='day' ? 170 : 110;
+    n.x = cx + Math.cos(ang)*rad;
+    n.y = cy + Math.sin(ang)*rad;
+    n.vx = 0; n.vy = 0; n.fixed = false;
+  });
+
+  // adjacency for hover highlight
+  var adj = {};
+  NODES.forEach(function(n){ adj[n.id] = {}; });
+  var EDGES = LINKS.map(function(l){
+    var s=l[0], t=l[1], kind=l[2]||'';
+    adj[s][t]=true; adj[t][s]=true;
+    return {s:s, t:t, kind:kind};
+  });
+
+  // ---------- render ----------
+  var linkEls = EDGES.map(function(e){
+    var ln = document.createElementNS(SVGNS,'line');
+    ln.setAttribute('class','link' + (e.kind?(' l-'+e.kind):''));
+    ln.dataset.s = e.s; ln.dataset.t = e.t;
+    gLinks.appendChild(ln);
+    e.el = ln;
+    return e;
+  });
+
+  NODES.forEach(function(n){
+    var g = document.createElementNS(SVGNS,'g');
+    g.setAttribute('class','node n-'+n.type);
+    g.dataset.id = n.id;
+    var c = document.createElementNS(SVGNS,'circle');
+    c.setAttribute('r', n.r);
+    g.appendChild(c);
+    if(n.num){
+      var num = document.createElementNS(SVGNS,'text');
+      num.setAttribute('class','num'); num.textContent = n.num;
+      g.appendChild(num);
+    }
+    var lbl = document.createElementNS(SVGNS,'text');
+    lbl.setAttribute('class','lbl'); lbl.setAttribute('y', n.r + 13);
+    lbl.textContent = n.label;
+    g.appendChild(lbl);
+    gNodes.appendChild(g);
+    n.el = g;
+  });
+
+  function paint(){
+    NODES.forEach(function(n){
+      n.el.setAttribute('transform','translate('+n.x.toFixed(1)+','+n.y.toFixed(1)+')');
+    });
+    linkEls.forEach(function(e){
+      var a=byId[e.s], b=byId[e.t];
+      e.el.setAttribute('x1',a.x.toFixed(1)); e.el.setAttribute('y1',a.y.toFixed(1));
+      e.el.setAttribute('x2',b.x.toFixed(1)); e.el.setAttribute('y2',b.y.toFixed(1));
+    });
+  }
+
+  // ---------- force simulation ----------
+  var REP = 7200, SPRING = 0.035, GRAV = 0.012, DAMP = 0.86;
+  function L(e){ return e.kind==='next' ? 150 : e.kind==='seq' ? 120 : 104; }
+
+  function step(alpha){
+    for(var i=0;i<NODES.length;i++){ NODES[i].fx=0; NODES[i].fy=0; }
+    // repulsion
+    for(var a=0;a<NODES.length;a++){
+      for(var b=a+1;b<NODES.length;b++){
+        var na=NODES[a], nb=NODES[b];
+        var dx=na.x-nb.x, dy=na.y-nb.y;
+        var d2=dx*dx+dy*dy+0.01, d=Math.sqrt(d2);
+        var f=REP/d2, ux=dx/d, uy=dy/d;
+        na.fx+=ux*f; na.fy+=uy*f; nb.fx-=ux*f; nb.fy-=uy*f;
+      }
+    }
+    // springs
+    for(var k=0;k<linkEls.length;k++){
+      var e=linkEls[k], p=byId[e.s], q=byId[e.t];
+      var dx=q.x-p.x, dy=q.y-p.y, d=Math.sqrt(dx*dx+dy*dy)+0.01;
+      var f=(d-L(e))*SPRING, ux=dx/d, uy=dy/d;
+      p.fx+=ux*f; p.fy+=uy*f; q.fx-=ux*f; q.fy-=uy*f;
+    }
+    // gravity + integrate
+    for(var m=0;m<NODES.length;m++){
+      var n=NODES[m];
+      n.fx += (cx-n.x)*GRAV; n.fy += (cy-n.y)*GRAV;
+      if(n.fixed) continue;
+      n.vx=(n.vx+n.fx*alpha)*DAMP; n.vy=(n.vy+n.fy*alpha)*DAMP;
+      n.x+=n.vx; n.y+=n.vy;
+      var pad=n.r+6;
+      if(n.x<pad)n.x=pad; if(n.x>W-pad)n.x=W-pad;
+      if(n.y<pad)n.y=pad; if(n.y>H-pad)n.y=H-pad;
+    }
+  }
+
+  // warm up to a settled layout before first paint
+  for(var w=0; w<520; w++){ step(0.85); }
+  paint();
+
+  // gentle live loop for interactivity
+  function loop(){ step(0.12); paint(); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+
+  // ---------- hover highlight ----------
+  function highlight(id){
+    svg.classList.add('dim');
+    NODES.forEach(function(n){
+      n.el.classList.toggle('hot', n.id===id || adj[id][n.id]);
+    });
+    linkEls.forEach(function(e){
+      e.el.classList.toggle('hot', e.s===id || e.t===id);
+    });
+  }
+  function clearHl(){
+    svg.classList.remove('dim');
+    NODES.forEach(function(n){ n.el.classList.remove('hot'); });
+    linkEls.forEach(function(e){ e.el.classList.remove('hot'); });
+  }
+
+  // ---------- drag + click ----------
+  var dragNode=null, moved=false;
+  function toSvg(evt){
+    var pt=svg.createSVGPoint(); pt.x=evt.clientX; pt.y=evt.clientY;
+    var p=pt.matrixTransform(svg.getScreenCTM().inverse());
+    return p;
+  }
+  NODES.forEach(function(n){
+    n.el.addEventListener('pointerenter', function(){ if(!dragNode) highlight(n.id); });
+    n.el.addEventListener('pointerleave', function(){ if(!dragNode) clearHl(); });
+    n.el.addEventListener('pointerdown', function(evt){
+      evt.preventDefault();
+      dragNode=n; moved=false; n.fixed=true;
+      highlight(n.id);
+      svg.classList.add('grabbing');
+      try{ n.el.setPointerCapture(evt.pointerId); }catch(e){}
+    });
+  });
+  svg.addEventListener('pointermove', function(evt){
+    if(!dragNode) return;
+    var p=toSvg(evt);
+    if(Math.abs(p.x-dragNode.x)>2 || Math.abs(p.y-dragNode.y)>2) moved=true;
+    dragNode.x=p.x; dragNode.y=p.y; dragNode.vx=0; dragNode.vy=0;
+  });
+  function endDrag(){
+    if(!dragNode) return;
+    var n=dragNode; dragNode=null; n.fixed=false;
+    svg.classList.remove('grabbing'); clearHl();
+    // a click (no drag) on a Day node → jump to its quick-ref card
+    if(!moved && n.go){
+      var el=document.getElementById(n.go);
+      if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); }
+    }
+  }
+  svg.addEventListener('pointerup', endDrag);
+  svg.addEventListener('pointercancel', endDrag);
+})();
+</script>
+</body>
+</html>
