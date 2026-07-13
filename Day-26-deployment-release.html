@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 26 · 部署与发布</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:86.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 26 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 4 周 · 架构与运维</span>
+    <h1>把新版本安全地推出去<br>—— 部署、发布与回滚</h1>
+    <p class="lede">代码合进主干那一刻，工作才进行到一半。怎么把它<strong>打包成不可变的镜像</strong>、交给<strong>编排器</strong>去跑、用<strong>流水线</strong>自动验证、再用<strong>金丝雀或蓝绿</strong>一点点放量、出事能<strong>一键回滚</strong>——这套「上线的手艺」决定了你敢不敢在周五下午发版。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例：QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l-4 4 4 4M5 15h11a4 4 0 004-4V5"/></svg>昨日回顾 · Day 25</div>
+    <ul>
+      <li>昨天讲<strong>安全</strong>：一刀分清 <strong>authn(你是谁)</strong> 与 <strong>authz(你能干什么)</strong>；OAuth2 发「授权」、OIDC 发「身份」；JWT/token 把身份和权限焊进每个请求；RBAC vs ABAC 两套授权模型；贯穿的 <strong>least privilege</strong>；以及密钥管理与 at-rest / in-transit 加密。这些都是「谁能动这个系统」的规则。今天换一个视角：身份验过、权限给了，<strong>新版本本身</strong>该怎么安全地推上去——而且在受监管的定价系统里，<em>每一次发布</em>同样要可追溯、可回滚。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>理解 <strong>容器(container)与镜像(image)</strong>：为什么「不可变 + 自带环境」是现代部署的地基</li>
+      <li>看懂 <strong>编排(orchestration)</strong> 在替你做什么：声明期望状态，让 Kubernetes 去维持</li>
+      <li>把 <strong>CI 与 CD</strong> 分清楚，知道一条流水线从 commit 到生产经过哪些关卡</li>
+      <li>掌握三种发布策略 <strong>滚动 / 蓝绿 / 金丝雀</strong>，以及它们和<strong>回滚</strong>的关系</li>
+      <li>把这套机制落到 QuoteFlow 发布一个<strong>新定价模型版本</strong>上——并满足审计与合规</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>地基：容器与镜像</div>
+    <h2>「在我机器上能跑」的终结</h2>
+    <p>部署最古老的痛，是<strong>环境漂移</strong>：开发机能跑、测试机能跑，一上生产就崩——因为 Python 版本差了一个小号、某个系统库没装、环境变量不一样。容器把这个问题从根上解决：<strong>把应用连同它的运行环境(依赖、库、配置)一起打包成一个标准化的单元</strong>，到哪都一样。</p>
+    <p>先钉死两个常被混用的词。<strong>镜像(image)</strong> 是一个<em>静态、只读</em>的打包产物——像一张「光盘」，里面是代码 + 依赖 + 启动指令，构建一次、内容固定。<strong>容器(container)</strong> 是镜像<em>跑起来的一个运行实例</em>——像光盘放进播放器后正在播放的那一份。一个镜像可以同时启动出几十个一模一样的容器。</p>
+    <p>容器最关键的性质是<strong>不可变(immutable)</strong>：你不在跑着的容器里改东西。要改，就<em>重新构建一个新镜像</em>、打一个新 tag、再用它启动新容器。这条纪律带来三件好事：每个版本都有一个<strong>确定的、可寻址的产物</strong>(镜像摘要 digest)；<strong>回滚</strong>变成「把流量切回上一个镜像 tag」这么简单；而且——对 QuoteFlow 尤其重要——你能精确说出「2026 年 6 月那批报价，跑的是哪个镜像、哪个 commit」。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>容器 ≠ 虚拟机</div>
+      <ul><li>VM 虚拟化的是<strong>整台硬件</strong>，每个 VM 自带一套完整 OS，启动以分钟计、占几个 GB。容器共享宿主机内核、只隔离<strong>进程与文件系统</strong>，启动以<em>秒/毫秒</em>计、占几十 MB。这份「轻」正是能横向扩到成百上千份、能快速滚动替换的前提——也是编排得以存在的物理基础。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>编排：声明，而非操控</div>
+    <h2>你说「我要 12 个」，编排器负责始终是 12 个</h2>
+    <p>一个容器好管。但生产上你有<strong>几十个服务、每个跑几十份、分布在一堆机器上</strong>，还要处理：某台机器宕了上面的容器怎么办？流量涨了怎么自动加份数？发新版怎么逐个替换不中断？手动管这些是不可能的。这就是<strong>编排器(orchestrator)</strong> 的活，事实标准是 <strong>Kubernetes(K8s)</strong>。</p>
+    <p>编排的核心思想是<strong>声明式(declarative)</strong>：你不写「先停这个、再启那个」的操作步骤，而是<em>描述期望的最终状态</em>——「report-pricing 这个服务，我要 12 份，用镜像 <code class="inl">v2.4.0</code>，每份给 2 核 4G」。编排器持续比对<strong>期望状态</strong>和<strong>实际状态</strong>，不一致就自己想办法拉平：挂了一份就再起一份，机器没了就调度到别处。这个「持续校正」的循环叫 <em>reconciliation(调谐)</em>。</p>
+    <p>几个会反复遇到的概念，先建立词汇：<strong>Pod</strong> 是 K8s 调度的最小单位(通常裹着一个容器)；<strong>ReplicaSet</strong> 维持「N 份副本」；<strong>Deployment</strong> 管「怎么从旧版本滚动到新版本」；<strong>Service</strong> 给一组会变动的 Pod 一个稳定的访问入口(配合昨天的负载均衡)。你声明 Deployment，剩下的编排器全包了。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 290" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- desired state -->
+        <rect x="20" y="26" width="210" height="92" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="125" y="52" font-size="13.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">期望状态(你声明)</text>
+        <text x="125" y="74" font-size="12" fill="#6a7872" text-anchor="middle" font-family="JetBrains Mono,monospace">replicas: 12</text>
+        <text x="125" y="92" font-size="12" fill="#6a7872" text-anchor="middle" font-family="JetBrains Mono,monospace">image: v2.4.0</text>
+        <text x="125" y="110" font-size="12" fill="#6a7872" text-anchor="middle" font-family="JetBrains Mono,monospace">cpu: 2  mem: 4Gi</text>
+        <!-- controller -->
+        <rect x="290" y="40" width="140" height="64" rx="12" fill="#0f3d2e"/>
+        <text x="360" y="68" font-size="13.5" font-weight="700" fill="#fff" text-anchor="middle">编排器</text>
+        <text x="360" y="88" font-size="11.5" fill="#8fc3aa" text-anchor="middle">reconcile loop</text>
+        <!-- actual state -->
+        <rect x="490" y="20" width="210" height="252" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="595" y="44" font-size="13.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">实际状态(集群)</text>
+        <g fill="#15a06a">
+          <rect x="512" y="60" width="38" height="30" rx="6"/><rect x="558" y="60" width="38" height="30" rx="6"/><rect x="604" y="60" width="38" height="30" rx="6"/><rect x="650" y="60" width="38" height="30" rx="6"/>
+          <rect x="512" y="98" width="38" height="30" rx="6"/><rect x="558" y="98" width="38" height="30" rx="6"/><rect x="604" y="98" width="38" height="30" rx="6"/><rect x="650" y="98" width="38" height="30" rx="6"/>
+          <rect x="512" y="136" width="38" height="30" rx="6"/><rect x="558" y="136" width="38" height="30" rx="6"/><rect x="604" y="136" width="38" height="30" rx="6"/>
+        </g>
+        <!-- the dead one -->
+        <rect x="650" y="136" width="38" height="30" rx="6" fill="#fbeaea" stroke="#e6a4a4" stroke-dasharray="3 3"/>
+        <text x="669" y="156" font-size="14" fill="#c0504d" text-anchor="middle" font-weight="700">✕</text>
+        <text x="595" y="192" font-size="11.5" fill="#c0504d" text-anchor="middle">一份挂了 → 编排器自动补一份</text>
+        <rect x="604" y="206" width="38" height="30" rx="6" fill="#46cf94"/>
+        <text x="595" y="256" font-size="11.5" fill="#3d9c74" text-anchor="middle" font-style="italic">始终维持 12 份在线</text>
+        <!-- arrows -->
+        <path d="M230 72 L286 72" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M430 72 L486 72" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M486 150 C455 150 455 90 432 84" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#ah)"/>
+        <text x="430" y="168" font-size="11" fill="#3d9c74" text-anchor="middle" font-style="italic">观测实际 → 比对 → 校正</text>
+      </svg>
+      <figcaption>图 1 · 声明式编排：你只描述「想要什么」，编排器持续把实际状态拉回到期望状态(自愈)</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>流水线：CI ≠ CD</div>
+    <h2>从一次 commit 到生产，路上有几道闸</h2>
+    <p>这两个缩写老被连在一起说，但解决的是不同问题。<strong>CI(Continuous Integration，持续集成)</strong> 管的是<em>代码合并那一侧</em>：每次有人推代码，自动<strong>构建 + 跑测试 + 静态检查</strong>，确保新改动没把主干弄坏。它的目标是「频繁、小步地合并，并立刻知道有没有破」。</p>
+    <p><strong>CD</strong> 有两层含义，注意区分：<strong>Continuous Delivery(持续交付)</strong> 指流水线自动把通过 CI 的产物打包好、推到「随时<em>可以</em>上生产」的状态，但<strong>最后按钮是人点的</strong>；<strong>Continuous Deployment(持续部署)</strong> 更进一步，连最后那下也自动——通过所有关卡就<em>直接</em>上生产，无人工干预。受监管的金融/保险系统，绝大多数停在<strong>持续交付</strong>：要保留一道人工审批和审计签字。</p>
+    <p>一条典型流水线，就是一串<strong>越往后越接近生产、越难回头</strong>的关卡。任何一关红了，整条线停下，产物不再前进。这正是「快速发布」与「不翻车」能同时成立的原因——速度来自自动化，安全来自每道闸。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">.ci/pipeline.yaml  ·  QuoteFlow 报价服务流水线(示意)</span></div>
+<pre><code><span class="c-com"># 每次推到 main 触发；任一 stage 失败则整条停下</span>
+<span class="c-key">stages</span>:
+  - <span class="c-key">build</span>:                       <span class="c-com"># ── CI ──</span>
+      <span class="c-fn">docker build</span> -t quoteflow/pricing:<span class="c-str">${GIT_SHA}</span> .
+  - <span class="c-key">test</span>:
+      run: unit + 核保规则回归 + 合同测试      <span class="c-com"># 算得对是底线</span>
+      run: <span class="c-fn">pricing-replay</span> --golden-set     <span class="c-com"># 用历史样本验复现性</span>
+  - <span class="c-key">scan</span>:
+      run: 镜像漏洞扫描 + 依赖审计           <span class="c-com"># 安全闸(承接 Day 25)</span>
+  - <span class="c-key">push</span>:
+      <span class="c-fn">docker push</span> quoteflow/pricing:<span class="c-str">${GIT_SHA}</span>  <span class="c-com"># 不可变产物入库</span>
+  - <span class="c-key">deploy_staging</span>:                <span class="c-com"># ── CD：自动到预发 ──</span>
+      <span class="c-fn">kubectl set image</span> deploy/pricing app=...:<span class="c-str">${GIT_SHA}</span>
+  - <span class="c-key">approve</span>:                       <span class="c-com"># ⛔ 人工审批 + 审计签字</span>
+      gate: <span class="c-str">"pricing-lead + compliance"</span>     <span class="c-com"># 持续交付，非全自动部署</span>
+  - <span class="c-key">deploy_prod</span>:
+      strategy: <span class="c-str">canary</span>                <span class="c-com"># 见下一节</span></code></pre>
+    </div>
+    <p>留意两件 QuoteFlow 特有的事：<code class="inl">pricing-replay --golden-set</code> 用一批<strong>历史报价样本</strong>跑新代码、比对结果，守住<em>reproducibility</em>(定价不能因为重构悄悄变了数)；而 <code class="inl">approve</code> 这道人工闸，就是把<strong>合规签字</strong>嵌进发布流程，让「谁批准了这次上线」本身可审计。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>发布策略与回滚</div>
+    <h2>新版本不是「啪」一下全换，而是慢慢放量</h2>
+    <p>产物到了生产门口，最后一个问题：<strong>怎么把流量从旧版本切到新版本</strong>？一次全切风险最大——万一新版本有 bug，所有用户瞬间中招。成熟做法是<em>控制 blast radius(爆炸半径)</em>，三种主流策略：</p>
+    <p><strong>滚动发布(rolling)</strong>：编排器默认做法，逐批用新 Pod 替换旧 Pod(替几个、健康了、再替几个)，全程保持总量在线。简单、省资源，但新旧版本会<em>短暂共存</em>，且回滚要再滚一轮、不够快。</p>
+    <p><strong>蓝绿发布(blue-green)</strong>：同时跑两套<strong>完整</strong>环境——蓝(旧)在服务，绿(新)在旁边备好。验证 OK 后，负载均衡<em>一刀把流量从蓝切到绿</em>。优点是切换瞬间完成、<strong>回滚就是把流量切回蓝</strong>(秒级)；代价是要双倍资源。</p>
+    <p><strong>金丝雀发布(canary)</strong>：先把<em>一小撮</em>流量(比如 1%→5%→25%)导到新版本，<strong>盯着指标</strong>(错误率、延迟、业务正确性)，没问题才逐步放大，有问题立刻收回。它把「上线」变成一次<em>受控的实验</em>，是高风险变更的首选。名字来自矿工带下井的金丝雀——它先出事，矿工就知道该撤了。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+        </defs>
+        <text x="360" y="24" font-size="13.5" font-weight="700" fill="#0f3d2e" text-anchor="middle">金丝雀发布：分阶段放量，每一步都看指标决定进或退</text>
+        <!-- LB -->
+        <rect x="40" y="96" width="96" height="56" rx="12" fill="#0f3d2e"/>
+        <text x="88" y="120" font-size="12.5" font-weight="700" fill="#fff" text-anchor="middle">负载</text>
+        <text x="88" y="138" font-size="12.5" font-weight="700" fill="#fff" text-anchor="middle">均衡</text>
+        <!-- stages columns -->
+        <g font-size="11.5" fill="#6a7872" text-anchor="middle">
+          <text x="270" y="58">阶段 1</text><text x="430" y="58">阶段 2</text><text x="600" y="58">阶段 3</text>
+        </g>
+        <!-- stage1 -->
+        <rect x="210" y="72" width="120" height="46" rx="9" fill="#e8f6ef" stroke="#cdeede"/>
+        <text x="270" y="92" font-size="12" fill="#0c7a50" text-anchor="middle">v2.4 新版</text>
+        <text x="270" y="108" font-size="12" font-weight="700" fill="#0c7a50" text-anchor="middle">5% 流量</text>
+        <rect x="210" y="126" width="120" height="46" rx="9" fill="#f3f9f5" stroke="#d9ebe1"/>
+        <text x="270" y="146" font-size="12" fill="#6a7872" text-anchor="middle">v2.3 旧版</text>
+        <text x="270" y="162" font-size="12" font-weight="700" fill="#3a463f" text-anchor="middle">95%</text>
+        <!-- stage2 -->
+        <rect x="370" y="72" width="120" height="58" rx="9" fill="#dff0e7" stroke="#bce6cf"/>
+        <text x="430" y="94" font-size="12" fill="#0c7a50" text-anchor="middle">v2.4 新版</text>
+        <text x="430" y="112" font-size="12" font-weight="700" fill="#0c7a50" text-anchor="middle">25% 流量</text>
+        <rect x="370" y="138" width="120" height="40" rx="9" fill="#f3f9f5" stroke="#d9ebe1"/>
+        <text x="430" y="162" font-size="12" font-weight="700" fill="#3a463f" text-anchor="middle">v2.3 · 75%</text>
+        <!-- stage3 -->
+        <rect x="540" y="72" width="120" height="106" rx="9" fill="#15a06a"/>
+        <text x="600" y="120" font-size="12.5" fill="#fff" text-anchor="middle">v2.4 新版</text>
+        <text x="600" y="140" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">100%</text>
+        <!-- arrows -->
+        <path d="M136 124 L206 100" stroke="#93a89c" stroke-width="1.6" fill="none" marker-end="url(#ah2)"/>
+        <path d="M136 128 L206 148" stroke="#93a89c" stroke-width="1.6" fill="none" marker-end="url(#ah2)"/>
+        <path d="M330 100 L366 100" stroke="#93a89c" stroke-width="1.6" fill="none" marker-end="url(#ah2)"/>
+        <path d="M490 100 L536 110" stroke="#93a89c" stroke-width="1.6" fill="none" marker-end="url(#ah2)"/>
+        <!-- rollback note -->
+        <path d="M430 196 C430 220 270 220 270 184" stroke="#c0504d" stroke-width="1.6" stroke-dasharray="5 4" fill="none" marker-end="url(#ah2)"/>
+        <text x="350" y="240" font-size="11.5" fill="#c0504d" text-anchor="middle" font-style="italic">指标异常 → 立刻把流量收回旧版(回滚)，受影响的只有那一小撮</text>
+      </svg>
+      <figcaption>图 2 · 金丝雀把「上线」变成可观测、可中止的渐进实验；爆炸半径始终被锁在一小撮流量里</figcaption>
+    </figure>
+
+    <p>三者不是互斥的，常组合：用金丝雀控制放量节奏、底层靠 Deployment 的滚动机制替换 Pod。但无论哪种，<strong>回滚都是一等公民</strong>——因为产物不可变，「回滚」本质就是<em>把流量指回上一个已知良好的镜像</em>，而不是手忙脚乱地反向改代码。一个健康的团队，回滚应该比修复更快、更不需要思考。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:16%">策略</th><th>怎么切</th><th>资源开销</th><th>回滚速度</th><th>适合</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">滚动 Rolling</span></td><td>逐批替换 Pod</td><td>低(几乎不额外)</td><td>慢(要再滚一轮)</td><td>低风险常规更新</td></tr>
+          <tr><td><span class="lab">蓝绿 Blue-Green</span></td><td>整体一刀切换</td><td>高(双倍环境)</td><td><strong>快</strong>(切回旧环境)</td><td>要瞬间切换、强回滚保障</td></tr>
+          <tr><td><span class="lab">金丝雀 Canary</span></td><td>按比例渐进放量</td><td>中</td><td>快(收回小流量)</td><td><strong>高风险变更</strong>、要边发边观测</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 选择本质是 trade-off：用多少资源、换多快的回滚和多小的爆炸半径。没有「最好」，只有「这次变更的风险配得上哪一档」。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>贯穿案例</div>
+    <h2>QuoteFlow 上线一个新定价模型版本</h2>
+    <p>把今天四块拼起来。假设精算团队更新了一版定价模型(新的风险评分曲线)，要推到生产。这不是普通的发版——它会<strong>改变客户拿到的保费数字</strong>，所以风险和合规要求都顶格。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow 发布新定价模型</span>
+      <h3 style="margin-top:0">从 commit 到生产</h3>
+      <p><strong>① 不可变产物</strong>：模型代码 + 依赖打成镜像 <code class="inl">pricing:v2.4.0</code>，并钉死它引用的 <code class="inl">rate_table_version</code> 与 <code class="inl">model_version</code>。这个镜像 = 一个能精确复现的定价单元。</p>
+      <p><strong>② 流水线把关</strong>：CI 跑核保规则回归 + <code class="inl">golden-set replay</code>(确认新模型在历史样本上的变化全都是<em>预期内</em>的，没有意外漂移)；安全扫描过关；预发环境自动部署后，<strong>pricing lead + compliance 双签</strong>才放行——这道人工闸本身写进审计日志。</p>
+      <p><strong>③ 金丝雀放量</strong>：先 1% 真实报价流量走新模型，盯三类指标——技术(p99 延迟、错误率)、<em>业务(报价分布有没有异常偏移)</em>、合规(每条报价的 <code class="inl">model_version</code> 都留痕)。稳了再 5%→25%→100%。</p>
+      <p><strong>④ 回滚预案</strong>：任一阶段指标异常，一键把流量切回 <code class="inl">v2.3.x</code>。因为镜像不可变、版本号钉死，回滚后<strong>能立即说清「这一刻起，报价又回到了哪个模型」</strong>——监管要的就是这种可追溯性。</p>
+    </div>
+
+    <p>注意一个寿险定价特有的转折：在大多数互联网产品里，金丝雀盯的是<em>技术指标</em>(别变慢、别报错)。但 QuoteFlow 还得盯<strong>业务正确性</strong>——新模型即使又快又不报错，如果它让某个客群的保费<em>系统性地</em>偏了，那也是必须中止的「事故」。<strong>发布的成功标准，本身就带着合规的维度。</strong></p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>镜像不可变</strong>是这一切的地基：每个版本都是确定、可寻址的产物，回滚因此变成「切回上一个镜像」这么简单。</p></div>
+      <div class="tk"><span class="n">2</span><p>编排是<strong>声明式</strong>的——你描述期望状态，编排器持续<em>调谐</em>把实际拉平、自愈，而不是你手动操控。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>CI</strong>(合并侧：构建+测试)和 <strong>CD</strong>(交付/部署侧)是两件事；受监管系统通常停在<em>持续交付</em>，保留人工审批闸。</p></div>
+      <div class="tk"><span class="n">4</span><p>发布策略的本质是<strong>控制爆炸半径</strong>。金丝雀让上线变成可观测、可中止的实验；回滚要快到不用思考。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">镜像(image)和容器(container)的区别是什么?</span></summary>
+        <div class="ans"><b>镜像是静态只读的打包产物</b>(代码+依赖+启动指令，像光盘)；<b>容器是镜像跑起来的一个运行实例</b>(像正在播放的那一份)。一个镜像可启动出多个一模一样的容器。镜像的<b>不可变</b>性质，是版本可追溯和快速回滚的基础。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">「声明式编排」和你手写一串「先停旧的、再启新的」脚本，本质差别在哪?</span></summary>
+        <div class="ans">声明式你只描述<b>期望的最终状态</b>(要 12 份、用某镜像)，编排器持续比对实际状态并<b>自动校正</b>(调谐 / reconciliation)：挂了自己补、机器没了自己挪。命令式脚本只跑一遍那串步骤，机器之后再坏掉它不会管。声明式带来的关键能力是<b>自愈</b>。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">QuoteFlow 要上一版新定价模型，三种发布策略你倾向哪个?为什么?</span></summary>
+        <div class="ans">倾向 <b>金丝雀</b>。新模型会改变客户保费，风险高，需要<b>边放量边观测</b>——而且不只看延迟/错误率，还要盯<b>业务正确性</b>(报价分布有没有异常偏移)和<b>合规留痕</b>。先 1% 验证、有问题立刻收回，爆炸半径锁在最小。蓝绿也行(回滚极快)但要双倍资源且是「一刀切」、不利于渐进观测业务指标。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 的<strong>夜间批量重定价</strong>(百万保单)和<strong>实时报价 API</strong>，要不要用同一套发布策略?批处理作业「金丝雀放量」该怎么理解、还是说它需要完全不同的发布思路?<br>② 「持续部署(全自动到生产)」在受监管的寿险定价里到底能不能用?如果不能全自动，那道人工闸<em>具体</em>该卡在流水线哪一步、由谁签、留什么痕?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Image / Container</dt><dd>镜像=静态只读打包产物;容器=镜像跑起来的运行实例。</dd></dl>
+      <dl><dt>Immutable Artifact</dt><dd>不可变产物:版本一旦构建内容固定,要改就出新镜像。</dd></dl>
+      <dl><dt>Orchestration</dt><dd>编排:自动调度、扩缩、替换、自愈一大堆容器(K8s 为事实标准)。</dd></dl>
+      <dl><dt>Declarative / Reconciliation</dt><dd>声明期望状态,编排器持续比对实际并自动校正。</dd></dl>
+      <dl><dt>CI</dt><dd>持续集成:每次合并自动构建+测试,尽早发现破坏。</dd></dl>
+      <dl><dt>CD</dt><dd>持续交付(可上线、人工点)/ 持续部署(全自动上线)。</dd></dl>
+      <dl><dt>Rolling / Blue-Green / Canary</dt><dd>三种发布策略:逐批替换 / 整体切换 / 渐进放量。</dd></dl>
+      <dl><dt>Rollback & Blast Radius</dt><dd>回滚=切回上一个良好版本;爆炸半径=一次故障波及的范围。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 27</div>
+      <div class="t">可靠性工程:故障模式、冗余、灾备与混沌工程——发布得再稳,系统终究会坏;明天我们正面学「假设一切都会失败」该怎么设计</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 26 / 30　·　每天 08:00 自动生成<br>
+    案例：QuoteFlow(虚构寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

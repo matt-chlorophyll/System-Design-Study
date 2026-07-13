@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 27 · 可靠性工程：故障、冗余、灾备与混沌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:90.00%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 27 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 4 周 · 架构与运维</span>
+    <h1>系统一定会坏<br>—— 把「坏」设计成可承受的</h1>
+    <p class="lede">硬盘会坏、网线会断、整个机房会停电、人会手滑误删表。可靠性工程不假设这些不发生，而是<strong>承认它们必然发生</strong>，再用<strong>冗余、隔离、灾备、演练</strong>把每一次故障的代价压到可承受的范围内。今天我们学怎么和故障共处。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例：QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l-4 4 4 4M5 15h11a4 4 0 004-4V5"/></svg>昨日回顾 · Day 26</div>
+    <ul>
+      <li>昨天讲<strong>部署与发布</strong>：用<strong>不可变镜像</strong>消灭环境漂移，靠<strong>编排器(K8s)</strong>声明期望状态自愈，<strong>CI/CD</strong> 流水线一道道闸把关，再用<strong>滚动 / 蓝绿 / 金丝雀</strong>逐步放量、出事一键回滚。那套手艺管的是「<em>新版本</em>怎么安全上去」。今天换一个更悲观也更根本的视角：就算版本没问题、代码全对，<strong>底层硬件、网络、机房本身也会坏</strong>。可靠性工程问的是——当组件不可避免地失效时，整个系统还能不能撑住？而在受监管的定价系统里，连<em>故障与恢复</em>本身都要可追溯、可解释。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>建立核心心态：<strong>故障不是异常，是常态</strong>；可靠性是设计出来的，不是祈祷出来的</li>
+      <li>看懂常见的<strong>故障模式(failure modes)</strong>，尤其是放大故障的<strong>级联失效与单点(SPOF)</strong></li>
+      <li>分清<strong>冗余(redundancy)</strong> 的几种姿势：active-active / active-passive、N+1、跨可用区</li>
+      <li>掌握灾备的两把尺子 <strong>RTO 与 RPO</strong>，以及它们怎么决定灾备方案与成本</li>
+      <li>理解<strong>混沌工程(chaos engineering)</strong>：主动注入故障，在可控时把弱点逼出来</li>
+      <li>把这些落到 QuoteFlow 上——并满足<strong>auditability / 监管恢复要求</strong></li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>心态：假设一切都会坏</div>
+    <h2>可靠不是「不出错」，是「出错也没事」</h2>
+    <p>新手对「可靠」的直觉，往往是「让每个组件都别坏」。这条路走不通。任何一块硬盘都有年化故障率，任何一台机器都会重启，任何一个机房都可能因为施工挖断光纤或电力故障而整片失联。规模一大，<strong>「极小概率的事」每天都在发生</strong>——一万块盘，哪怕年故障率 1%，平均每天也有几块在坏。</p>
+    <p>所以可靠性工程换了个问法：不是「怎么让它不坏」，而是「<strong>当它坏了——而它一定会坏——系统整体还能不能继续服务、最多损失多少、多久能恢复</strong>」。这套思路有个经典名字叫 <em>design for failure(为失败而设计)</em>。它贯穿今天所有内容：你不是在消灭故障，你是在<strong>把单点的、不可控的故障，转化成局部的、可承受、可恢复的故障</strong>。</p>
+    <p>先把两个常被混用的词钉死。<strong>Reliability(可靠性)</strong> 是「系统在一段时间里持续正确工作的能力」，常用 <code class="inl">MTBF</code>(平均无故障时间)衡量；<strong>Availability(可用性)</strong> 是「在某一刻系统可用的概率」，就是我们 Day 2 量化过的那串 9。两者相关但不同：一个系统可以频繁出小故障但每次秒恢复(可靠性低、可用性高),也可以很少坏但一坏就停很久(可靠性高、可用性低)。今天的工具，本质都是在<strong>缩短「坏了到恢复」的时间</strong>，从而把可用性撑住。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>承接前面几周的工具</div>
+      <ul><li>今天不少手段你已经见过半张脸：Day 6 的<strong>负载均衡 + 健康检查</strong>能把流量从坏掉的实例摘走；Day 12 的<strong>复制</strong>是数据层的冗余；Day 20 的<strong>熔断 / 限流 / bulkhead</strong>是阻止故障扩散的护栏。今天是把它们<strong>串成一套「和故障共处」的整体方法论</strong>，再补上灾备与混沌这两块新拼图。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>故障模式</div>
+    <h2>认识敌人：故障怎么发生、怎么被放大</h2>
+    <p>要为失败而设计，先得知道失败长什么样。故障不是只有「挂了」一种，下面几类各有各的应对：</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:26%">故障模式</th><th>它是什么</th><th>对 QuoteFlow 的样子</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">崩溃 / 宕机<br><span style="font-weight:400;color:var(--muted);font-size:13px">crash-stop</span></span></td><td>组件干脆地停了，不再响应</td><td>报价服务一个实例 OOM 被杀掉</td></tr>
+          <tr><td><span class="lab">慢故障<br><span style="font-weight:400;color:var(--muted);font-size:13px">gray failure</span></span></td><td>没死，但又慢又卡——<strong>比死更难处理</strong></td><td>费率库一个副本磁盘老化，查询从 5ms 变 800ms，拖垮上游</td></tr>
+          <tr><td><span class="lab">网络分区<br><span style="font-weight:400;color:var(--muted);font-size:13px">partition</span></span></td><td>机器都活着，但彼此连不上(Day 12 的 P)</td><td>主备机房之间链路中断，两边都以为对方挂了</td></tr>
+          <tr><td><span class="lab">级联失效<br><span style="font-weight:400;color:var(--muted);font-size:13px">cascading</span></span></td><td>一处故障把负载推给别处，连环压垮</td><td>一个副本挂 → 流量涌向其余副本 → 它们也过载 → 雪崩</td></tr>
+          <tr><td><span class="lab">数据 / 人为故障<br><span style="font-weight:400;color:var(--muted);font-size:13px">data &amp; human</span></span></td><td>坏数据、配置错误、误删——冗余救不了</td><td>错误的费率表被推到所有副本，<em>每个副本都「忠实地」算错</em></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 注意最后两行：级联失效会把一个小故障放大成全局故障；而数据/人为故障对「复制冗余」免疫——你把错误数据可靠地复制到了每一处。这正是「为什么光有冗余不够」。</p>
+
+    <h3>头号敌人：单点故障(SPOF)与级联</h3>
+    <p>可靠性设计里最先要猎杀的，是 <strong>single point of failure(单点故障，SPOF)</strong>——任何「它一坏，整个系统就停」的组件。一台没有备份的数据库主节点、一个只有一份的 API 网关、一条独苗的网络链路，都是 SPOF。找 SPOF 的方法很机械：<em>对架构图上每个框问一句「如果这个框现在消失，会发生什么？」</em>——只要答案是「全站挂」，它就是必须消灭的单点。</p>
+    <p>而 <strong>级联失效</strong> 是让局部故障升级为全局灾难的放大器。机制几乎总是同一个：某个节点失效 → 它的负载被转移到健康节点 → 健康节点因此过载、也变慢或挂掉 → 更多负载再转移……正反馈一旦启动，整个系统在几十秒内连环倒下。这就是 Day 20 那些护栏(熔断、限流、bulkhead、超时)真正的用武之地——它们的核心作用就是<strong>在级联的链条上打断正反馈</strong>，宁可拒绝一部分请求，也不让故障蔓延到全局。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 270" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ahr" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#c0504d"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- left: SPOF -->
+        <text x="170" y="24" font-size="13" font-weight="700" fill="#c0504d" text-anchor="middle">✕ 单点故障 (SPOF)</text>
+        <rect x="60" y="40" width="220" height="40" rx="9" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="170" y="65" font-size="12.5" fill="#0f3d2e" text-anchor="middle">报价 API ×3 副本</text>
+        <rect x="110" y="120" width="120" height="44" rx="9" fill="#fbeaea" stroke="#e6a4a4" stroke-dasharray="4 3"/>
+        <text x="170" y="140" font-size="12.5" fill="#c0504d" text-anchor="middle" font-weight="700">单台 DB 主</text>
+        <text x="170" y="156" font-size="11" fill="#c0504d" text-anchor="middle">它一挂 = 全停</text>
+        <path d="M170 80 L170 118" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="170" y="206" font-size="11.5" fill="#6a7872" text-anchor="middle">三份副本也救不了</text>
+        <text x="170" y="224" font-size="11.5" fill="#6a7872" text-anchor="middle">下游唯一的 DB</text>
+        <!-- divider -->
+        <line x1="360" y1="30" x2="360" y2="240" stroke="#e3ebe6" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <!-- right: cascading -->
+        <text x="540" y="24" font-size="13" font-weight="700" fill="#c0504d" text-anchor="middle">⚡ 级联失效 (cascading)</text>
+        <rect x="410" y="44" width="58" height="34" rx="7" fill="#46cf94"/><text x="439" y="66" font-size="11" fill="#fff" text-anchor="middle">健康</text>
+        <rect x="481" y="44" width="58" height="34" rx="7" fill="#46cf94"/><text x="510" y="66" font-size="11" fill="#fff" text-anchor="middle">健康</text>
+        <rect x="552" y="44" width="58" height="34" rx="7" fill="#fbeaea" stroke="#e6a4a4" stroke-dasharray="3 3"/><text x="581" y="66" font-size="13" fill="#c0504d" text-anchor="middle" font-weight="700">✕</text>
+        <text x="635" y="66" font-size="11" fill="#c0504d">挂</text>
+        <path d="M560 90 C540 108 470 108 450 86" stroke="#c0504d" stroke-width="1.8" fill="none" marker-end="url(#ahr)"/>
+        <text x="505" y="116" font-size="10.5" fill="#c0504d" text-anchor="middle">负载转移</text>
+        <rect x="410" y="132" width="58" height="34" rx="7" fill="#f0b94d"/><text x="439" y="154" font-size="11" fill="#704800" text-anchor="middle">过载</text>
+        <rect x="481" y="132" width="58" height="34" rx="7" fill="#f0b94d"/><text x="510" y="154" font-size="11" fill="#704800" text-anchor="middle">过载</text>
+        <path d="M510 168 C510 186 510 186 510 188" stroke="#c0504d" stroke-width="1.8" fill="none" marker-end="url(#ahr)"/>
+        <rect x="440" y="194" width="140" height="34" rx="7" fill="#fbeaea" stroke="#e6a4a4"/><text x="510" y="216" font-size="11.5" fill="#c0504d" text-anchor="middle" font-weight="700">全部雪崩 →</text>
+      </svg>
+      <figcaption>图 1 · 两类放大器：左边「一坏全停」的单点要靠冗余消灭；右边「一坏带倒一片」的级联要靠护栏(熔断/限流/超时)打断</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>冗余</div>
+    <h2>消灭单点的唯一办法：留备份</h2>
+    <p>对付 SPOF 的根本手段就一个字——<strong>冗余(redundancy)</strong>：任何关键组件都不止一份，一份倒下，另一份顶上。但「留备份」有好几种姿势，代价和切换速度差别很大，要会挑：</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">模式</th><th>怎么工作</th><th>切换 / 成本</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Active-Active<br><span style="font-weight:400;color:var(--muted);font-size:13px">双活</span></span></td><td>多份<strong>同时</strong>对外服务、分担流量</td><td>一份挂，其余无缝接住(只需扛住多出来的负载)；成本高，但资源不闲置</td></tr>
+          <tr><td><span class="lab">Active-Passive<br><span style="font-weight:400;color:var(--muted);font-size:13px">主备 / 热备</span></span></td><td>主在服务，备<strong>待命</strong>(可能预热)</td><td>主挂 → <em>failover</em> 切到备，有秒级到分钟级中断；备机平时闲着，成本是「保险费」</td></tr>
+          <tr><td><span class="lab">N + 1 / N + M</span></td><td>满足负载要 N 份，多配 1(或 M)份余量</td><td>容忍 1(或 M)份同时坏而不降容量；冗余度可量化裁剪</td></tr>
+          <tr><td><span class="lab">跨可用区 / 跨区域<br><span style="font-weight:400;color:var(--muted);font-size:13px">multi-AZ / region</span></span></td><td>副本<strong>分散</strong>到不同机房、不同地理区域</td><td>扛住整个机房/区域级故障；跨区域要付出延迟与数据同步的代价</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>一个关键纪律：别让冗余「假冗余」</h3>
+    <p>冗余最容易翻车的地方，是<strong>看似两份、其实共享同一个隐藏单点</strong>。两台数据库副本，如果插在同一个机柜、同一个电源、同一台交换机下——电源一跳，两份一起死，你的「冗余」是假的。这就是为什么真正的冗余要讲<strong>故障域(failure domain)隔离</strong>：副本之间不能共享会一起坏的东西(同一台宿主机、同一个机架、同一个机房、同一片供电)。云上的 <strong>availability zone(可用区)</strong> 就是把这件事产品化——不同 AZ 在物理上电力、网络、制冷都隔离，把副本摊到多个 AZ，才算真冗余。</p>
+    <p>还有一条经济学纪律：<strong>冗余不是越多越好，它直接换钱</strong>。从「单份」到「多 AZ 双活」，可用性的每多一个 9，成本往往不是线性而是陡增。所以冗余度要<strong>由业务需求(SLO)反推</strong>，而不是一味堆。QuoteFlow 里，对外实时报价这条路径值得多 AZ 双活(挂了就丢生意、伤口碑)；而一个内部的、跑批用的分析报表服务，active-passive 甚至「坏了明天再修」可能就够——把钱花在最该花的可用性上。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>灾备：RTO 与 RPO</div>
+    <h2>大灾难来了：能多快恢复、会丢多少数据</h2>
+    <p>冗余对付的是「一个组件坏」。但还有更大的灾难：整个区域断电断网、机房失火、勒索软件加密了你的主库。这时需要 <strong>disaster recovery(灾备，DR)</strong>——一套「主站整体没了，怎么在别处重新站起来」的预案。衡量灾备方案，业界就用两把尺子，务必记牢：</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:14%"></th><th>RTO</th><th>RPO</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">全称</span></td><td>Recovery <strong>Time</strong> Objective</td><td>Recovery <strong>Point</strong> Objective</td></tr>
+          <tr><td><span class="lab">回答</span></td><td>恢复服务最多花<strong>多久</strong>?(停机时长)</td><td>最多能容忍丢<strong>多少数据</strong>?(时间窗口)</td></tr>
+          <tr><td><span class="lab">指向</span></td><td>沿<em>时间轴向前</em>看：多久能重新上线</td><td>沿<em>时间轴向后</em>看：丢回到哪个时间点的数据</td></tr>
+          <tr><td><span class="lab">由什么决定</span></td><td>切换/重建的速度:热备 vs 冷备份恢复</td><td>备份/复制的频率:连续复制 vs 每天一次</td></tr>
+          <tr><td><span class="lab">越严越贵</span></td><td>RTO→0 需要随时待命的热备站点</td><td>RPO→0 需要同步复制(牺牲写延迟)</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 记忆法：RTO 是「<strong>T</strong>ime，多久能回来」，RPO 是「<strong>P</strong>oint，丢到哪个点」。一个管停机时长，一个管数据丢失量——是两件独立的事，要分别定指标。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs><marker id="ah2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker></defs>
+        <!-- timeline -->
+        <line x1="40" y1="110" x2="680" y2="110" stroke="#93a89c" stroke-width="2" marker-end="url(#ah2)"/>
+        <text x="690" y="114" font-size="12" fill="#6a7872">时间</text>
+        <!-- disaster point -->
+        <line x1="360" y1="60" x2="360" y2="160" stroke="#c0504d" stroke-width="2.5"/>
+        <circle cx="360" cy="110" r="7" fill="#c0504d"/>
+        <text x="360" y="50" font-size="13" font-weight="700" fill="#c0504d" text-anchor="middle">💥 灾难发生</text>
+        <!-- RPO region (before) -->
+        <rect x="250" y="92" width="110" height="36" rx="6" fill="#fbf1da" stroke="#f1e0b8"/>
+        <text x="305" y="80" font-size="12.5" font-weight="700" fill="#8a5a00" text-anchor="middle">RPO</text>
+        <text x="305" y="115" font-size="11" fill="#8a5a00" text-anchor="middle">最后一次备份</text>
+        <text x="200" y="150" font-size="11.5" fill="#8a5a00" text-anchor="middle" font-style="italic">← 这段的数据可能丢</text>
+        <line x1="250" y1="128" x2="250" y2="160" stroke="#c89b3c" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <!-- RTO region (after) -->
+        <rect x="360" y="92" width="200" height="36" rx="6" fill="#e8f6ef" stroke="#cdeede"/>
+        <text x="460" y="80" font-size="12.5" font-weight="700" fill="#0c7a50" text-anchor="middle">RTO</text>
+        <text x="460" y="115" font-size="11" fill="#0c7a50" text-anchor="middle">恢复服务所需时长</text>
+        <line x1="560" y1="92" x2="560" y2="160" stroke="#15a06a" stroke-width="1.5" stroke-dasharray="3 3"/>
+        <circle cx="560" cy="110" r="6" fill="#15a06a"/>
+        <text x="560" y="180" font-size="11.5" fill="#0c7a50" text-anchor="middle" font-weight="600">✓ 服务恢复</text>
+      </svg>
+      <figcaption>图 2 · 以灾难时刻为原点：RPO 量「往回丢多少数据」(取决于备份频率)，RTO 量「往前多久恢复」(取决于切换速度)</figcaption>
+    </figure>
+
+    <p>有了这两把尺子，灾备方案就能<strong>按预算分档</strong>，从便宜到贵大致是：<em>冷备份(Backup &amp; Restore)</em>——只存快照，灾后现搭机器恢复，RTO 几小时、RPO 几小时，最便宜；<em>温备(Pilot Light / Warm Standby)</em>——核心组件常驻、按需放大，RTO 分钟到小时；<em>热备双活(Multi-site Active-Active)</em>——两地同时在线，RTO 近乎 0、RPO 近乎 0，最贵。选哪档，不是技术问题，是「这套系统停一小时、丢一小时数据，业务损失多少」算出来的。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>混沌工程</div>
+    <h2>与其等它半夜崩，不如白天主动弄崩它</h2>
+    <p>前面的冗余和灾备都设计好了——但你怎么<strong>知道它们真的管用</strong>?故障转移配置可能写错、备份可能根本没法恢复、那条「自动切换」的脚本可能三年没人测过。绝大多数线上大故障，败在「我们以为有冗余，真出事时它没生效」。<strong>混沌工程(chaos engineering)</strong> 就是答案：<em>在可控的条件下，主动往生产(或类生产)系统里注入故障，验证系统是否如预期那样优雅降级</em>。理念由 Netflix 的 Chaos Monkey 推广——它会在工作时间<strong>随机杀掉生产实例</strong>，逼工程师把「任何一台随时会死」当成设计前提。</p>
+    <p>关键是它不是「乱搞」，而是一套<strong>科学方法</strong>：① 先定义系统正常时的<em>稳态(steady state)</em>，用指标描述(比如报价 p99 延迟、成功率)；② 提出假设——「杀掉一个 AZ，稳态应该不变」；③ 在<strong>受控、小范围(blast radius)</strong>内注入故障；④ 观测稳态有没有被打破。如果系统扛住了，你赢得了信心；如果没扛住，你在<em>白天、有人盯着、可以随时叫停</em>的条件下发现了弱点——这远好过它在某个周日凌晨三点自己爆发。<strong>控制爆炸半径</strong>和<strong>有快速止损的开关</strong>是做这件事的前提纪律。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>受监管系统怎么做混沌</div>
+      <ul><li>QuoteFlow 不会去生产环境随机杀报价实例——监管和客户体验都不允许。务实的做法是在<strong>类生产(staging)的影子环境</strong>里、用<strong>影子流量(回放真实请求)</strong>跑混沌实验：注入「费率库变慢」「主 AZ 失联」「再保上报接口超时」，验证熔断、降级、failover 是否如预期触发，并<strong>把每次演练完整留痕</strong>——这本身就是向监管证明「我们具备恢复能力(operational resilience)」的证据。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>贯穿案例</div>
+    <h2>给 QuoteFlow 设计「打不死」的报价路径</h2>
+    <p>把今天五块拼图按在 QuoteFlow 最关键的资产——<strong>对外实时报价</strong>——上。它一旦不可用或算错，直接丢生意、甚至触发监管问题，所以值得最高规格的可靠性投入。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">① 消灭单点 + 冗余</h3>
+      <p>报价 API 做成 <strong>active-active 多副本，摊到至少两个 AZ</strong>，前面挂负载均衡 + 健康检查(Day 6)，坏实例自动摘除。费率/规则库用 <strong>leader-follower 复制</strong>(Day 12)，follower 跨 AZ；主挂了自动 failover 选新主。每个框都过一遍「它消失会怎样」，确保没有 SPOF。</p>
+      <h3>② 打断级联</h3>
+      <p>报价服务调用风险评分、再保参数等下游时，统统加 <strong>超时 + 熔断 + bulkhead</strong>(Day 20)：某个下游慢了，快速失败并降级(比如用缓存的费率版本给一个保守报价)，而不是把线程全耗死、拖垮整条链路。</p>
+      <h3>③ RTO / RPO 与灾备</h3>
+      <p>给报价路径定档：<strong>RTO &lt; 5 分钟、RPO 近乎 0</strong>(费率/保单数据一条都不能丢、要可复现)。这逼出「跨区域、对关键数据用同步或近实时复制」的方案。而内部夜间分析库可以宽松到 RTO 数小时、RPO 一天——钱花在刀刃上。</p>
+      <h3>④ 混沌 + 审计</h3>
+      <p>在影子环境定期演练「杀一个 AZ」「费率库变慢」「failover」，每次都验证报价稳态(p99、成功率、<em>复现性</em>)不破，并<strong>把演练与每次真实故障的检测→恢复全程留痕</strong>——既是改进输入，也是向监管证明 operational resilience 的合规证据。</p>
+    </div>
+
+    <p>下面用伪代码把「级联打断 + 优雅降级」这一环具体化——感受可靠性是怎么<em>写进调用逻辑</em>的，而不是事后补的运维补丁：</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">pricing/quote_handler.py  ·  QuoteFlow 报价的弹性骨架(示意)</span></div>
+<pre><code><span class="c-com"># 目标：任一下游故障 → 局部降级，绝不整条挂死</span>
+<span class="c-key">def</span> <span class="c-fn">handle_quote</span>(req):
+    rates = <span class="c-fn">get_rate_table</span>(req.version)        <span class="c-com"># 主路径：钉版本，保证可复现</span>
+
+    <span class="c-key">try</span>:
+        <span class="c-com"># 下游风险评分：超时 + 熔断，防级联(Day 20)</span>
+        score = risk_svc.<span class="c-fn">score</span>(req, timeout=<span class="c-num">120</span><span class="c-key">ms</span>)
+    <span class="c-key">except</span> (Timeout, CircuitOpen):
+        score = <span class="c-fn">fallback_score</span>(req)             <span class="c-com"># 优雅降级：用保守规则兜底</span>
+        <span class="c-fn">audit.log</span>(<span class="c-str">"degraded"</span>, reason=<span class="c-str">"risk_svc_unavailable"</span>)  <span class="c-com"># 降级也留痕</span>
+
+    quote = <span class="c-fn">price</span>(req, rates, score)
+
+    <span class="c-com"># 关键数据同步落到跨 AZ 副本后才算成功 → 守住 RPO≈0</span>
+    <span class="c-fn">persist_sync</span>(quote, replicas=<span class="c-num">2</span>, zones=[<span class="c-str">"az-a"</span>, <span class="c-str">"az-b"</span>])
+
+    <span class="c-fn">audit.log</span>(<span class="c-str">"quote"</span>, id=quote.id, image=<span class="c-str">DEPLOY_SHA</span>,   <span class="c-com"># 哪个版本算的</span>
+              rate_version=req.version, degraded=quote.degraded)
+    <span class="c-key">return</span> quote
+</code></pre>
+    </div>
+    <p>留意三处：风险评分挂了不是抛错而是<strong>降级兜底</strong>(打断级联);<code class="inl">persist_sync</code> 同步写到两个 AZ 才返回(守住 RPO);而<strong>每一步都写 audit</strong>——连「这次报价是降级算的」都记下来。在受监管定价里，<em>故障期间发生了什么、系统怎么应对的</em>，本身就是必须可追溯的一等数据。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>故障是常态不是异常。</strong>可靠性不是「让组件不坏」，而是「坏了也能继续服务、损失可控、快速恢复」——design for failure。</p></div>
+      <div class="tk"><span class="n">2</span><p>先猎杀 <strong>SPOF</strong>(用冗余),再用 <strong>护栏打断级联</strong>(熔断/限流/超时)。真冗余要<strong>跨故障域</strong>,否则是假冗余。</p></div>
+      <div class="tk"><span class="n">3</span><p>灾备用两把尺子：<strong>RTO</strong>(多久恢复)+<strong>RPO</strong>(丢多少数据)。它们由业务损失反推,越严越贵,要分档花钱。</p></div>
+      <div class="tk"><span class="n">4</span><p><strong>冗余设计了不等于有效。混沌工程</strong>在可控条件下主动注入故障,白天把弱点逼出来——对 QuoteFlow,演练留痕本身就是合规证据。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">「报价数据库只有一台主、没有副本」——这是什么?为什么危险?</span></summary>
+        <div class="ans">这是 <b>单点故障(SPOF)</b>。它一坏，整个报价路径就停——不管上游有多少副本都救不了。对它问「如果这个框消失会怎样」，答案是「全停」，所以必须用复制/failover 做冗余来消灭。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">「灾后最多容忍丢 5 分钟的数据」——这定的是 RTO 还是 RPO?要怎么实现?</span></summary>
+        <div class="ans">这是 <b>RPO(Recovery Point Objective)</b>,管「丢多少数据」。RPO=5 分钟意味着备份/复制频率至少要 5 分钟一次;若要 RPO≈0,得用<b>同步复制</b>(代价是写延迟上升)。注意它和 RTO(多久恢复服务)是两件独立的事。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">两份数据库副本插在同一个机柜、同一路供电下,算真冗余吗?</span></summary>
+        <div class="ans"><b>不算——这是「假冗余」。</b>它们共享一个隐藏单点(供电/机柜),电源一跳两份一起死。真冗余要做<b>故障域(failure domain)隔离</b>,把副本摊到不同 AZ,确保它们不会因为同一个原因一起坏。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q4</span><span class="tw">既然要稳,为什么 Netflix 反而主动去杀生产实例?</span></summary>
+        <div class="ans">这是 <b>混沌工程</b>。冗余/故障转移「配了」不等于「真的有效」——很多大故障就败在「以为有冗余、真出事没生效」。主动在<b>可控、小爆炸半径、能随时止损</b>的条件下注入故障,能在白天有人盯着时把弱点逼出来,远好过它在凌晨自己爆发。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 第 2 节表里「错误的费率表被可靠地复制到每个副本」——这种<strong>数据/人为故障</strong>,冗余救不了。你会用什么机制来防它、又怎么从中恢复?(提示:想想 Day 26 的金丝雀、回滚,和「版本化 + 可回放」)<br>② 给 QuoteFlow 的实时报价路径定 RTO/RPO 时,你会怎么和业务方一起把数字「算」出来,而不是拍脑袋?哪些 non-functional(尤其 auditability)会反过来影响这两个数?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Reliability</dt><dd>系统在一段时间内持续正确工作的能力(常用 MTBF 衡量),区别于某一刻可用的 availability。</dd></dl>
+      <dl><dt>Design for Failure</dt><dd>把「组件必然失效」当设计前提,目标是让故障局部化、可承受、可快速恢复。</dd></dl>
+      <dl><dt>SPOF</dt><dd>Single Point of Failure,单点故障:一坏整个系统就停的组件,必须用冗余消灭。</dd></dl>
+      <dl><dt>Cascading Failure</dt><dd>级联失效:一处故障把负载推给别处,连环过载放大成全局故障。</dd></dl>
+      <dl><dt>Redundancy</dt><dd>关键组件留多份(active-active / active-passive / N+1),一份倒下另一份顶上。</dd></dl>
+      <dl><dt>Failure Domain</dt><dd>故障域:会「一起坏」的范围(同机柜/同供电/同机房)。真冗余要跨故障域隔离。</dd></dl>
+      <dl><dt>Failover</dt><dd>故障转移:主组件失效时自动(或手动)把服务切到备用组件。</dd></dl>
+      <dl><dt>RTO</dt><dd>Recovery Time Objective:灾后恢复服务可容忍的最长停机时长。</dd></dl>
+      <dl><dt>RPO</dt><dd>Recovery Point Objective:灾后可容忍丢失的最大数据时间窗口,由备份/复制频率决定。</dd></dl>
+      <dl><dt>Availability Zone</dt><dd>可用区:云上电力/网络/制冷物理隔离的机房单元,把副本摊到多 AZ 才算真冗余。</dd></dl>
+      <dl><dt>Chaos Engineering</dt><dd>混沌工程:在受控、小爆炸半径内主动注入故障,验证系统是否如预期优雅降级。</dd></dl>
+      <dl><dt>Blast Radius</dt><dd>爆炸半径:一次实验/故障可能波及的范围,混沌实验要刻意把它控制到最小。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 28</div>
+      <div class="t">架构决策与取舍:ADR 怎么写、技术权衡与成本怎么摆上台面——把这 27 天反复出现的「没有最优解,只有取舍」正式工具化</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 27 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 25 · 安全 —— authn vs authz、OAuth2/OIDC、密钥与最小权限</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:83.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 25 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 4 周 · 架构与运维</span>
+    <h1>你是谁,你能干什么<br>—— 把身份和权限讲清楚</h1>
+    <p class="lede">网关在门口拦下每一个请求,问两个看似简单、却最常被混为一谈的问题:<strong>你是谁</strong>(authentication),以及<strong>凭这个身份你被允许做什么</strong>(authorization)。今天我们把这两件事、连同它们背后的 OAuth2 / OIDC、密钥与加密、最小权限,一次理顺。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例:QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l-4 4 4 4M5 15h11a4 4 0 004-4V5"/></svg>昨日回顾 · Day 24</div>
+    <ul>
+      <li>昨天讲<strong>可观测性</strong>:metrics 发现「坏了没」、traces 定位「慢在哪一跳」、logs 揭示细节,用 <code class="inl">trace_id</code> 串成一条线;SLI 测量 → SLO 目标 → SLA 承诺,error budget 把稳定与迭代变成可算的余额;告警绑症状不绑原因。我们还点到一句:<strong>在受监管系统里,observability 与 auditability 共用一套基建</strong>。今天的安全日志、谁在何时做了什么——正是那套基建要承载的另一半。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>一刀分清 <strong>authentication(authn)</strong> 与 <strong>authorization(authz)</strong>——以及为什么把它们混在一起是事故之源</li>
+      <li>看懂 <strong>OAuth2 与 OIDC</strong> 各自解决什么:一个发「授权」,一个发「身份」</li>
+      <li>理解 <strong>JWT / token</strong> 怎么把身份和权限「焊」进每个请求,以及它的坑</li>
+      <li>掌握两套授权模型 <strong>RBAC vs ABAC</strong>,和贯穿全系列的 <strong>least privilege(最小权限)</strong></li>
+      <li>把 <strong>密钥管理与加密(at rest / in transit)</strong> 落到 QuoteFlow 的 PII 与合规上</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>第一刀:authn vs authz</div>
+    <h2>「你是谁」和「你能干什么」是两件事</h2>
+    <p>这是整个安全话题里最重要、也最常被搞混的一对概念,务必先钉死:</p>
+    <p><strong>Authentication(authn,认证)</strong> 回答 <em>「你是谁」</em>。它验证身份——你声称是 broker <code class="inl">acme-insurance</code>,系统要确认你确实是它。手段:密码、API key、客户端证书、一次性验证码、或一张已经签发过的 token。</p>
+    <p><strong>Authorization(authz,授权)</strong> 回答 <em>「这个已确认的你,被允许做什么」</em>。身份确认之后,你能不能调批量重定价接口?能不能读别人的保单?能不能改费率表?这是一套<strong>规则 + 策略</strong>的判断。</p>
+    <p>顺序是固定的:<strong>先 authn,后 authz</strong>。没确认身份就谈权限毫无意义;确认了身份不等于什么都能干。一个生活类比:进写字楼,前台核对你的工牌照片是不是你本人——这是 authn;但你的工牌只能刷开 8 楼,刷不开数据中心机房门——这是 authz。同一张工牌,两道独立的关卡。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>为什么混淆它们是事故之源</div>
+      <ul><li>最经典的漏洞 <strong>IDOR</strong>(Insecure Direct Object Reference):用户已登录(authn 通过),于是系统就直接信任他,让他把 URL 里的 <code class="inl">policy_id=1001</code> 改成 <code class="inl">1002</code> 去读别人的保单——因为开发者只做了 authn,漏了「这个身份有没有权读<em>这一条</em>」的 authz。<strong>登录≠有权,这一步必须每次单独判。</strong></li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>委托授权</div>
+    <h2>OAuth2 与 OIDC:发「授权」 vs 发「身份」</h2>
+    <p>很多人把 OAuth2 当成「登录协议」,这是误解的根源。</p>
+    <p><strong>OAuth2 是一个<em>授权委托</em>框架</strong>:它解决的是「<em>我想让 A 应用,在不交出我密码的前提下,代我去访问 B 上我的资源</em>」。比如 QuoteFlow 想代 broker 调用某个第三方风险评分服务——broker 不该把自己的主密码交给 QuoteFlow,而是签发一个<strong>范围受限、可撤销、会过期</strong>的 <code class="inl">access_token</code>。OAuth2 产出的是「<strong>能做什么</strong>」(scopes),它本身<em>不</em>告诉你「用户是谁」。</p>
+    <p><strong>OIDC(OpenID Connect)是架在 OAuth2 之上的<em>身份</em>层</strong>:它补上 OAuth2 缺的那块,额外签发一个 <code class="inl">id_token</code>(一个 JWT),里面装着「用户是谁」(<code class="inl">sub</code>、email、name 等 claims)。所以「用 Google 登录」用的是 <strong>OIDC</strong>,不是裸 OAuth2。</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:20%"></th><th>OAuth2</th><th>OIDC</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">解决什么</span></td><td>授权委托:代我访问资源</td><td>身份认证:这人是谁</td></tr>
+          <tr><td><span class="lab">产出</span></td><td><code class="inl">access_token</code>(带 scopes)</td><td>额外的 <code class="inl">id_token</code>(身份 claims)</td></tr>
+          <tr><td><span class="lab">回答的问题</span></td><td>能做什么(authz 输入)</td><td>你是谁(authn 结果)</td></tr>
+          <tr><td><span class="lab">QuoteFlow 用处</span></td><td>broker 授权第三方代调报价 API</td><td>用户/员工用 SSO 登录后台</td></tr>
+          <tr><td><span class="lab">一句话</span></td><td>「钥匙卡能开哪几扇门」</td><td>「卡上印着这是谁」</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 记一句:OAuth2 管授权、OIDC 管身份。把 OAuth2 当登录用,正是历史上一堆身份泄露的根因。</p>
+
+    <h3>授权码流程(Authorization Code Flow)长什么样</h3>
+    <p>这是最常见、也最安全的一条流程(配合 PKCE 用于 App / SPA)。注意:<strong>密码从头到尾只交给可信的 Authorization Server,第三方应用永远拿不到它</strong>——这正是 OAuth2 的价值。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <!-- lanes -->
+        <rect x="20" y="20" width="150" height="44" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="95" y="40" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">用户 / 浏览器</text>
+        <text x="95" y="56" font-size="11" fill="#6a7872" text-anchor="middle">Resource Owner</text>
+        <rect x="285" y="20" width="150" height="44" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="360" y="40" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">QuoteFlow App</text>
+        <text x="360" y="56" font-size="11" fill="#6a7872" text-anchor="middle">Client</text>
+        <rect x="550" y="20" width="150" height="44" rx="11" fill="#15a06a"/>
+        <text x="625" y="40" font-size="13" font-weight="600" fill="#fff" text-anchor="middle">Auth Server</text>
+        <text x="625" y="56" font-size="11" fill="#d9f1e6" text-anchor="middle">+ 资源服务器</text>
+        <!-- vertical lifelines -->
+        <line x1="95" y1="64" x2="95" y2="300" stroke="#cfe0d7" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="360" y1="64" x2="360" y2="300" stroke="#cfe0d7" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <line x1="625" y1="64" x2="625" y2="300" stroke="#cfe0d7" stroke-width="1.5" stroke-dasharray="4 4"/>
+        <!-- steps -->
+        <path d="M95 92 L355 92" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="100" y="86" font-size="11.5" fill="#3a463f">① 点「用 SSO 登录」</text>
+        <path d="M360 116 L620 116" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="365" y="110" font-size="11.5" fill="#3a463f">② 重定向到 Auth Server</text>
+        <path d="M625 140 L100 140" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="300" y="134" font-size="11.5" fill="#3a463f">③ 登录页:用户输入密码(只给 Auth Server)</text>
+        <path d="M95 164 L620 164" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="150" y="158" font-size="11.5" fill="#3a463f">④ 同意授权 scopes</text>
+        <path d="M625 188 L365 188" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="370" y="182" font-size="11.5" fill="#3a463f">⑤ 回跳并带 authorization code</text>
+        <path d="M360 212 L620 212" stroke="#15a06a" stroke-width="2.4" marker-end="url(#ah)"/>
+        <text x="365" y="206" font-size="11.5" fill="#0c7a50" font-weight="600">⑥ 后端用 code 换 token(带 client secret)</text>
+        <path d="M625 236 L365 236" stroke="#15a06a" stroke-width="2.4" marker-end="url(#ah)"/>
+        <text x="370" y="230" font-size="11.5" fill="#0c7a50" font-weight="600">⑦ 返回 access_token + id_token</text>
+        <rect x="285" y="258" width="150" height="40" rx="10" fill="#e8f6ef" stroke="#cfe7da"/>
+        <text x="360" y="277" font-size="11.5" fill="#0f3d2e" text-anchor="middle">⑧ App 用 token</text>
+        <text x="360" y="291" font-size="11.5" fill="#0f3d2e" text-anchor="middle">代用户访问 API</text>
+      </svg>
+      <figcaption>图 1 · OAuth2 授权码流程。关键点:用户密码只交给 Auth Server(③),第三方 App 拿到的始终是受限、可撤销、会过期的 token(⑦)</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>令牌</div>
+    <h2>JWT:把身份和权限焊进每个请求</h2>
+    <p>HTTP 是无状态的——每个请求都是陌生人。怎么让网关一眼认出「这是已登录、且有权调批量接口的 pricing 工程师」?两条路:</p>
+    <p><strong>不透明令牌(opaque token)</strong>:token 只是一个随机串,服务端拿它去 session 库 / Auth Server 查「这是谁、有什么权」。好处是<em>能即时撤销</em>(删库里那条就失效),代价是<em>每次都要多查一跳</em>。</p>
+    <p><strong>JWT(JSON Web Token)</strong>:token 本身就装着信息,且<strong>带签名</strong>。它三段式 <code class="inl">header.payload.signature</code>,payload 里是 claims(<code class="inl">sub</code> 谁、<code class="inl">scope</code> 权限、<code class="inl">exp</code> 过期时间…),signature 用 Auth Server 的私钥签。网关用公钥<strong>验签</strong>就能确认「没被篡改、确实是可信方签发的」——<em>无需回查数据库</em>,这是它扩展性好的根本原因。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>JWT 的三个必背陷阱</div>
+      <ul>
+        <li><strong>签名 ≠ 加密。</strong>JWT 默认只是 Base64 编码 + 签名,payload 是<em>明文可读</em>的。别把密码、完整 PII 塞进 JWT。</li>
+        <li><strong>难以即时撤销。</strong>JWT 一旦签发,在 <code class="inl">exp</code> 到期前都有效——这正是「无需回查」的另一面。所以 access_token 要<em>短命</em>(几分钟~1 小时),配一个长命但可撤销的 <code class="inl">refresh_token</code> 去换新的;真要紧急失效,得靠黑名单或轮换签名密钥。</li>
+        <li><strong>算法陷阱。</strong>历史上著名的 <code class="inl">alg: none</code> 和「RS256 当 HS256 验」漏洞——务必固定校验算法、绝不接受客户端指定 <code class="inl">alg</code>。</li>
+      </ul>
+    </div>
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">网关验 JWT 并做 authz(伪代码)</span></div>
+<pre><code><span class="c-com">// 请求头:Authorization: Bearer eyJhbG...（一个 JWT）</span>
+<span class="c-key">function</span> <span class="c-fn">handleQuoteRequest</span>(req) {
+  <span class="c-key">const</span> token = parseBearer(req.headers.authorization)
+
+  <span class="c-com">// ── 第一关:authn —— 验签 + 验时效，确认「你是谁」 ──</span>
+  <span class="c-key">const</span> claims = jwt.<span class="c-fn">verify</span>(token, AUTH_PUBLIC_KEY, {
+    algorithms: [<span class="c-str">"RS256"</span>],        <span class="c-com">// 固定算法，堵住 alg 陷阱</span>
+    issuer:    <span class="c-str">"https://auth.quoteflow.example"</span>,
+    audience:  <span class="c-str">"quoteflow-api"</span>
+  })                                <span class="c-com">// 签名/exp 不对 → 直接 401</span>
+
+  <span class="c-com">// ── 第二关:authz —— 这个身份「能不能做这件事」 ──</span>
+  <span class="c-key">if</span> (!claims.scope.<span class="c-fn">includes</span>(<span class="c-str">"quotes:write"</span>))
+    <span class="c-key">throw</span> <span class="c-fn">Forbidden</span>(<span class="c-num">403</span>)        <span class="c-com">// 已登录但无权 → 403，不是 401</span>
+
+  <span class="c-com">// ── 防 IDOR:不止「能写报价」，还要「能写这一条」 ──</span>
+  <span class="c-key">if</span> (req.body.broker_id !== claims.broker_id)
+    <span class="c-key">throw</span> <span class="c-fn">Forbidden</span>(<span class="c-num">403</span>)        <span class="c-com">// 不能替别的 broker 报价</span>
+
+  audit.<span class="c-fn">log</span>({ who: claims.sub, action: <span class="c-str">"quote.create"</span>, at: now() })
+  <span class="c-key">return</span> <span class="c-fn">createQuote</span>(req.body)
+}</code></pre>
+    </div>
+    <p>留意两个细节:<strong>401 vs 403</strong> —— 401 是「我不知道你是谁」(authn 失败),403 是「我知道你是谁,但你不许」(authz 失败);以及那行 <code class="inl">audit.log</code> —— 在受监管系统里,<em>谁在何时做了什么</em>本身就是必须留痕的安全要求,和昨天的 observability 共用一套基建。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>授权模型</div>
+    <h2>RBAC vs ABAC,与最小权限</h2>
+    <p>验完身份,「能不能做」这道判断怎么组织?两种主流模型:</p>
+    <p><strong>RBAC(Role-Based Access Control,基于角色)</strong>:把权限打包成<em>角色</em>,人挂到角色上。例:<code class="inl">pricing_engineer</code> 角色 = 可读费率表 + 可触发批量重定价;<code class="inl">broker</code> 角色 = 只能对自己的客户报价。简单、好审计、99% 的系统够用——QuoteFlow 后台从这里起步。</p>
+    <p><strong>ABAC(Attribute-Based Access Control,基于属性)</strong>:用<em>属性 + 规则</em>动态判断,能表达 RBAC 表达不了的细粒度。例:「只有 <code class="inl">department=pricing</code> 且 <code class="inl">region=AU</code> 的人,在<em>工作时间</em>、从<em>公司网络</em>,才能改 <code class="inl">in_force</code> 保单的费率」。更灵活,但规则会膨胀、更难审计。</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">维度</th><th>RBAC</th><th>ABAC</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">判断依据</span></td><td>你属于哪个角色</td><td>主体/资源/环境的一组属性</td></tr>
+          <tr><td><span class="lab">粒度</span></td><td>粗,角色为单位</td><td>细,可到「这条记录 + 此刻」</td></tr>
+          <tr><td><span class="lab">易审计性</span></td><td>高:列角色即可</td><td>低:要跑规则才知道谁能干啥</td></tr>
+          <tr><td><span class="lab">复杂度</span></td><td>低,起步首选</td><td>高,规则易爆炸</td></tr>
+          <tr><td><span class="lab">QuoteFlow</span></td><td>员工后台、broker 分级</td><td>对 in-force 保单的合规化细粒度管控</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 实务常见做法:<strong>RBAC 打底 + 少量 ABAC 规则补细粒度</strong>。不要一上来就上全套 ABAC。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>贯穿全系列的原则 · Least Privilege(最小权限)</div>
+      <ul><li>每个用户、每个服务、每个 token,<strong>只授予完成本职工作所需的最小权限,默认拒绝(deny by default)</strong>。报价服务不该有改费率表的权;一个临时分析任务不该拿到能删保单的凭证。最小权限的意义在于<em>缩小爆炸半径</em>:某个凭证一旦泄露,攻击者能碰到的东西越少越好。这条原则今天讲、但贯穿整个系统设计。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>密钥与加密</div>
+    <h2>秘密怎么存,数据怎么护</h2>
+    <p>认证授权背后,处处依赖「秘密」:签 JWT 的私钥、数据库密码、第三方 API key。两条铁律:</p>
+    <p><strong>① 密钥绝不进代码 / git。</strong>用专门的 <strong>secrets manager</strong>(如云上的 KMS / Secrets Manager / Vault)集中保管,应用<em>运行时</em>按需拉取、定期<strong>轮换(rotation)</strong>。硬编码在仓库里的密钥一旦随代码泄露,等于把家门钥匙印在明信片上。</p>
+    <p><strong>② 数据加密分两种场景,都要做:</strong></p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:26%">场景</th><th>加密什么</th><th>QuoteFlow 落地</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">In transit(传输中)</span></td><td>网络上流动的数据,用 <strong>TLS/HTTPS</strong></td><td>报价 API、broker 调用、服务间通信全程 TLS(回到 Day 4 的 TLS)</td></tr>
+          <tr><td><span class="lab">At rest(静态)</span></td><td>落盘的数据:DB、备份、日志</td><td>保单库、PII、审计日志加密存储;密钥放 KMS</td></tr>
+          <tr><td><span class="lab">敏感字段</span></td><td>PII 额外的<strong>字段级</strong>加密 / 脱敏</td><td>身份证号、健康信息等单独加密,日志里脱敏</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="case">
+      <span class="tag">Case · QuoteFlow · 合规视角</span>
+      <h3 style="margin-top:0">为什么寿险定价对安全格外苛刻</h3>
+      <p>QuoteFlow 握着大量高度敏感的 PII:年龄、性别、健康状况、吸烟史——这些既是<em>定价输入</em>,也是<strong>受隐私法规重点保护</strong>的数据。安全在这里不是「加固」,而是<strong>一等公民的 non-functional 需求</strong>,和 Day 1 讲的 auditability 并列:</p>
+      <p>谁在何时访问/修改了哪条保单、动了哪个版本的费率表,都必须<strong>留痕、可追溯、可向监管解释</strong>。所以本日的 <code class="inl">audit.log</code>、最小权限、字段级加密,不是锦上添花,而是「能不能合规上线」的硬门槛。安全控制本身,也成了审计对象。</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>authn(你是谁)先于 authz(你能干什么)</strong>,两道独立关卡。把它们混在一起 = IDOR 等越权漏洞的温床。登录≠有权。</p></div>
+      <div class="tk"><span class="n">2</span><p><strong>OAuth2 发授权、OIDC 发身份。</strong>「用 X 登录」其实是 OIDC。JWT 让网关验签即可识别身份与权限、无需回查,但要短命 + 注意「签名≠加密、难撤销、alg 陷阱」。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>RBAC 打底、ABAC 补细粒度</strong>;一切之上是 <strong>least privilege + deny by default</strong>——缩小每个凭证泄露后的爆炸半径。</p></div>
+      <div class="tk"><span class="n">4</span><p><strong>密钥进 KMS、绝不进 git、定期轮换;数据 in transit(TLS)与 at rest 都要加密。</strong>在 QuoteFlow 这类受监管定价系统里,安全 + 审计是硬门槛,不是补丁。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">一个已登录的 broker,把 URL 里的 <code class="inl">policy_id</code> 换成别人的,就读到了别人的保单。这是 authn 还是 authz 的问题?</span></summary>
+        <div class="ans"><b>authz 问题</b>。他的身份是真的(authn 通过了),漏的是「这个身份有没有权读<b>这一条</b>」的授权判断——典型 IDOR。修法:每次访问对象都校验归属,而不是「登录了就放行」。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">「用 Google 登录」到底用的是 OAuth2 还是 OIDC?token 验签失败应返回 401 还是 403?</span></summary>
+        <div class="ans"><b>OIDC</b>(它在 OAuth2 之上加了身份层,签发 <code class="inl">id_token</code> 告诉你「这人是谁」;裸 OAuth2 只管授权)。验签失败 = 认不出你是谁 = <b>401 Unauthorized</b>;身份没问题但权限不够才是 <b>403 Forbidden</b>。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">为什么把 access_token 设得很短命(几分钟),反而更安全?长命怎么办?</span></summary>
+        <div class="ans"><b>因为 JWT 难即时撤销</b>——签发后在 <code class="inl">exp</code> 前一直有效。短命把「泄露后还能被滥用的窗口」压到最小。用户不会每几分钟重登一次:配一个长命但<b>可撤销</b>的 <code class="inl">refresh_token</code>，在后台静默换发新的短命 access_token；真出事就吊销 refresh_token。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 后台你会先用 RBAC 还是 ABAC?给「pricing 工程师」「broker」「核保员」「审计员」各自划一条最小权限的边界,哪里最容易划过头(给多了)?<br>② 「JWT 无需回查、扩展性好」和「audit 要求每一次敏感访问都留痕、且能即时封停某个被盗身份」——这两个诉求冲突吗?你会怎么设计 token 生命周期 + 撤销机制,既快又可控?</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Authentication (authn)</dt><dd>验证「你是谁」,确认身份的过程。</dd></dl>
+      <dl><dt>Authorization (authz)</dt><dd>已确认身份后,判断「你被允许做什么」。</dd></dl>
+      <dl><dt>OAuth2</dt><dd>授权委托框架:在不交出密码的前提下,授予第三方受限、可撤销的访问权(scopes)。</dd></dl>
+      <dl><dt>OIDC</dt><dd>架在 OAuth2 上的身份层,额外签发 id_token 说明「用户是谁」。</dd></dl>
+      <dl><dt>JWT</dt><dd>自包含、带签名的令牌(header.payload.signature),验签即可识别身份与权限,无需回查。</dd></dl>
+      <dl><dt>RBAC</dt><dd>基于角色的访问控制:权限打包成角色,人挂到角色上。</dd></dl>
+      <dl><dt>ABAC</dt><dd>基于属性的访问控制:用主体/资源/环境的属性 + 规则动态判断。</dd></dl>
+      <dl><dt>Least Privilege</dt><dd>最小权限:只授予完成本职所需的最小权限,默认拒绝,缩小爆炸半径。</dd></dl>
+      <dl><dt>Encryption in transit / at rest</dt><dd>传输中用 TLS、落盘的数据用存储加密,两者都要做。</dd></dl>
+      <dl><dt>Secrets Manager / KMS</dt><dd>集中保管密钥的服务,支持运行时拉取与定期轮换;密钥绝不进代码库。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 26</div>
+      <div class="t">部署与发布:容器与编排、CI/CD 流水线、蓝绿与金丝雀发布、回滚——验过身份、上了线之后,怎么把新版本安全地推给用户而不停机、不翻车</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 25 / 30　·　每天 08:00 自动生成<br>
+    案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

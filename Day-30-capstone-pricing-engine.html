@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 30 · 毕业作业 · 端到端设计 QuoteFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:100.00%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 30 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>收尾 · 应用</span>
+    <h1>毕业作业：把 QuoteFlow<br>从头到尾设计一遍</h1>
+    <p class="lede">这一次没有新概念。我们像在白板前做一道面试题那样，把前 29 天的零件——需求、估算、API、缓存、数据库、队列、复制、可观测、安全——拼成一个能跑、能扛、能审计的系统。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例：QuoteFlow（虚构寿险平台）</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>昨日回顾 · Day 29</div>
+    <ul>
+      <li>昨天给系统装上「会学习的部件」：ML 系统的难点不在模型，而在<strong>特征供给、版本治理、drift 监控</strong>那一圈系统设计问题；并强调在受监管定价里 <strong>reproducibility</strong> 是上线前提。今天是收官——把这一路所有零件（含核保评分模型）<strong>装进一张端到端蓝图</strong>，做一遍 interview-style 的完整设计。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>用 Day 1 的<strong>六步主线</strong>把 QuoteFlow 完整走一遍，像面试白板那样</li>
+      <li>把 30 天的零件<strong>对号入座</strong>：每个组件背后是哪一天学的取舍</li>
+      <li>讲清这套设计里最关键的几处 <strong>trade-off</strong>，并能说出「为什么这样选」</li>
+      <li>守住寿险定价的一等公民需求：<strong>reproducibility / auditability / compliance</strong></li>
+      <li>给一份「之后怎么继续深入」的路线，结束这 30 天</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>第一步 · 需求与范围</div>
+    <h2>先把题目读懂，再动手</h2>
+    <p>面试里最高的失分点，是听到「设计一个寿险报价平台」就开始画框图。正确的开场是<strong>圈定范围 + 列两类需求</strong>（Day 1）。QuoteFlow 的范围我们一路用到现在：公开网站 / App / broker API 三个渠道；新业务侧的<strong>实时报价 → 投保申请 → 自动核保 → 保单签发</strong>；以及 in-force 侧的<strong>夜间批量重定价、billing、再保上报</strong>。</p>
+    <p>关键是把 functional 和 non-functional 分清，因为<strong>难点全在后者</strong>。而且要立刻看出：这个系统其实是<em>两个性质相反的子系统</em>缝在一起——一条要<strong>低延迟</strong>（实时报价），一条要<strong>高吞吐</strong>（夜间批量），它们的设计取向几乎相反，这决定了后面的架构必须把读写、在线离线分开。</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">需求面</th><th>QuoteFlow 的具体条目</th><th>第几天的工具</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Functional</span></td><td>报价、校验、自动核保、签发、in-force 管理、夜间重定价、billing、再保上报</td><td>Day 1 · 5 · 10</td></tr>
+          <tr><td><span class="lab">Latency</span></td><td>实时报价 p99 &lt; 300ms；核保「即时」决策秒级</td><td>Day 2 · 3 · 7</td></tr>
+          <tr><td><span class="lab">Throughput</span></td><td>夜间重算百万级 in-force 保单，跑进维护窗口</td><td>Day 2 · 17</td></tr>
+          <tr><td><span class="lab">Availability</span></td><td>报价渠道 99.9%+；批量可延迟但不可丢</td><td>Day 2 · 12 · 27</td></tr>
+          <tr><td><span class="lab">Consistency</span></td><td>费率表 / 规则 / 模型版本一旦切换，不可新旧混用</td><td>Day 12 · 14</td></tr>
+          <tr><td><span class="lab">Auditability</span></td><td>每条报价 / 核保决定可复现、可解释、可回溯到版本</td><td>Day 1 · 24 · 28 · 29</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 一张表就把「设计要满足什么」钉死了。注意 auditability 在普通系统里是加分项，在受监管寿险定价里是<strong>上线前提</strong>——后面每个组件都要为它让路。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>第二步 · 估算</div>
+    <h2>用数字给设计定调</h2>
+    <p>估算（Day 3）的作用不是精确，而是<strong>判断这是个什么量级的系统</strong>、瓶颈大概在哪。做几个 back-of-envelope：</p>
+    <p>假设报价 <strong>峰值 2,000 QPS</strong>。一次报价要读费率表 + 核保规则 + 跑评分模型——如果每次都打数据库，单库扛不住，且费率表是<em>读多写少</em>的典型，<strong>缓存命中率能到 95%+</strong>（Day 7），于是真正落到 DB 的只剩百来 QPS。这一步估算直接告诉你：<strong>报价路径必须有缓存层</strong>，不是可选项。</p>
+    <p>in-force 侧：假设 <strong>500 万份在内保单</strong>，夜间窗口 4 小时。要全部重算，需要 5,000,000 ÷ (4×3600) ≈ <strong>~350 笔/秒</strong>的持续吞吐——这不是延迟问题，是把活儿切碎、并行、可重试的<strong>批/流处理问题</strong>（Day 17）。数字一摆，「为什么实时和批量要拆开」就不再是教条，而是算出来的。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16M4 12h16M4 19h10"/></svg>估算的用法</div>
+      <ul><li>面试里把这两三个数说出来，比画十个框更能证明你「懂系统」——因为<strong>架构的每一个分叉，都是被某个数字逼出来的</strong>。2000 QPS 逼出缓存，350 笔/秒逼出批处理，百万级数据逼出分片。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>第三步 · 高层架构</div>
+    <h2>一张端到端蓝图</h2>
+    <p>现在把零件摆上桌。读路径（报价）和写路径（核保签发）、在线和离线（夜间批量），在图里就是分开的几条泳道。每个框，都是前 29 天的某一天：</p>
+
+    <figure>
+      <svg viewBox="0 0 720 430" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7fd3ad"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+          <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eafaf2"/><stop offset="1" stop-color="#dff3e9"/></linearGradient>
+        </defs>
+
+        <!-- clients -->
+        <rect x="20" y="20" width="150" height="50" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="95" y="42" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">渠道</text>
+        <text x="95" y="58" font-size="10.5" fill="#6a7872" text-anchor="middle">网站 · App · broker API</text>
+
+        <!-- edge: LB + gateway -->
+        <rect x="215" y="20" width="150" height="50" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="290" y="42" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">LB + API 网关</text>
+        <text x="290" y="58" font-size="10.5" fill="#6a7872" text-anchor="middle">限流 · authn · 路由</text>
+
+        <!-- quote service -->
+        <rect x="410" y="20" width="140" height="50" rx="11" fill="url(#g2)" stroke="#bfe6d2"/>
+        <circle cx="438" cy="45" r="13" fill="#15a06a"/><text x="438" y="50" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">报</text>
+        <text x="490" y="41" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">报价服务</text>
+        <text x="490" y="57" font-size="10" fill="#6a7872" text-anchor="middle">无状态 · 横向扩展</text>
+
+        <!-- cache -->
+        <rect x="410" y="98" width="140" height="48" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="480" y="120" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">Redis 缓存</text>
+        <text x="480" y="135" font-size="10" fill="#6a7872" text-anchor="middle">费率表 · 规则（读多写少）</text>
+
+        <!-- scoring model -->
+        <rect x="575" y="20" width="125" height="50" rx="11" fill="url(#g2)" stroke="#bfe6d2"/>
+        <text x="637" y="41" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">核保评分</text>
+        <text x="637" y="57" font-size="10" fill="#6a7872" text-anchor="middle">model registry</text>
+
+        <!-- primary DB -->
+        <rect x="215" y="170" width="160" height="62" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="295" y="193" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">主数据库（OLTP）</text>
+        <text x="295" y="210" font-size="10" fill="#6a7872" text-anchor="middle">保单 · 报价 · 版本化费率表</text>
+        <text x="295" y="224" font-size="10" fill="#6a7872" text-anchor="middle">leader + follower 复制</text>
+
+        <!-- audit log -->
+        <rect x="410" y="170" width="140" height="62" rx="11" fill="url(#g2)" stroke="#bfe6d2"/>
+        <text x="480" y="193" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">Audit Log</text>
+        <text x="480" y="210" font-size="10" fill="#6a7872" text-anchor="middle">append-only · 不可变</text>
+        <text x="480" y="224" font-size="10" fill="#6a7872" text-anchor="middle">每条决定留痕</text>
+
+        <!-- message queue -->
+        <rect x="20" y="170" width="160" height="62" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="100" y="193" font-size="12.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">消息队列 / 日志</text>
+        <text x="100" y="210" font-size="10" fill="#6a7872" text-anchor="middle">投保 · 签发 · 再保事件</text>
+        <text x="100" y="224" font-size="10" fill="#6a7872" text-anchor="middle">解耦 · 削峰 · 重试</text>
+
+        <!-- batch lane -->
+        <text x="20" y="290" font-size="11" font-weight="700" fill="#0d8a5a" letter-spacing="1">夜间批量 · 离线高吞吐</text>
+        <rect x="20" y="300" width="200" height="56" rx="11" fill="url(#g2)" stroke="#bfe6d2"/>
+        <text x="120" y="324" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">批/流处理引擎</text>
+        <text x="120" y="340" font-size="10" fill="#6a7872" text-anchor="middle">重定价 · CPI · 假设变更</text>
+
+        <rect x="255" y="300" width="180" height="56" rx="11" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="345" y="324" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">下游</text>
+        <text x="345" y="340" font-size="10" fill="#6a7872" text-anchor="middle">再保上报 · reserving · 分析</text>
+
+        <!-- observability spanning -->
+        <rect x="470" y="300" width="230" height="56" rx="11" fill="url(#g2)" stroke="#bfe6d2"/>
+        <text x="585" y="324" font-size="12" font-weight="600" fill="#0f3d2e" text-anchor="middle">可观测性 · 横切</text>
+        <text x="585" y="340" font-size="10" fill="#6a7872" text-anchor="middle">日志 · 指标 · trace · SLO 告警</text>
+
+        <!-- arrows online -->
+        <path d="M170 45 L211 45" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M365 45 L406 45" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M550 45 L571 45" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M480 70 L480 96" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M438 70 L360 168" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M455 146 L482 168" stroke="#7fd3ad" stroke-width="1.6" stroke-dasharray="4 4" fill="none" marker-end="url(#ah2)"/>
+
+        <!-- write path to queue -->
+        <path d="M410 60 C200 70 110 120 100 168" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M100 232 L100 296" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M220 328 L251 328" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M295 232 L130 300" stroke="#93a89c" stroke-width="1.6" stroke-dasharray="4 4" fill="none" marker-end="url(#ah)"/>
+      </svg>
+      <figcaption>图 1 · QuoteFlow 端到端蓝图。上半=在线读路径（低延迟报价），左下=异步写路径（投保/签发事件），下排=夜间批量（高吞吐）+ 横切的 audit 与可观测性</figcaption>
+    </figure>
+    <p>读这张图的正确方式不是「记住框」，而是<strong>顺着一笔请求走</strong>：报价从渠道进来 → 网关限流鉴权 → 报价服务命中 Redis 拿到费率表/规则 → 调评分模型 → 返回，并把这条报价（含版本号）写进 audit log。投保这种<em>写动作</em>则不走同步阻塞，而是丢进队列异步处理。夜间批量完全是另一条泳道，跟在线互不抢资源。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>第四步 · 关键取舍</div>
+    <h2>每个分叉，背后是哪一天的取舍</h2>
+    <p>架构图只是「摆零件」，真正的功力在于能说清<strong>为什么这样选、代价是什么</strong>（Day 28 的 ADR 思维）。挑四处最关键的：</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:24%">设计决定</th><th>选了什么 + 为什么</th><th>代价 / 来自</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">读写分离</span></td><td>报价走缓存 + follower 读；签发走队列异步写。一条优化延迟，一条优化吞吐与解耦</td><td>读到的可能是 follower 的<strong>稍旧数据</strong>（Day 12 复制延迟）</td></tr>
+          <tr><td><span class="lab">费率表版本钉死</span></td><td>请求里带 <code class="inl">rate_table_version</code>，缓存按版本 key。换版本=换 key，天然一致、可复现</td><td>要管版本生命周期、灰度与回滚（Day 7 · 28）</td></tr>
+          <tr><td><span class="lab">核保异步化</span></td><td>投保 → 事件入队 → 核保 worker 消费。削峰、可重试、可补偿</td><td>从同步「秒回」变最终一致；需<strong>幂等 + 死信队列</strong>（Day 15 · 18）</td></tr>
+          <tr><td><span class="lab">audit log 独立且不可变</span></td><td>append-only，与业务库分离。任何决定都先留痕再生效</td><td>多一份写、多一份存储；但<strong>合规不可妥协</strong>（Day 1 · 24）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 面试官真正想听的就是右边这一列。能主动说出「我选 A，代价是 B，因为在这个场景 B 可接受」，比任何漂亮架构图都值钱。</p>
+
+    <p>下面把这套设计的灵魂——<strong>把版本与可审计焊进每一笔写入</strong>——落成伪代码。这是寿险定价区别于普通 CRUD 系统的地方：</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">quote_and_log.py  ·  报价路径核心（示意）</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">handle_quote</span>(req):
+    <span class="c-com"># 1) 钉死版本 —— consistency + reproducibility 的起点</span>
+    ver = req.rate_table_version <span class="c-key">or</span> registry.current_version()
+
+    <span class="c-com"># 2) 读多写少 → 缓存优先（命中率 95%+，Day 7）</span>
+    rates = cache.get(<span class="c-str">f"rates:{ver}"</span>) <span class="c-key">or</span> db.load_rates(ver)
+    rules = cache.get(<span class="c-str">f"rules:{ver}"</span>) <span class="c-key">or</span> db.load_rules(ver)
+
+    <span class="c-com"># 3) 纯函数式定价：同输入 + 同版本 → 同输出（可复现）</span>
+    premium, applied = price(req.applicant, rates, rules)
+    risk = scoring_model.score(req.applicant)      <span class="c-com"># 模型也带版本</span>
+
+    <span class="c-com"># 4) 先留痕，再返回 —— audit 是一等公民，不是事后补</span>
+    audit.append({
+        <span class="c-str">"quote_id"</span>: new_id(), <span class="c-str">"premium"</span>: premium,
+        <span class="c-str">"rate_table_version"</span>: ver,
+        <span class="c-str">"model_version"</span>: scoring_model.version,
+        <span class="c-str">"rules_applied"</span>: applied,
+        <span class="c-str">"computed_at"</span>: now(),
+    })
+    <span class="c-key">return</span> { <span class="c-str">"premium"</span>: premium, <span class="c-str">"risk"</span>: risk, <span class="c-str">"version"</span>: ver }</code></pre>
+    </div>
+    <p>注意这段代码里，<strong>每一个 non-functional 需求都对应一两行</strong>：版本钉死（一致性 + 可复现）、缓存优先（延迟）、纯函数定价（可复现）、先 append 再返回（可审计）。这就是 Day 1 说的「从契约层就为质量属性留位置」走到了实现层。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>第五步 · 抗住故障</div>
+    <h2>找瓶颈、加冗余、想清楚怎么挂</h2>
+    <p>设计的最后一步（Day 1 第六步）是<strong>主动找系统会怎么坏</strong>，并让它坏得优雅。把前面学的韧性零件套上去：</p>
+    <p>报价服务<strong>无状态</strong>，所以可以横向多副本 + 跨可用区部署（Day 6 · 12），挂几台不影响。评分模型或费率服务变慢时，报价路径要有<strong>熔断 + 降级</strong>（Day 20）——比如退回到上一版安全费率或返回「稍后重试」，而不是把线程全卡死引发雪崩。网关层做<strong>限流</strong>，挡住 broker 端突发洪峰，保护后端。</p>
+    <p>数据层用 <strong>leader-follower 复制</strong>保可用与读扩展，接受复制延迟这个代价；真要强一致的地方（比如保单签发、扣费）走主库 + 事务（Day 14）。跨服务的多步流程（投保 → 核保 → 签发 → 扣费）用 <strong>saga</strong> 做最终一致 + 补偿，而不是一个分布式大事务。所有这些，最后都靠<strong>可观测性</strong>兜底：SLI/SLO + 告警（Day 24）让你在用户投诉前就发现 p99 在涨。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>受监管定价的收尾提醒</div>
+      <ul><li>韧性设计里有个寿险特有的约束：<strong>降级也要可审计</strong>。如果报价时模型挂了、用了 fallback 费率，这件事必须照样写进 audit log——否则事后无法解释「为什么这条报价跟正常情况不一样」。在受监管系统里，<em>连「出过故障」本身都要留痕</em>。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>30 天浓缩成四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p><strong>需求 → 估算 → 接口 → 架构 → 深入 → 找瓶颈</strong>，这条六步主线能套任何系统。先想清「做什么 + 多好」，再画图。</p></div>
+      <div class="tk"><span class="n">2</span><p>架构的每个分叉，都是被<strong>某个数字或某条 NFR 逼出来的</strong>。2000 QPS 逼出缓存，百万保单逼出批处理与分片。</p></div>
+      <div class="tk"><span class="n">3</span><p>没有最优解，只有<strong>取舍</strong>。会做设计 = 能说出「选了什么、代价是什么、为什么这个场景能接受」。</p></div>
+      <div class="tk"><span class="n">4</span><p>在受监管定价里，<strong>auditability / reproducibility / compliance</strong> 从契约层贯穿到故障降级，是一等公民而非补丁。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>毕业自测 + 收官思考</div>
+    <h2>检验一下这 30 天</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">为什么 QuoteFlow 的实时报价和夜间批量重定价要拆成两条独立路径？</span></summary>
+        <div class="ans"><b>因为它们优化的 NFR 相反。</b>报价要<b>低延迟</b>（p99&lt;300ms、读多、要缓存），批量要<b>高吞吐</b>（百万级、可切碎并行重试、可延迟）。塞进同一套设计会两头不讨好，还会互相抢资源。这是 Day 2 + Day 17 的核心判断。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">请求里带 <code class="inl">rate_table_version</code> 同时解决了哪两个 non-functional 需求？</span></summary>
+        <div class="ans"><b>consistency 和 auditability/reproducibility。</b>钉死版本意味着费率表更新不会让进行中的请求新旧混用（一致性），也意味着任何一条历史报价都能用同一版本+同输入精确复现（可审计/可复现）。顺带还让缓存可以安全地按版本做 key。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">把核保从同步改成「事件入队 + worker 消费」，得到什么、又必须额外做什么？</span></summary>
+        <div class="ans"><b>得到</b>：削峰、解耦、可重试、对突发流量更稳。<b>代价/必须做</b>：从同步秒回变成最终一致（要管理用户体验）；消费端必须<b>幂等</b>（同一事件重投不能重复签发），并配<b>死信队列</b>兜住反复失败的消息。Day 15 + Day 18。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>收官，带回来一起复盘</div>
+        <p>① 回看这张端到端蓝图，你觉得 QuoteFlow <strong>最先会撑不住</strong>的是哪个组件？给它一条具体的扩展/加固方案（用上这 30 天的某个零件）。<br>② 如果只能给这套设计加<strong>一项</strong>还没画进去的能力（比如多区域容灾、blue-green 发布、特征平台……），你会加哪个，为什么它对寿险定价最值？</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>End-to-end Design</dt><dd>把需求、接口、存储、扩展、韧性等各层零件拼成一个完整可运行系统的设计过程。</dd></dl>
+      <dl><dt>Read/Write Split</dt><dd>把读路径（缓存+follower）与写路径（主库/队列）分开优化，各自满足不同 NFR。</dd></dl>
+      <dl><dt>Hot Path</dt><dd>延迟最敏感、流量最大的关键路径（这里是实时报价），优先为它做缓存与降级。</dd></dl>
+      <dl><dt>Version Pinning</dt><dd>把费率表/规则/模型版本钉死在请求里，保证一致性与可复现。</dd></dl>
+      <dl><dt>Saga</dt><dd>用一串本地事务 + 补偿动作替代分布式大事务，实现跨服务流程的最终一致。</dd></dl>
+      <dl><dt>Graceful Degradation</dt><dd>依赖故障时退回到受限但可用的行为（如 fallback 费率），而非整体崩溃。</dd></dl>
+      <dl><dt>Append-only Audit Log</dt><dd>只追加、不可改的决策留痕，支撑 traceability 与 compliance。</dd></dl>
+      <dl><dt>Capstone</dt><dd>综合作业：把所学整合进一道完整的 interview-style 系统设计题。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">✓</span>
+    <div>
+      <div class="l">系列完成 · 30 / 30</div>
+      <div class="t">之后怎么继续深入：① 自己挑一个系统（短链 / 订单 / feed / 限流器）从空白白板做一遍，逼自己说取舍；② 精读一两篇真实系统的工程博客，对照你学的零件；③ 把 QuoteFlow 的某一块（如夜间批量、audit 子系统）真的写出可跑原型，让概念落到代码。坚持「需求 → 取舍 → 留痕」的纪律，这门手艺会越用越稳。</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 30 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例：QuoteFlow（虚构的寿险报价 + 保单管理平台，纯属虚构）　·　🎉 系列完结
+  </footer>
+
+</div>
+</body>
+</html>

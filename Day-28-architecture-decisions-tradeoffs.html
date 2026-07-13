@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 28 · 架构决策与取舍：ADR、权衡与成本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:93.33%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 28 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>第 4 周 · 架构与运维</span>
+    <h1>没有最优解，只有取舍<br>—— 把这件事正式工具化</h1>
+    <p class="lede">这 27 天每一篇都在重复同一句话：「没有银弹，只有约束下的 trade-off」。今天我们把它从一句口头禅，变成一套可执行的纪律——怎么<strong>结构化地权衡</strong>、怎么把<strong>成本</strong>摆上台面、以及怎么用 <strong>ADR</strong> 把每个决策连同「为什么没选别的」一起写下来、留给未来。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例：QuoteFlow(虚构寿险平台)</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l-4 4 4 4M5 15h11a4 4 0 004-4V5"/></svg>昨日回顾 · Day 27</div>
+    <ul>
+      <li>昨天讲<strong>可靠性工程</strong>：把「组件必然会坏」当设计前提——先用<strong>冗余</strong>消灭 SPOF、用<strong>护栏</strong>打断级联，再用 <strong>RTO/RPO</strong> 两把尺子分档做灾备，最后用<strong>混沌工程</strong>验证它们真的有效。那是一组「怎么把坏设计成可承受」的<em>具体技术</em>。但你注意到没有——「报价路径值得多 AZ 双活、内部分析库 active-passive 就够」这种判断，本身就是一次<strong>取舍</strong>：它在拿可用性换钱。今天我们后退一步，不再学某一个具体技术，而是学<strong>「怎么做、并记录这类判断」的元技能</strong>——把贯穿全程的取舍思维正式工具化。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>理解为什么<strong>「架构决策」本身需要被当成一等产物</strong>来管理，而不是散落在脑子里和聊天记录里</li>
+      <li>掌握 <strong>ADR(Architecture Decision Record)</strong> 的结构、写法，以及它最值钱的一节：「<strong>被否决的选项</strong>」</li>
+      <li>学会一套<strong>结构化权衡</strong>的方法：列选项 → 定评价维度(就是 non-functional) → 对照 → 记录</li>
+      <li>把 <strong>成本(cost)</strong> 当成第一类 NFR：TCO、build vs buy、以及「可逆 vs 不可逆」决策的不同打法</li>
+      <li>回顾全程，把反复出现的几组经典取舍收成一张 <strong>cheat sheet</strong></li>
+      <li>给 QuoteFlow 的一个真实分歧，<strong>从头写一份 ADR</strong></li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>为什么决策要被记录</div>
+    <h2>架构会留下来，但「为什么」会蒸发</h2>
+    <p>系统会活很多年，但做决策的人会换、会忘。两年后某个工程师盯着代码里一处别扭的设计，问出那句最危险的话：<em>「这玩意儿为什么要这样？看着没必要，删了吧。」</em>——他不知道，当年这么做是为了满足一条监管要求 / 绕开一个第三方的坑 / 在那个流量量级下的合理取舍。这就是软件工程里著名的 <strong>切斯特顿的篱笆(Chesterton's Fence)</strong>：在你弄清一道篱笆<em>为什么</em>立在那儿之前，别拆它。</p>
+    <p>关键认知是：<strong>架构里真正会蒸发的不是「我们选了什么」，而是「为什么这么选、当时否决了哪些、基于什么假设」。</strong>代码本身记录了结果，却记录不了<em>权衡的过程</em>。一旦那个 context 丢了，后人要么盲目沿用一个早已过时的决策，要么鲁莽推翻一个其实仍然成立的决策——两种都很贵。</p>
+    <p>解药出奇地朴素：<strong>把每个重要决策，在做出的当下，写成一份短文档</strong>。这就是 ADR(Architecture Decision Record)。它不是繁文缛节的「架构大文档」——那种文档没人维护、写完就烂；ADR 是<strong>轻量、一决策一篇、只增不改(immutable)</strong>的小记录，像 git commit 一样按时间累积成一条「决策历史」。对 Matt 这种受监管的定价系统，它还有第二重身份：<strong>决策的审计轨迹</strong>——监管或内审问「你们当初为什么选这套定价架构、评估过哪些替代方案、谁批的」，ADR 就是现成的答案。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>ADR 的解剖</div>
+    <h2>一份 ADR 长什么样</h2>
+    <p>ADR 的格式有很多流派(最有名的是 Michael Nygard 的版本)，但骨架都一样。核心就五段，刻意保持短——一篇一页以内，写不动说明决策还没想清楚：</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%">小节</th><th>回答什么</th><th>写作要点</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">Title + Status</span></td><td>这是关于什么的决策？现在处于什么状态</td><td>标题用一句话；状态在 <code class="inl">Proposed → Accepted → Deprecated → Superseded by ADR-N</code> 之间流转</td></tr>
+          <tr><td><span class="lab">Context<br><span style="font-weight:400;color:var(--muted);font-size:13px">背景</span></span></td><td>我们面对什么问题？有哪些<strong>约束和力</strong>(forces)在拉扯</td><td>最重要的一节。写清需求、NFR、团队/预算/时限/合规等约束——这是未来理解决策的钥匙</td></tr>
+          <tr><td><span class="lab">Decision<br><span style="font-weight:400;color:var(--muted);font-size:13px">决策</span></span></td><td>我们<strong>决定怎么做</strong></td><td>用主动语气、肯定句：「我们将采用 X」。一句话能说清最好</td></tr>
+          <tr><td><span class="lab">Alternatives<br><span style="font-weight:400;color:var(--muted);font-size:13px">被否决的选项</span></span></td><td>还考虑过什么？<strong>为什么没选</strong></td><td>★ 最值钱的一节。把否决理由钉死，未来才不会反复重提同一个废案</td></tr>
+          <tr><td><span class="lab">Consequences<br><span style="font-weight:400;color:var(--muted);font-size:13px">后果</span></span></td><td>这么选，<strong>得到什么、付出什么</strong></td><td>诚实写出负面后果(新增的运维负担、技术债)，不只写好处</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 注意 ADR 同时记录了「正面」和「负面」后果。一份只写好处的 ADR 是营销文案，不是决策记录——它的诚实度，恰恰是它日后可信的来源。</p>
+
+    <h3>两条容易被忽略的纪律</h3>
+    <p>第一，<strong>ADR 是不可变的(immutable)</strong>。决策变了，不要去改老 ADR，而是写一篇<em>新的</em>，把老的状态标成 <code class="inl">Superseded by ADR-0042</code>。这样你保留的是一条<strong>决策演化史</strong>，而不是一份被反复覆盖、丢失了过去的文档——和 Day 16/18 反复强调的「<em>用不可变的事件日志而非可变状态</em>」是同一个思想，只不过这次记录的是<em>人的决策</em>。第二，<strong>在决策做出的当下写</strong>，趁 context 还热乎；事后补写的 ADR 往往把当时真实的犹豫和约束粉饰掉了，价值大打折扣。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>结构化权衡</div>
+    <h2>怎么把「我觉得」变成「我们比过」</h2>
+    <p>ADR 是<strong>记录</strong>决策的容器；但决策本身怎么<strong>做</strong>得不拍脑袋？方法其实你这 28 天一直在用，今天把它显式化成四步。核心洞察是：<em>评价架构选项的那些「维度」，恰恰就是 Day 1–2 讲的 non-functional requirements</em>。权衡，本质就是「不同选项在各条 NFR 上各有高下，按当前最重要的 NFR 来选」。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 250" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+        </defs>
+        <rect x="20" y="92" width="150" height="64" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="48" cy="124" r="15" fill="#15a06a"/><text x="48" y="129" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+        <text x="70" y="119" font-size="13.5" font-weight="600" fill="#0f3d2e">列出选项</text>
+        <text x="70" y="138" font-size="11.5" fill="#6a7872">含「什么都不做」</text>
+        <rect x="196" y="92" width="150" height="64" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="224" cy="124" r="15" fill="#15a06a"/><text x="224" y="129" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+        <text x="246" y="119" font-size="13.5" font-weight="600" fill="#0f3d2e">定评价维度</text>
+        <text x="246" y="138" font-size="11.5" fill="#6a7872">= 关键 NFR + 成本</text>
+        <rect x="372" y="92" width="150" height="64" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="400" cy="124" r="15" fill="#15a06a"/><text x="400" y="129" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+        <text x="422" y="119" font-size="13.5" font-weight="600" fill="#0f3d2e">对照打分</text>
+        <text x="422" y="138" font-size="11.5" fill="#6a7872">谁在哪条更强</text>
+        <rect x="548" y="92" width="152" height="64" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <circle cx="576" cy="124" r="15" fill="#15a06a"/><text x="576" y="129" font-size="14" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+        <text x="598" y="119" font-size="13.5" font-weight="600" fill="#0f3d2e">选 + 记录</text>
+        <text x="598" y="138" font-size="11.5" fill="#6a7872">写成 ADR</text>
+        <path d="M170 124 L192 124" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <path d="M346 124 L368 124" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <path d="M522 124 L544 124" stroke="#93a89c" stroke-width="2" marker-end="url(#ah)"/>
+        <text x="360" y="40" font-size="14" font-weight="700" fill="#0f3d2e" text-anchor="middle">把直觉变成可复核的过程</text>
+        <text x="360" y="62" font-size="12" fill="#6a7872" text-anchor="middle">「评价维度」就是这 28 天反复出现的 non-functional requirements</text>
+        <path d="M620 160 C620 200 360 205 240 190 C150 178 110 170 96 158" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#ah)"/>
+        <text x="360" y="225" font-size="11.5" fill="#3d9c74" text-anchor="middle" font-style="italic">假设被推翻 / 量级变化 → 回头重评，写新 ADR supersede 旧的</text>
+      </svg>
+      <figcaption>图 1 · 结构化权衡四步。它不保证「选对」，但保证选择是<strong>可解释、可复核、可被未来重审</strong>的——这恰恰是审计想要的</figcaption>
+    </figure>
+
+    <p>几个让这套方法不流于形式的要点。<strong>① 永远把「什么都不做 / 维持现状」列为一个选项</strong>——很多时候它就是最优解，引入新组件的复杂度往往被低估。<strong>② 维度要带权重</strong>：QuoteFlow 的实时报价路径里 latency 和 auditability 权重极高，而一个内部工具里开发速度可能压过一切——没有放之四海的打分。<strong>③ 警惕假精确</strong>：给每个选项打 1–5 分加权求和看着科学，但分数是你拍的，很容易反向编造来「证明」早有的偏好。打分表是<em>组织讨论的脚手架</em>，不是替你做决定的机器；真正的产物是「为什么」，不是那个总分。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>成本是第一类需求</div>
+    <h2>把钱和「可逆性」摆上台面</h2>
+    <p>工程师做权衡时最常漏掉的维度就是<strong>成本</strong>——既包括钱，也包括复杂度和时间。一个技术上更优雅的方案，如果贵三倍、或让团队要养一套谁都不熟的新系统，它在<em>整体</em>上可能是更差的决策。成熟的架构判断，是把成本当成和 latency、availability 平起平坐的一条 NFR。</p>
+    <p>看成本要看 <strong>TCO(Total Cost of Ownership，总拥有成本)</strong>，而不是只看眼前的开发或采购价。TCO 包含：建设成本(人月)、运行成本(算力/存储/带宽/license)、<strong>运维与人力成本</strong>(谁来 on-call、谁来打补丁——这块常被严重低估)、以及<strong>认知成本 / 复杂度税</strong>(团队为理解和维护它持续付出的脑力)。这把尺子直接喂进经典的 <strong>build vs buy(自建 vs 采购)</strong> 决策：自建掌控力强、无 license 费，但全部 TCO 压在自己团队；采购/用托管服务起步快、运维外包，但有持续订阅费和供应商锁定(vendor lock-in)。</p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>一刀切开所有决策：可逆 vs 不可逆</div>
+      <ul><li>Amazon 有个极好用的分类：<strong>双向门(two-way door)</strong>是可逆决策——选错了能低成本退回来(比如选哪个缓存库、用哪种序列化格式)；<strong>单向门(one-way door)</strong>是几乎不可逆的(比如核心数据模型、对外 API 契约、是否把单体拆成微服务)。<strong>两者该花的决策力气完全不同</strong>：双向门别过度分析，快选、错了再改；单向门才值得动用完整的权衡 + ADR + 评审。把精力按「门的方向」分配，是资深和新手的一个分水岭。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>取舍速查表</div>
+    <h2>这 28 天的经典取舍，收成一张表</h2>
+    <p>架构权衡虽因系统而异，但底层反复出现的就那么几组对立。把它们记成「<em>多了 A 通常意味着少了 B</em>」的句式，面试和真实设计里都能瞬间调用：</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:30%">这一组在拉扯</th><th>核心张力(多一边 → 少另一边)</th><th>出自</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">一致性 vs 可用性</span></td><td>网络分区下只能要一个(CAP)；强一致更安全，最终一致更可用更快</td><td>Day 12</td></tr>
+          <tr><td><span class="lab">延迟 vs 一致性</span></td><td>同步复制保数据不丢但写更慢；异步快但有丢窗口(PACELC)</td><td>Day 12 · 27</td></tr>
+          <tr><td><span class="lab">延迟 vs 吞吐</span></td><td>批处理攒一批吞吐高但单条慢；实时单条快但吞吐低</td><td>Day 3 · 17</td></tr>
+          <tr><td><span class="lab">读快 vs 写快</span></td><td>加索引/反范式/缓存让读飞起，代价是写更慢、要维护一致性</td><td>Day 7 · 9 · 10</td></tr>
+          <tr><td><span class="lab">耦合 vs 简单</span></td><td>微服务解耦、可独立扩展，代价是分布式复杂度暴涨</td><td>Day 22 · 23</td></tr>
+          <tr><td><span class="lab">可用性 vs 成本</span></td><td>每多一个 9 成本陡增；冗余/多 AZ 是拿钱买保险</td><td>Day 2 · 27</td></tr>
+          <tr><td><span class="lab">自建 vs 采购</span></td><td>自建掌控力强无 license；采购起步快但有订阅费 + 锁定</td><td>今天</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 没有哪一行有「正确答案」——每一行的取舍点都由<strong>当前系统最重要的那条 NFR</strong> 决定。这正是为什么 Day 1 说「先问做多好，再画图」：NFR 的优先级，就是所有取舍的指南针。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">6</span>贯穿案例</div>
+    <h2>给 QuoteFlow 写一份真实 ADR</h2>
+    <p>来个具体分歧。QuoteFlow 要做夜间批量重定价(周年、CPI indexation、费率表变更，百万级保单)。团队吵起来：是<strong>复用现有的同步报价服务</strong>循环调用，还是<strong>引入一套独立的异步批处理管道</strong>(Day 15–17 那套：队列 + worker + 事件日志)？把第 3 节的四步走一遍，再落成 ADR。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow · 决策过程</span>
+      <h3 style="margin-top:0">① 选项</h3>
+      <p>A：维持现状，用实时报价服务循环跑批；B：搭独立异步批处理管道；C：买一个托管的工作流编排服务(SaaS)来调度。</p>
+      <h3>② 评价维度(= 关键 NFR + 成本)</h3>
+      <p>吞吐(能否在维护窗口内跑完百万级)、对实时报价的隔离性(批量不能拖垮线上 p99)、<strong>可复现 / 可审计</strong>(每条重定价要能回放、对监管解释)、TCO、团队熟悉度。</p>
+      <h3>③ 对照</h3>
+      <p>A 复用方便、TCO 最低，但<em>吞吐撑不住、且会和实时流量抢资源</em>——隔离性差，触犯了报价路径的高优先级 NFR。C 起步最快，但批处理里嵌着<strong>受监管的定价逻辑</strong>，丢进第三方 SaaS 带来数据驻留与<strong>vendor lock-in</strong> 风险，审计链也更难掌控。B 吞吐与隔离最好、事件日志天然满足可回放/审计，代价是引入新组件、TCO 与认知成本上升。</p>
+      <h3>④ 决策</h3>
+      <p>选 <strong>B</strong>。批量与实时是两条性质不同的路径(Day 1 就埋的伏笔)，强行合并两头不讨好；可审计 + 隔离性的高权重压过了 B 多出来的复杂度成本。这是一道<strong>单向门</strong>(数据管道一旦铺开很难回退)，值得完整权衡 + ADR。</p>
+    </div>
+
+    <p>下面把这次决策<strong>定格成一份 ADR</strong>。留意它怎么把上面的过程压成五段、尤其是「被否决的选项」如何把 A 和 C 的否决理由钉死，省得半年后有人又提一遍：</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">docs/adr/0042-batch-repricing-pipeline.md  ·  QuoteFlow ADR(示意)</span></div>
+<pre><code><span class="c-com"># ADR-0042: 夜间批量重定价采用独立异步管道</span>
+<span class="c-key">Status</span>:  <span class="c-str">Accepted</span>  <span class="c-com">(2026-06-28, 决策人: 架构组; 评审: 定价 + 合规)</span>
+
+<span class="c-key">## Context</span>
+<span class="c-com"># 把约束和「力」写清——这是未来读懂决策的钥匙</span>
+- 需求: 每夜对 ~1.2M in-force 保单做重定价(周年/CPI/费率表变更)
+- NFR: 维护窗口内跑完(throughput); 不得拖垮实时报价 p99(隔离);
+        每条结果<span class="c-key">可回放、可审计</span>(监管一等需求)
+- 约束: 团队已用过 Kafka/worker; 合规要求定价逻辑数据留在本区域
+
+<span class="c-key">## Decision</span>
+我们将<span class="c-key">为批量重定价构建独立的异步管道</span>:
+事件日志(Day 16) + 幂等 worker(Day 18) + 跨 AZ 持久化,
+与实时报价服务<span class="c-key">物理隔离</span>、各自独立扩展。
+
+<span class="c-key">## Alternatives considered</span>  <span class="c-com"># ★ 最值钱的一节</span>
+- <span class="c-str">A. 复用实时报价服务循环跑</span> → 否决:
+    吞吐撑不住百万级; 且与线上流量抢资源, 违反隔离性 NFR
+- <span class="c-str">C. 采购托管工作流 SaaS</span> → 否决:
+    受监管定价逻辑入第三方 = 数据驻留风险 + vendor lock-in,
+    审计链更难掌控; TCO 的订阅费长期未必更省
+
+<span class="c-key">## Consequences</span>
+<span class="c-num">+</span> 吞吐与隔离达标; 事件日志天然支持回放/审计(合规加分)
+<span class="c-num">+</span> 批量与实时可独立演进、独立扩缩
+<span class="c-num">-</span> 引入新组件 → 运维 + 认知成本上升(需培训/on-call)
+<span class="c-num">-</span> 这是<span class="c-key">单向门</span>: 管道铺开后回退代价高 → 已据此提高评审规格
+</code></pre>
+    </div>
+    <p>看这份 ADR 的密度：它没有长篇大论，却把<strong>约束(Context)、决定(Decision)、为什么不选别的(Alternatives)、和诚实的代价(Consequences)</strong>全锁住了。对受监管的 QuoteFlow，这份文档同时是<em>工程记忆</em>和<em>合规证据</em>——两年后无论是新同事问「为什么不直接复用报价服务」，还是监管问「这套定价架构怎么决策的、评估过哪些方案」，答案都在这一页里，<strong>可追溯、可解释</strong>。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>架构里会蒸发的不是「选了什么」，而是<strong>「为什么这么选」</strong>。用 <strong>ADR</strong> 在决策当下把它写下来——尤其是<strong>被否决的选项</strong>。</p></div>
+      <div class="tk"><span class="n">2</span><p>权衡 = 列选项(含「不做」)→ 按<strong>关键 NFR</strong> 定维度 → 对照 → 记录。评价维度就是这 28 天的 non-functional requirements。</p></div>
+      <div class="tk"><span class="n">3</span><p>把<strong>成本(TCO)</strong>当第一类 NFR。并先分清<strong>可逆(双向门)还是不可逆(单向门)</strong>——决策力气按门的方向分配。</p></div>
+      <div class="tk"><span class="n">4</span><p>没有最优解，只有<strong>当前最重要的 NFR 指向的取舍</strong>。在 QuoteFlow，ADR 同时是工程记忆与<strong>合规审计证据</strong>。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">ADR 五节里，哪一节最常被省略、却往往最值钱？为什么？</span></summary>
+        <div class="ans"><b>「被否决的选项(Alternatives)」</b>。它把「为什么没选别的」钉死，避免未来有人反复重提一个早就评估过的废案，也让决策的权衡过程对后人(和审计)透明。只写最终决定的 ADR，丢掉了最难重建的那部分 context。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">「选用哪个 JSON 序列化库」和「核心保单数据模型怎么设计」——决策力气该一样吗？</span></summary>
+        <div class="ans"><b>不一样。</b>前者是<b>双向门(可逆)</b>，选错低成本就能换，别过度分析、快选即可；后者是<b>单向门(几乎不可逆)</b>，改动牵一发动全身，值得动用完整的结构化权衡 + ADR + 评审。把精力按「门的方向」分配。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">一个方案技术上更优雅，但要团队养一套全新系统。为什么它可能仍是更差的决策？</span></summary>
+        <div class="ans">因为只算了技术优雅，没算 <b>TCO(总拥有成本)</b>——尤其是<b>运维/人力成本</b>和<b>认知/复杂度税</b>。成本(钱 + 时间 + 复杂度)是和 latency、availability 平级的一条 NFR；整体最优 ≠ 单看某一维度最优。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q4</span><span class="tw">决策变了，应该直接改掉那份旧 ADR 吗？</span></summary>
+        <div class="ans"><b>不应该。</b>ADR 是<b>不可变(immutable)</b>的：写一篇<i>新</i> ADR，把旧的状态标成 <code>Superseded by ADR-N</code>。这样保留的是一条决策演化史，而不是一份丢失过去的可变文档——和「用不可变事件日志而非可变状态」是同一个思想。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① 第 5 节那张取舍速查表里，挑出你觉得对 QuoteFlow <strong>最关键的一两组</strong>取舍——为什么是它们？它们的取舍点会被哪条 NFR 推到哪一边？<br>② 第 3 节提到「给选项加权打分」有<em>假精确</em>的风险(分数是人拍的、容易反向编造来证明既有偏好)。如果让你设计 QuoteFlow 的架构决策流程，你会怎么用打分表的<strong>好处</strong>(组织讨论)、又避开它的<strong>坑</strong>？</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>ADR</dt><dd>Architecture Decision Record，架构决策记录：一决策一篇、不可变的轻量文档，记录背景/决定/替代方案/后果。</dd></dl>
+      <dl><dt>Trade-off</dt><dd>取舍：在相互冲突的目标(常是不同 NFR)之间做出的有依据的权衡，没有放之四海的「最优」。</dd></dl>
+      <dl><dt>Context (in ADR)</dt><dd>ADR 里写清问题、约束与各种拉扯的「力」(forces)的一节——未来理解决策的钥匙。</dd></dl>
+      <dl><dt>Consequences</dt><dd>决策带来的正面与负面后果；诚实写出代价(技术债、运维负担)才是有用的 ADR。</dd></dl>
+      <dl><dt>TCO</dt><dd>Total Cost of Ownership，总拥有成本：建设 + 运行 + 运维人力 + 认知复杂度的全周期成本，而非眼前价。</dd></dl>
+      <dl><dt>Build vs Buy</dt><dd>自建 vs 采购：自建掌控力强无 license，采购起步快但有订阅费与供应商锁定，用 TCO 来权衡。</dd></dl>
+      <dl><dt>One-way / Two-way Door</dt><dd>单向门(几乎不可逆)vs 双向门(可逆)决策；前者值得重投决策力气，后者快选即可。</dd></dl>
+      <dl><dt>Vendor Lock-in</dt><dd>供应商锁定：过度依赖某第三方/云服务后，迁移成本高到难以更换的状态，是采购方案的隐性成本。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 29</div>
+      <div class="t">ML &amp; AI 系统设计：特征 / 训练 / 在线服务、模型部署，以及 RAG / 向量库 / agent harness 的架构——把前 28 天的功夫用到 AI 系统上</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 28 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例:QuoteFlow(虚构的寿险报价 + 保单管理平台,纯属虚构)
+  </footer>
+
+</div>
+</body>
+</html>

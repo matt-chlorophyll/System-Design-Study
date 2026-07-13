@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Day 29 · ML & AI 系统设计</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3faf6;
+    --card:#ffffff;
+    --ink:#0f3d2e;
+    --body:#3a463f;
+    --muted:#6a7872;
+    --accent:#15a06a;
+    --accent-ink:#0c7a50;
+    --accent-soft:#e8f6ef;
+    --accent-soft-2:#eef9f3;
+    --border:#e3ebe6;
+    --border-soft:#eef3f0;
+    --code-bg:#0f3d2e;
+    --code-ink:#e6f1ec;
+    --green:#1a7f5a;
+    --green-soft:#e8f6f0;
+    --amber:#8a5a00;
+    --amber-soft:#fbf1da;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(15,61,46,.04), 0 8px 28px rgba(15,61,46,.06);
+    --font:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'PingFang SC','Hiragino Sans GB','Microsoft YaHei',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--body);
+    font-family:var(--font);font-size:17px;line-height:1.72;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:780px;margin:0 auto;padding:0 22px 96px;}
+
+  /* progress bar */
+  .topbar{position:sticky;top:0;z-index:20;background:rgba(243,250,246,.86);backdrop-filter:saturate(180%) blur(8px);border-bottom:1px solid var(--border-soft);}
+  .topbar .inner{max-width:780px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:14px;}
+  .topbar .label{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;letter-spacing:.01em;}
+  .track{flex:1;height:6px;border-radius:99px;background:#e0ebe5;overflow:hidden;}
+  .fill{height:100%;width:96.67%;border-radius:99px;background:linear-gradient(90deg,#15a06a,#46cf94);}
+  .topbar .pct{font-size:13px;font-weight:600;color:var(--accent-ink);white-space:nowrap;}
+
+  /* hero */
+  header.hero{padding:54px 0 8px;}
+  .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid #cdeede;padding:6px 13px;border-radius:99px;letter-spacing:.02em;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);}
+  h1{font-size:40px;line-height:1.16;letter-spacing:-.02em;color:var(--ink);font-weight:700;margin:20px 0 12px;}
+  .lede{font-size:19px;color:var(--muted);margin:0 0 22px;line-height:1.6;}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px;color:var(--muted);
+    padding-bottom:26px;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--border);
+    padding:5px 12px;border-radius:99px;font-weight:500;color:var(--body);}
+  .chip svg{width:14px;height:14px;color:var(--accent);}
+
+  /* sections */
+  section{margin-top:40px;}
+  .kicker{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--accent);margin-bottom:6px;}
+  .kicker .num{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;}
+  h2{font-size:27px;line-height:1.25;letter-spacing:-.015em;color:var(--ink);font-weight:700;margin:4px 0 14px;}
+  h3{font-size:18px;color:var(--ink);font-weight:600;margin:26px 0 8px;}
+  p{margin:0 0 16px;}
+  strong{color:var(--ink);font-weight:600;}
+  a{color:var(--accent-ink);text-decoration:none;border-bottom:1px solid #b9e3cd;}
+  em{font-style:normal;background:linear-gradient(180deg,transparent 62%,#c9efd8 62%);padding:0 2px;font-weight:500;color:var(--ink);}
+  code.inl{font-family:var(--mono);font-size:.86em;background:#e9f3ee;color:#0f5c3e;padding:2px 6px;border-radius:6px;border:1px solid #d6e6dd;}
+
+  /* callout */
+  .callout{background:var(--accent-soft-2);border:1px solid #cfe7da;border-left:4px solid var(--accent);
+    border-radius:var(--radius-sm);padding:18px 20px;margin:22px 0;}
+  .callout .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--ink);margin-bottom:8px;font-size:15px;}
+  .callout .ct svg{width:17px;height:17px;color:var(--accent);}
+  .callout ul{margin:6px 0 0;padding-left:20px;}
+  .callout li{margin:5px 0;}
+
+  /* case card */
+  .case{background:linear-gradient(180deg,#fbfefc,#f3fbf6);border:1px solid #dcebe2;border-radius:var(--radius);
+    padding:24px 24px 8px;margin:24px 0;box-shadow:var(--shadow);}
+  .case .tag{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:#0d8a5a;background:#e6f6ee;border:1px solid #cfe9da;padding:5px 11px;border-radius:99px;margin-bottom:14px;}
+
+  /* table */
+  .tablewrap{margin:22px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  table{border-collapse:collapse;width:100%;font-size:15px;}
+  thead th{background:#f3f9f5;color:var(--ink);font-weight:600;text-align:left;padding:13px 16px;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:.02em;}
+  tbody td{padding:13px 16px;border-bottom:1px solid var(--border-soft);vertical-align:top;color:var(--body);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:nth-child(even){background:#fbfdfc;}
+  td .lab{font-weight:600;color:var(--ink);}
+  .tcap{font-size:13px;color:var(--muted);margin:9px 2px 0;}
+
+  /* figure / svg */
+  figure{margin:26px 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:24px 20px 14px;box-shadow:var(--shadow);}
+  figure svg{display:block;width:100%;height:auto;}
+  figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:12px;}
+
+  /* code */
+  .code{background:var(--code-bg);border-radius:var(--radius-sm);margin:22px 0;overflow:hidden;border:1px solid #0c3324;box-shadow:var(--shadow);}
+  .code .bar{display:flex;align-items:center;gap:7px;padding:11px 15px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .code .bar .d{width:11px;height:11px;border-radius:50%;}
+  .code .bar .fn{margin-left:8px;font-family:var(--mono);font-size:12px;color:#7fae97;}
+  .code pre{margin:0;padding:18px 18px;overflow-x:auto;}
+  .code code{font-family:var(--mono);font-size:13.5px;line-height:1.7;color:var(--code-ink);white-space:pre;}
+  .c-key{color:#ffd479;} .c-str{color:#c3e88d;} .c-num{color:#ff9e64;}
+  .c-com{color:#6f9587;font-style:italic;} .c-fn{color:#6fd3c9;} .c-tag{color:#f7a1b0;}
+
+  /* takeaways */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0;}
+  .tk{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:17px 18px;box-shadow:var(--shadow);}
+  .tk .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--accent);color:#fff;font-weight:700;font-size:13px;margin-bottom:10px;}
+  .tk p{margin:0;font-size:15px;line-height:1.6;}
+
+  /* quiz */
+  .quiz{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:8px 22px 14px;margin:22px 0;box-shadow:var(--shadow);}
+  details{border-bottom:1px solid var(--border-soft);padding:15px 0;}
+  details:last-of-type{border-bottom:none;}
+  summary{cursor:pointer;font-weight:600;color:var(--ink);list-style:none;display:flex;gap:11px;align-items:flex-start;font-size:16px;}
+  summary::-webkit-details-marker{display:none;}
+  summary .q{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;border-radius:7px;
+    background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;}
+  summary .tw{flex:1;}
+  summary::after{content:'展开 ▾';font-size:12px;color:var(--muted);font-weight:500;flex-shrink:0;margin-top:3px;}
+  details[open] summary::after{content:'收起 ▴';}
+  .ans{margin:11px 0 2px 35px;padding:13px 16px;background:var(--green-soft);border:1px solid #cdeadd;border-radius:var(--radius-sm);
+    font-size:15px;color:#14513a;}
+  .ans b{color:var(--green);}
+  .think{background:var(--amber-soft);border:1px solid #f1e0b8;border-radius:var(--radius-sm);padding:16px 18px;margin-top:16px;}
+  .think .ct{display:flex;align-items:center;gap:9px;font-weight:700;color:#7a5400;margin-bottom:6px;font-size:15px;}
+  .think .ct svg{width:16px;height:16px;}
+  .think p{margin:0;font-size:15px;color:#6b4e10;}
+
+  /* glossary */
+  .gloss{display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin:22px 0;box-shadow:var(--shadow);}
+  .gloss dl{margin:0;padding:15px 18px;border-bottom:1px solid var(--border-soft);border-right:1px solid var(--border-soft);}
+  .gloss dt{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-ink);margin-bottom:3px;}
+  .gloss dd{margin:0;font-size:14px;color:var(--body);line-height:1.55;}
+
+  /* next */
+  .next{display:flex;align-items:center;gap:16px;background:linear-gradient(110deg,#0f3d2e,#1c5e43);color:#dff0e7;
+    border-radius:var(--radius);padding:22px 24px;margin:34px 0 0;box-shadow:var(--shadow);}
+  .next .arw{font-size:26px;color:#46cf94;}
+  .next .l{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#8fc3aa;font-weight:700;margin-bottom:3px;}
+  .next .t{font-size:16px;font-weight:600;color:#fff;}
+
+  footer{text-align:center;margin-top:46px;padding-top:22px;border-top:1px solid var(--border);font-size:13px;color:var(--muted);}
+
+  @media (max-width:640px){
+    body{font-size:16px;}
+    h1{font-size:31px;}
+    h2{font-size:23px;}
+    .grid,.gloss{grid-template-columns:1fr;}
+    .lede{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="inner">
+    <span class="label">System Design · 30 天</span>
+    <div class="track"><div class="fill"></div></div>
+    <span class="pct">Day 29 / 30</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span>收尾 · 应用</span>
+    <h1>给系统装上「会学习的部件」<br>—— ML &amp; AI 系统设计</h1>
+    <p class="lede">模型只是其中一个组件。真正难的，是围着它的数据管道、特征供给、版本治理与监控——前 28 天的功夫，几乎原样能用上。</p>
+    <div class="meta">
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>阅读约 30 分钟</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>贯穿案例：QuoteFlow（虚构寿险平台）</span>
+      <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>读完留 30 分钟来讨论</span>
+    </div>
+  </header>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>昨日回顾 · Day 28</div>
+    <ul>
+      <li>昨天把「没有最优解，只有取舍」工具化：用 <strong>ADR</strong> 把决策的「为什么」留痕，用结构化对比把「我觉得」变成「我们比过」，并把<strong>成本与可逆性</strong>摆上台面。今天换个对象——当系统里多了一个<strong>会随数据漂移的模型</strong>，这套「需求 → 取舍 → 留痕」的纪律不仅照样适用，而且更不能省。</li>
+    </ul>
+  </div>
+
+  <div class="callout">
+    <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>今日目标</div>
+    <ul>
+      <li>说清 ML 系统和普通系统<strong>到底哪里不同</strong>（提示：数据是一种新的依赖）</li>
+      <li>掌握 ML 生命周期的骨架：<strong>特征 → 训练 → 部署 → 在线服务 → 监控</strong></li>
+      <li>分清 <strong>batch inference vs online inference</strong>，理解 training/serving skew 与 drift</li>
+      <li>看懂 <strong>RAG / 向量库 / LLM agent harness</strong> 的架构骨架</li>
+      <li>把以上落到 QuoteFlow 的<strong>自动核保风险评分模型</strong>，并守住 reproducibility / auditability</li>
+    </ul>
+  </div>
+
+  <section>
+    <div class="kicker"><span class="num">1</span>ML 系统哪里不一样</div>
+    <h2>多了一个「会自己变」的依赖</h2>
+    <p>前 28 天里，系统的行为是<strong>代码</strong>决定的：代码不改，行为不变；要复现一个 bug，把同样的输入喂进同一版代码就行。ML 系统打破了这个假设——它的行为由<strong>代码 + 数据 + 训练出的权重</strong>三者共同决定。数据会随真实世界漂移，于是同一份代码、明年的表现可能完全不同。</p>
+    <p>这带来三个普通系统没有的麻烦。第一，<strong>data is a dependency（数据是一种依赖）</strong>：上游数据源的口径一变、某个字段悄悄改了单位，模型就会无声地变差，而不是抛异常。第二，<strong>training/serving skew（训练-服务偏斜）</strong>：训练时算特征用的是一套离线代码，线上服务时又是另一套，两边对「同一个特征」算出不同的值，模型在线上表现远不如离线评估。第三，<strong>drift（漂移）</strong>：用户群体、市场、监管在变，去年训练的模型今年慢慢失准——没人改任何代码，准确率却在往下掉。</p>
+    <p>所以一句话定调今天：<strong>模型本身往往是整个系统里最小的一块。</strong>真正占工作量的，是喂给它的数据管道、保证两端一致的特征供给、把每个模型版本钉死的治理，以及上线后持续盯着它有没有变坏的监控。这些恰恰都是系统设计问题，不是建模问题。</p>
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7z"/></svg>受监管定价的提醒</div>
+      <ul><li>在 QuoteFlow 这类受监管的寿险定价里，「模型行为由数据决定」直接撞上 compliance：你必须能回答<strong>「这条核保决定，是<em>哪一版</em>模型、用<em>哪一版</em>特征、基于<em>哪些</em>训练数据做出的」</strong>。这就是为什么 ML 系统里 <strong>reproducibility（可复现）</strong> 不是加分项，而是上线的前提。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">2</span>生命周期</div>
+    <h2>从原始数据到一个在线决策</h2>
+    <p>把一个 ML 系统拆成五个阶段，每个阶段都对应一个你已经学过的系统设计部件。注意中间那条<strong>反馈回路</strong>——线上跑出来的真实结果，会回流成下一轮训练的标签，这是 ML 系统区别于普通系统的灵魂。</p>
+
+    <figure>
+      <svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg" font-family="Inter,sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#93a89c"/></marker>
+          <marker id="ah2" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#7fd3ad"/></marker>
+          <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f1fbf5"/></linearGradient>
+          <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eafaf2"/><stop offset="1" stop-color="#dff3e9"/></linearGradient>
+        </defs>
+
+        <!-- offline lane -->
+        <text x="20" y="30" font-size="12" font-weight="700" fill="#0d8a5a" letter-spacing="1">OFFLINE · 训练侧</text>
+        <rect x="20" y="42" width="150" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="95" y="68" font-size="13.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">① 数据 + 特征</text>
+        <text x="95" y="86" font-size="11" fill="#6a7872" text-anchor="middle">feature store</text>
+
+        <rect x="200" y="42" width="150" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="275" y="68" font-size="13.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">② 训练</text>
+        <text x="275" y="86" font-size="11" fill="#6a7872" text-anchor="middle">pipeline · 评估</text>
+
+        <rect x="380" y="42" width="150" height="58" rx="12" fill="url(#g1)" stroke="#d9ebe1"/>
+        <text x="455" y="68" font-size="13.5" font-weight="600" fill="#0f3d2e" text-anchor="middle">③ 模型注册表</text>
+        <text x="455" y="86" font-size="11" fill="#6a7872" text-anchor="middle">model registry</text>
+
+        <!-- online lane -->
+        <text x="20" y="150" font-size="12" font-weight="700" fill="#0d8a5a" letter-spacing="1">ONLINE · 服务侧</text>
+        <rect x="380" y="162" width="150" height="58" rx="12" fill="url(#g2)" stroke="#bfe6d2"/>
+        <circle cx="412" cy="191" r="15" fill="#15a06a"/><text x="412" y="196" font-size="13" font-weight="700" fill="#fff" text-anchor="middle">④</text>
+        <text x="455" y="186" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle" dx="18">在线服务</text>
+        <text x="455" y="203" font-size="11" fill="#6a7872" text-anchor="middle" dx="18">serving API</text>
+
+        <rect x="560" y="162" width="140" height="58" rx="12" fill="url(#g2)" stroke="#bfe6d2"/>
+        <text x="630" y="188" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">⑤ 监控</text>
+        <text x="630" y="205" font-size="11" fill="#6a7872" text-anchor="middle">drift · 指标</text>
+
+        <rect x="200" y="162" width="150" height="58" rx="12" fill="url(#g2)" stroke="#bfe6d2"/>
+        <text x="275" y="188" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">在线特征</text>
+        <text x="275" y="205" font-size="11" fill="#6a7872" text-anchor="middle">low-latency 读</text>
+
+        <rect x="20" y="162" width="150" height="58" rx="12" fill="url(#g2)" stroke="#bfe6d2"/>
+        <text x="95" y="188" font-size="13" font-weight="600" fill="#0f3d2e" text-anchor="middle">请求</text>
+        <text x="95" y="205" font-size="11" fill="#6a7872" text-anchor="middle">投保人信息</text>
+
+        <!-- arrows offline -->
+        <path d="M170 71 L196 71" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M350 71 L376 71" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <!-- registry to serving (deploy) -->
+        <path d="M455 100 L455 158" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <text x="468" y="132" font-size="10.5" fill="#3d9c74" font-style="italic">部署</text>
+
+        <!-- online arrows -->
+        <path d="M170 191 L196 191" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M350 191 L376 191" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+        <path d="M530 191 L556 191" stroke="#93a89c" stroke-width="2" fill="none" marker-end="url(#ah)"/>
+
+        <!-- feedback loop -->
+        <path d="M630 220 C630 290 360 300 95 290 C60 286 60 260 75 222" stroke="#7fd3ad" stroke-width="2" stroke-dasharray="5 5" fill="none" marker-end="url(#ah2)"/>
+        <text x="360" y="318" font-size="11.5" fill="#3d9c74" text-anchor="middle" font-style="italic">反馈回路：线上真实结果 → 回流成新的训练标签（含 ground-truth 滞后）</text>
+
+        <!-- skew warning between offline feature & online feature -->
+        <path d="M95 100 L95 158" stroke="#c99a2e" stroke-width="1.6" stroke-dasharray="3 3" fill="none"/>
+        <text x="105" y="132" font-size="10" fill="#8a5a00" font-style="italic">两端须同源</text>
+      </svg>
+      <figcaption>图 1 · ML 系统的五段骨架：离线训练侧 + 在线服务侧，由 model registry 衔接，由反馈回路闭环。「两端须同源」是避免 training/serving skew 的关键。</figcaption>
+    </figure>
+
+    <h3>逐段看它对应哪个老朋友</h3>
+    <p><strong>① 特征（feature store）</strong>：把原始数据加工成模型吃的特征，并解决一个核心矛盾——离线训练要批量算海量历史特征（高 throughput），在线服务要毫秒级取单条特征（低 latency）。这正是 Day 7 缓存、Day 17 批 vs 流的组合拳：离线一套管道、在线一套低延迟存储，但<strong>用同一份特征定义</strong>，否则就是 skew。</p>
+    <p><strong>② 训练（pipeline）</strong>：一条可复现的批处理管道（Day 17 ETL 的近亲），产出模型 + 评估报告。关键是把<strong>训练数据快照、特征版本、超参、代码 commit</strong> 全部钉住——这就是 Day 28 ADR 精神在 ML 里的体现。</p>
+    <p><strong>③ 模型注册表（model registry）</strong>：模型的「版本化仓库 + 发布闸门」。每个模型有不可变版本号、谱系（lineage）、审批状态。它对模型，就像 Day 26 的制品库对代码。</p>
+    <p><strong>④ 在线服务（serving）</strong>：把模型包成一个低延迟 API。它需要 Day 6 的负载均衡、Day 20 的限流熔断、Day 24 的可观测性——和普通服务一模一样。</p>
+    <p><strong>⑤ 监控（monitoring）</strong>：除了 Day 24 的延迟/错误率，还要盯<strong>数据分布漂移、预测分布漂移、以及（滞后到来的）真实准确率</strong>。这是 ML 独有的一层。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">3</span>在线服务的取舍</div>
+    <h2>Batch inference vs Online inference</h2>
+    <p>「模型怎么对外提供预测」有两条根本不同的路径，选错了，整套架构都拧巴——这和 Day 1 就埋下的「实时报价 vs 夜间批量」是同一种张力。</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th style="width:22%"></th><th>Batch inference（离线批量）</th><th>Online inference（实时在线）</th></tr></thead>
+        <tbody>
+          <tr><td><span class="lab">什么时候算</span></td><td>提前、成批算好，存起来待查</td><td>请求来了<strong>当场</strong>算</td></tr>
+          <tr><td><span class="lab">主导 NFR</span></td><td>high <strong>throughput</strong></td><td>low <strong>latency</strong>（p99 卡得死）</td></tr>
+          <tr><td><span class="lab">特征来源</span></td><td>离线特征仓库，随便算多重</td><td>在线 feature store，必须毫秒返回</td></tr>
+          <tr><td><span class="lab">新鲜度</span></td><td>滞后到下一批（小时/天级）</td><td>实时反映最新输入</td></tr>
+          <tr><td><span class="lab">QuoteFlow 例子</span></td><td>夜间批量给 in-force 保单重算风险分</td><td>新业务实时报价时的核保风险分</td></tr>
+          <tr><td><span class="lab">复杂度 / 成本</span></td><td>低，像一个定时 job</td><td>高：要扩容、降级、缓存、保 SLA</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tcap">▲ 多数成熟系统两者都有：同一个风险模型，夜间用 batch 给存量保单刷分，白天用 online 给新报价打分。务必保证两条路径用的是<strong>同一版模型</strong>，否则同一个人晚上和白天得到不同结论。</p>
+
+    <h3>上线一个新模型：别直接切</h3>
+    <p>换模型 = Day 26 的发布问题，但风险更隐蔽：新模型可能延迟没变、错误率没变，却悄悄把某个人群的报价系统性抬高了。所以 ML 上线偏爱两种「先观察、后切流」的姿势：</p>
+    <p><strong>Shadow（影子）部署</strong>：新模型和旧模型同时收到真实流量，新模型的输出<strong>只记录、不生效</strong>。用真实流量验证它的预测分布和延迟，零业务风险。<strong>Canary / A-B</strong>（Day 26）：确认无误后，先放 1% 流量给新模型，比对真实业务指标，再逐步加码。受监管场景里，这一步往往还要叠一道<strong>人工审批 + ADR 留痕</strong>。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">4</span>LLM 时代</div>
+    <h2>RAG、向量库与 agent harness</h2>
+    <p>前面讲的是「自己训练的预测模型」。但今天很多 AI 系统是围着一个<strong>预训练大模型（LLM）</strong>搭的——你不训练它，而是<strong>给它喂对的上下文、给它接上工具</strong>。两个核心模式：</p>
+
+    <h3>RAG —— 给模型一个「开卷考试」</h3>
+    <p><strong>RAG（Retrieval-Augmented Generation，检索增强生成）</strong>解决的是：LLM 不知道你私有的、最新的知识，而且会一本正经地编（hallucinate）。做法是在提问前，先去你自己的知识库里<strong>检索</strong>出相关片段，塞进 prompt，让模型<strong>基于检索到的材料</strong>作答，并附出处。</p>
+    <p>这套流程拆开看，全是老部件：把文档切块、用 embedding 模型转成向量、存进<strong>向量库（vector DB）</strong>；查询时把问题也转成向量，做<strong>相似度检索（ANN，近似最近邻）</strong>取回 top-k 片段——本质是 Day 9 索引思想在高维空间的版本；检索其实是个读密集服务，Day 7 的缓存、Day 6 的负载均衡照样适用。</p>
+
+    <div class="code">
+      <div class="bar"><span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span><span class="fn">rag_answer()  ·  QuoteFlow 内部 broker 知识助手（示意）</span></div>
+<pre><code><span class="c-key">def</span> <span class="c-fn">rag_answer</span>(question, user):
+    <span class="c-com"># 1) 把问题向量化（embedding 模型也是一个版本化依赖）</span>
+    q_vec = <span class="c-fn">embed</span>(question, model=<span class="c-str">"embed-v3"</span>)
+
+    <span class="c-com"># 2) 向量库做 ANN 检索 —— 像高维空间里的索引查找</span>
+    chunks = vector_db.<span class="c-fn">search</span>(q_vec, top_k=<span class="c-num">6</span>,
+                             filter={<span class="c-str">"acl"</span>: user.role})   <span class="c-com"># 权限过滤(Day 25)</span>
+
+    <span class="c-com"># 3) 把检索到的材料拼进 prompt，要求“只依据材料作答 + 给出处”</span>
+    prompt = <span class="c-fn">build_prompt</span>(question, chunks)
+    answer = llm.<span class="c-fn">generate</span>(prompt, model=<span class="c-str">"llm-2026-05"</span>)  <span class="c-com"># 钉版本=可复现</span>
+
+    <span class="c-com"># 4) 留痕：问题 / 命中片段 / 模型版本 / 答案 —— 审计与追溯</span>
+    audit_log.<span class="c-fn">write</span>(question, chunk_ids=[c.id <span class="c-key">for</span> c <span class="c-key">in</span> chunks],
+                    model=<span class="c-str">"llm-2026-05"</span>, answer=answer)
+    <span class="c-key">return</span> answer, [c.source <span class="c-key">for</span> c <span class="c-key">in</span> chunks]   <span class="c-com"># 带出处返回</span></code></pre>
+    </div>
+
+    <h3>Agent harness —— 给模型接上「手脚」</h3>
+    <p>再进一步，让 LLM 不只回答，还能<strong>调用工具、执行多步任务</strong>，就需要一个 <strong>agent harness（智能体框架）</strong>。它围着模型搭了一圈控制结构：一组可调用的 <strong>tools</strong>（查保单、跑报价 API、查费率表）、一个「思考→调工具→看结果→再思考」的循环、以及一层<strong>护栏（guardrails）</strong>——限制能调哪些工具、对写操作要人工确认、设步数与预算上限防止失控。</p>
+    <p>从系统设计角度，agent 是个<strong>放大器</strong>：它把前 28 天所有教训都放大了。它的每一次工具调用都要 Day 25 的鉴权、Day 20 的限流、Day 18 的幂等（同一步别重复扣费）、Day 24 的全链路 tracing。一个没有护栏和可观测性的 agent，在受监管系统里是不能上线的。</p>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">5</span>贯穿案例</div>
+    <h2>QuoteFlow 的自动核保风险评分</h2>
+    <p>把今天的骨架落到一个具体模型：QuoteFlow 自动核保里的<strong>风险评分模型</strong>——输入投保人特征，输出一个风险分，喂给核保规则决定「直接承保 / 加费 / 转人工」。它同时活在两条路径上：新业务实时报价（online）、夜间存量重估（batch）。</p>
+
+    <div class="case">
+      <span class="tag">Case · QuoteFlow</span>
+      <h3 style="margin-top:0">五段骨架怎么落</h3>
+      <p><strong>特征</strong>：年龄、BMI、既往病史、职业风险等，由 feature store 统一定义，离线管道供训练、在线低延迟存储供报价，<em>同一份定义</em>杜绝 skew。<strong>训练</strong>：每次产出钉死训练数据快照 + 特征版本 + 超参 + 代码 commit。<strong>注册表</strong>：模型拿到不可变版本号 <code class="inl">risk-v7</code>，进发布闸门走精算 + 合规审批。<strong>服务</strong>：报价时返回风险分，并把 <code class="inl">model_version</code> 焊进报价记录。<strong>监控</strong>：盯输入分布漂移、分数分布漂移，以及理赔结果滞后回流后的真实校准度。</p>
+      <h3>为什么 auditability 是这里的一等公民</h3>
+      <p>监管或客户某天会问：「<strong>三年前</strong>这张保单为什么被加费？」系统必须能精确重建：当时是 <code class="inl">risk-v5</code> 模型、<code class="inl">feat-2023Q2</code> 特征、某个具体输入，算出某个分，触发了某条核保规则。这要求模型版本、特征版本、输入快照、决策<strong>全部不可变留痕</strong>——也意味着<strong>旧模型不能随便删</strong>，因为复现历史决策需要它。</p>
+    </div>
+
+    <p>注意这一连串需求里，没有一条是「把模型调得更准」。它们全是<strong>系统设计</strong>问题：版本治理、谱系追踪、不可变审计、漂移监控、灰度发布。这正是今天最想留下的认知——<strong>把模型做出来是数据科学，把模型变成可上线、可审计、可长期维护的系统，是系统设计。</strong></p>
+
+    <div class="callout">
+      <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>一个常见反模式</div>
+      <ul><li><strong>把 ground truth 的滞后忘了。</strong>核保模型的「真实答案」（理赔是否发生）可能几年后才到。这意味着你<em>没法</em>用「准确率掉了」来快速发现模型变坏——只能靠盯输入/输出<strong>分布漂移</strong>这种 leading indicator 提前预警。在寿险这类长尾反馈的领域，这一点尤其致命。</li></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">★</span>关键要点</div>
+    <h2>今天带走这四句</h2>
+    <div class="grid">
+      <div class="tk"><span class="n">1</span><p>ML 系统的行为 = <strong>代码 + 数据 + 权重</strong>。数据是会漂移的新依赖，所以 <strong>reproducibility</strong> 是前提，不是加分。</p></div>
+      <div class="tk"><span class="n">2</span><p>模型只是最小一块。<strong>特征供给、版本治理、漂移监控</strong>才是工作量，而它们全是你已学过的系统设计问题。</p></div>
+      <div class="tk"><span class="n">3</span><p><strong>Batch vs Online inference</strong> 是「夜间批量 vs 实时报价」的翻版；两端务必<strong>同源</strong>，否则 training/serving skew。</p></div>
+      <div class="tk"><span class="n">4</span><p><strong>RAG / agent</strong> 没发明新原理：检索是高维索引，agent 是放大器——鉴权、限流、幂等、tracing 一个都不能少。</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">?</span>今日小测 + 思考题</div>
+    <h2>读完自测一下</h2>
+    <div class="quiz">
+      <details>
+        <summary><span class="q">Q1</span><span class="tw">训练时特征算出来一个值，线上服务算同一个特征却是另一个值，这叫什么？为什么危险？</span></summary>
+        <div class="ans"><b>Training/serving skew。</b>危险在于：模型离线评估很好，上线却变差，且很难定位——因为它喂到的输入和训练时根本不是同一分布。解法是让两端共用<b>同一份特征定义 / feature store</b>。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q2</span><span class="tw">要给新业务报价当场算风险分、p99 卡得很死，该用 batch 还是 online inference？</span></summary>
+        <div class="ans"><b>Online inference。</b>请求来了当场算，主导 NFR 是 low latency。夜间给存量保单刷分才用 batch（主导 NFR 是 throughput）。同一个模型常常两条路径都跑。</div>
+      </details>
+      <details>
+        <summary><span class="q">Q3</span><span class="tw">RAG 主要解决 LLM 的什么问题？「向量库检索」对应你前面学过的哪个概念？</span></summary>
+        <div class="ans"><b>解决两件事：</b>让模型用上私有/最新知识，并通过「基于检索材料作答 + 给出处」压制 hallucination。向量库的相似度检索（ANN）本质是 <b>Day 9 索引</b>在高维空间的版本——把全表扫描变成快速近邻查找。</div>
+      </details>
+      <div class="think">
+        <div class="ct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 00-4 10.5V16h8v-2.5A6 6 0 0012 3zM9 20h6"/></svg>带着这两个问题回来讨论</div>
+        <p>① QuoteFlow 的核保风险模型，「真实答案」(理赔) 可能几年后才到。在这种 <strong>ground-truth 严重滞后</strong>的场景里，你会监控哪些 leading indicator 来提前发现模型变坏？<br>② 如果要给 broker 上线一个 RAG 知识助手，从 auditability / compliance 角度，你会强制留痕哪些东西、设哪些护栏？</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="kicker"><span class="num">A→Z</span>术语表</div>
+    <h2>今日术语</h2>
+    <div class="gloss">
+      <dl><dt>Feature Store</dt><dd>统一定义、存储与供给特征的系统，让离线训练与在线服务共用同一份特征定义。</dd></dl>
+      <dl><dt>Training/Serving Skew</dt><dd>训练时与服务时对同一特征算出不同值，导致线上表现劣于离线评估。</dd></dl>
+      <dl><dt>Model Registry</dt><dd>模型的版本化仓库与发布闸门，记录版本号、谱系与审批状态。</dd></dl>
+      <dl><dt>Batch vs Online Inference</dt><dd>提前成批算好预测 vs 请求到来时当场算；前者重 throughput，后者重 latency。</dd></dl>
+      <dl><dt>Drift</dt><dd>数据/预测分布随时间变化，导致模型在无代码改动下逐渐失准。</dd></dl>
+      <dl><dt>Shadow Deployment</dt><dd>新模型与旧模型同收真实流量，新模型只记录不生效，用于零风险验证。</dd></dl>
+      <dl><dt>RAG</dt><dd>检索增强生成：作答前先检索私有知识塞进上下文，让模型基于材料回答并给出处。</dd></dl>
+      <dl><dt>Vector DB / ANN</dt><dd>存储 embedding 并做近似最近邻相似度检索的存储——高维空间里的「索引」。</dd></dl>
+      <dl><dt>Agent Harness</dt><dd>围绕 LLM 的控制框架：工具调用、思考循环与护栏，让模型能多步执行任务。</dd></dl>
+      <dl><dt>Reproducibility</dt><dd>能用钉死的代码/数据/特征/模型版本，精确重建任一历史预测——受监管系统的上线前提。</dd></dl>
+    </div>
+  </section>
+
+  <div class="next">
+    <span class="arw">→</span>
+    <div>
+      <div class="l">明日预告 · Day 30（毕业作业）</div>
+      <div class="t">把 QuoteFlow 端到端设计一遍：interview-style 走完需求 → 估算 → API → 架构 → 数据层 → 异步 → 可靠性 → 取舍，把这 30 天串成一套完整答卷，并给出之后怎么继续深入</div>
+    </div>
+  </div>
+
+  <footer>
+    System Design · 30 天学习计划　·　Day 29 / 30　·　每天 08:00 自动生成<br>
+    贯穿案例：QuoteFlow（虚构的寿险报价 + 保单管理平台，纯属虚构）
+  </footer>
+
+</div>
+</body>
+</html>
